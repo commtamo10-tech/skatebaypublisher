@@ -99,7 +99,7 @@ class DraftUpdate(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
     aspects: Optional[Dict[str, str]] = None
-    auto_filled_aspects: Optional[List[str]] = None  # Track which aspects were auto-filled
+    aspects_metadata: Optional[Dict[str, Dict]] = None  # {field: {source, confidence}}
     condition: Optional[str] = None
     status: Optional[str] = None
     category_id: Optional[str] = None
@@ -107,6 +107,12 @@ class DraftUpdate(BaseModel):
     title_manually_edited: Optional[bool] = None
     description_manually_edited: Optional[bool] = None
     item_type: Optional[str] = None
+    # Core Details fields (always present)
+    brand: Optional[str] = None
+    model: Optional[str] = None
+    size: Optional[str] = None
+    color: Optional[str] = None
+    era: Optional[str] = None
 
 class DraftResponse(BaseModel):
     id: str
@@ -117,7 +123,7 @@ class DraftResponse(BaseModel):
     description: Optional[str] = None
     description_manually_edited: bool = False
     aspects: Optional[Dict[str, str]] = None
-    auto_filled_aspects: List[str] = []  # Track which aspects were auto-filled
+    aspects_metadata: Optional[Dict[str, Dict]] = None  # {field: {source, confidence}}
     condition: str = "NEW"  # Default to NEW
     category_id: str
     price: float
@@ -128,6 +134,12 @@ class DraftResponse(BaseModel):
     error_message: Optional[str] = None
     created_at: str
     updated_at: str
+    # Core Details (always present, mapped from aspects)
+    brand: Optional[str] = None
+    model: Optional[str] = None
+    size: Optional[str] = None
+    color: Optional[str] = None
+    era: Optional[str] = None
 
 class SettingsUpdate(BaseModel):
     fulfillment_policy_id: Optional[str] = None
