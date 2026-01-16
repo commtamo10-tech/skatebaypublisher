@@ -1,0 +1,180 @@
+<analysis>**original_problem_statement:**
+L'utente vuole creare un'applicazione web full-stack (React + FastAPI + MongoDB) per creare semi-automaticamente inserzioni eBay per il suo negozio di skateboard vintage. Il flusso principale prevede che l'utente carichi delle foto, un LLM generi titolo/descrizione/specifiche ottimizzate per eBay, l'utente modifichi la bozza e infine la pubblichi su eBay.
+
+**PRODUCT REQUIREMENTS:**
+- **Autenticazione:** Semplice autenticazione per un singolo utente admin.
+- **Integrazione eBay:** Flusso OAuth 2.0 per collegare l'account eBay e utilizzare le API di vendita per creare e pubblicare le inserzioni.
+- **Gestione Bozze:** CRUD completo per le bozze, con uno stato (DRAFT, READY, PUBLISHED).
+- **Generazione Contenuti (LLM):** Utilizzo di un LLM per generare automaticamente titolo (≤ 80 caratteri), descrizione (in inglese, con struttura definita) e specifiche dell'oggetto (aspects).
+- **Tipologie Oggetti:** Supporto iniziale per 'Wheels', 'Trucks', 'Decks', poi esteso ad 'Apparel' e 'Misc'.
+- **SKU:** Generazione automatica di SKU unici (formato: ).
+- **Policy eBay:** Pagina Impostazioni per configurare gli ID delle policy di spedizione, restituzione e pagamento.
+- **Preview Funzionalità:** Una pagina di anteprima che simula l'aspetto dell'inserzione su eBay, con sanificazione dell'HTML per sicurezza.
+- **Upload Multiplo (Batch):** Funzionalità per caricare più immagini in una volta, raggrupparle per oggetto (clustering) e creare bozze multiple automaticamente.
+- **Sincronizzazione Titolo/Descrizione:** Il titolo e la descrizione devono aggiornarsi automaticamente quando le specifiche chiave dell'oggetto vengono modificate, con un'opzione di override manuale.
+- **Ottimizzazione Titolo:** Aggiunta intelligente di parole chiave come Vintage, Old School, OG, NOS per raggiungere la lunghezza ottimale di 70-80 caratteri.
+
+**User's preferred language**: Italiano. The next agent MUST respond in Italian.
+
+**what currently exists?**
+È stata realizzata un'applicazione full-stack funzionante che include:
+- Autenticazione admin basata su password.
+- Una dashboard per visualizzare, filtrare e gestire le bozze create.
+- Flusso di creazione bozze, sia singole che multiple tramite un'interfaccia di batch upload (con raggruppamento per sessione, non ancora per similarità visiva).
+- Un editor di bozze avanzato dove titolo e descrizione vengono generati e aggiornati dinamicamente in base alle specifiche dell'oggetto. Include override manuale, contatore di caratteri per il titolo e un pulsante per rigenerare i contenuti.
+- Supporto per le categorie: , , , e .
+- Una pagina di anteprima sicura (con sanificazione HTML) che mostra come apparirà l'inserzione.
+- Endpoint API per tutte le operazioni CRUD su bozze, impostazioni e processi di batch.
+- Il bug relativo alla cancellazione delle bozze dalla dashboard è stato risolto.
+
+**Last working item**:
+- **Last item agent was working:** Implementazione della logica di keyword filler per la funzione che costruisce il titolo dell'inserzione (). L'obiettivo era aggiungere in modo intelligente parole chiave come Old School, Vintage, OG, NOS ai titoli più corti di 70 caratteri per ottimizzarli per eBay, rispettando il limite di 80 caratteri.
+- **Status:** USER VERIFICATION PENDING
+- **Agent Testing Done:** Y (ma con limitazioni)
+- **Which testing method agent to use?** frontend testing agent. L'ultimo test automatico ha avuto problemi con le sessioni autenticate. Sebbene il codice sembri corretto e le API funzionino, è necessaria una verifica completa del flusso utente nel  per confermare che la UI (contatore caratteri) e la logica di auto-generazione e troncamento funzionino come previsto.
+- **User Testing Done:** N
+
+**All Pending/In progress Issue list**:
+- **Issue 1: (P0) Verifica della Funzionalità Keyword Filler**
+    - **Description:** L'ultima funzionalità implementata (aggiunta automatica di parole chiave ai titoli) non è stata ancora verificata dall'utente. I test automatici non sono stati conclusivi a causa di problemi di autenticazione.
+    - **Next debug checklist:**
+        1. Accedere all'applicazione e aprire il .
+        2. Verificare che il contatore di caratteri del titolo mostri il range target 70-80.
+        3. Creare una bozza con un titolo corto e verificare che vengano aggiunte le parole chiave (Vintage, Old School, etc.).
+        4. Verificare che l'aggiunta di keyword non crei duplicati.
+        5. Verificare che il titolo venga troncato a 80 caratteri al momento del salvataggio.
+    - **Why fix this issue and what will be achieved with the fix?** Per completare e validare l'ultima richiesta dell'utente.
+    - **Status:** USER VERIFICATION PENDING
+    - **Is recurring issue?** N
+    - **Should Test frontend/backend/both after fix?** Frontend
+
+**In progress Task List**:
+Nessuno. L'ultimo task è in attesa di verifica.
+
+**Upcoming and Future Tasks**
+- **P0 - Completare Integrazione eBay:**
+  - **Task:** Implementare il flusso OAuth completo di eBay (, ) per ottenere e salvare in modo sicuro i token di accesso.
+  - **Task:** Implementare la logica di pubblicazione effettiva su eBay tramite il pulsante Publish, utilizzando le API , , e .
+- **P1 - Migliorare il Batch Upload:**
+  - **Task:** Implementare il clustering visivo delle immagini (es. con CLIP) per raggruppare automaticamente gli oggetti, sostituendo l'attuale placeholder.
+  - **Task:** Sviluppare gli strumenti di modifica manuale nella pagina Batch Review (, , ).
+  - **Task:** Rifattorizzare il processo di  e  per utilizzare una vera coda di background (es. Celery) invece di , ed esporre un endpoint di stato del job ().
+- **P2 - Migliorare le Policy eBay:**
+  - **Task:** Aggiungere la possibilità di creare le business policy direttamente dall'app tramite API, invece di inserire solo gli ID.
+- **P2 - Storage Immagini:**
+  - **Task:** Pianificare la migrazione dello storage delle immagini da locale a un bucket S3-compatible come Supabase Storage.
+
+**Completed work in this session**
+- **MVP Iniziale:** Creata l'app con autenticazione, CRUD bozze e generazione contenuti LLM.
+- **Funzionalità di Anteprima:** Aggiunta una pagina di anteprima sicura con sanificazione HTML.
+- **Bug Fix:** Risolto il problema del pulsante di cancellazione che non funzionava sulla dashboard.
+- **Sincronizzazione Titolo/Preview:** Implementato l'aggiornamento automatico del titolo e il salvataggio automatico prima della visualizzazione dell'anteprima.
+- **Upload Multiplo (Batch):** Creata l'interfaccia e la logica di base per caricare più immagini e creare bozze multiple.
+- **Supporto Apparel:** Esteso il sistema per supportare la categoria di abbigliamento, inclusi template di descrizione dedicati.
+- **Ottimizzazione Titolo (Keyword Filler):** Implementata la logica per arricchire i titoli con parole chiave SEO-friendly.
+
+**Earlier issues found/mentioned but not fixed**
+- **Issue 1: Problema di Autenticazione del Testing Agent**
+    - **Debug checklist:** Il testing agent (basato su Playwright) non riesce a mantenere lo stato di login tra le navigazioni, finendo sempre sulla pagina di login. Questo impedisce test end-to-end affidabili delle funzionalità protette. È necessario investigare come il token JWT viene salvato () e come il testing agent può essere configurato per preservarlo.
+    - **Why to solve this issue and what will be achieved with this?** Risolvere questo problema è cruciale per garantire la qualità e la stabilità dell'applicazione, permettendo test automatici completi dopo ogni modifica.
+    - **Should Test frontend/backend/both after fix:** Both (il test stesso).
+    - **Is recurring issue?** Y
+
+**Known issue recurrence from previous fork**
+- N/A
+
+**Code Architecture**
+
+
+**Key Technical Concepts**
+- **Frontend:** React, React Router, Tailwind CSS, Shadcn/UI, Axios
+- **Backend:** FastAPI, Pydantic, Motor (MongoDB async driver), JWT
+- **Database:** MongoDB
+- **Integrations:** OpenAI (via Emergent LLM Key), eBay API (parzialmente implementata)
+- **Architettura:** La logica di generazione di titolo e descrizione è implementata sul **frontend** in .
+
+**key DB schema**
+- **drafts:** 
+- **settings:** 
+- **sku_counters:** 
+- **batches:** 
+- **batch_groups:** 
+
+**changes in tech stack**
+- Nessuna.
+
+**All files of reference**
+- **Backend:** 
+- **Frontend Core Logic:** 
+- **Frontend Routing:** 
+- **Frontend Pages:** , , , , 
+- **Requirements:** 
+
+**Areas that need refactoring**:
+- : Il file è diventato troppo grande (>1500 righe). Dovrebbe essere suddiviso usando  per separare le logiche (auth, drafts, ebay, batches) e spostando i modelli Pydantic in un file .
+- : Il componente è enorme (>800 righe) e gestisce troppe responsabilità. La logica di generazione dei contenuti (, ) dovrebbe essere estratta in un file di utility.
+
+**key api endpoints**
+- 
+-  (GET, POST)
+-  (GET, PATCH, DELETE)
+-  (GET)
+-  (POST)
+-  (POST)
+-  (POST)
+-  (GET, PUT)
+- ,  (stub)
+
+**Critical Info for New Agent**
+- L'integrazione con eBay è incompleta. Il flusso OAuth e la logica di pubblicazione sono i prossimi passi critici.
+- Il testing automatico per le pagine protette da login non funziona correttamente. È necessario effettuare verifiche manuali o risolvere il problema del testing agent.
+- Le logiche più complesse di generazione dei contenuti (titolo/descrizione) si trovano nel frontend, in , non nel backend.
+- La funzionalità di auto-group per il batch upload è un placeholder e non esegue un vero clustering visivo.
+- Sia il backend () che l'editor frontend () necessitano di un refactoring per migliorare la manutenibilità.
+
+**documents and test reports created in this job**
+- 
+- 
+- 
+- 
+- 
+- 
+- 
+
+**Last 10 User Messages and any pending HUMAN messages**
+1.  **Request (Keyword Filler):** Aggiungere keyword filler (Old School, Vintage) ai titoli. (In attesa di verifica)
+2.  **Request (Apparel Description):** Aggiungere supporto per la categoria 'Apparel' nel template della descrizione. (Completato)
+3.  **Request (Batch Upload):** Aggiungere una funzionalità di upload multiplo per creare più bozze. (Completato, con clustering placeholder)
+4.  **Request (Title/Preview Sync):** Sincronizzare il titolo con le specifiche e salvare la bozza prima di mostrare l'anteprima. (Completato)
+5.  **Feedback (Delete):** Rimuovere la conferma di cancellazione. (Completato)
+6.  **Bug Report (Delete):** Il pulsante di cancellazione non aggiorna la UI. (Completato)
+7.  **Info (Delete):** Screenshot che mostra il problema della cancellazione. (Informativo)
+8.  **Bug Report (Delete):** Il pulsante di cancellazione non funziona. (Completato)
+9.  **Request (Preview Feature):** Aggiungere una pagina di anteprima dell'inserzione. (Completato)
+10. **Confirmation:** L'utente chiede di continuare. (Informativo)
+
+**Project Health Check:**
+- **Broken:**
+    - Il flusso di test end-to-end automatico è inaffidabile a causa di problemi di autenticazione.
+    - La funzionalità principale di pubblicazione su eBay non è implementata.
+- **Mocked:**
+    - Il raggruppamento automatico (clustering) delle immagini nel batch upload è un placeholder.
+
+**3rd Party Integrations**
+- **OpenAI GPT-5.2:** Utilizzato per la generazione di contenuti tramite Emergent LLM Key.
+- **eBay Sell Inventory API:** Pianificata. Gli endpoint API sono presenti come stub ma non implementati. Richiede chiavi API dell'utente.
+
+**Testing status**
+- **Testing agent used after significant changes:** YES
+- **Troubleshoot agent used after agent stuck in loop:** NO
+- **Test files created:** []
+- **Known regressions:** Il problema del testing agent con le sessioni autenticate è un grave problema di processo che impedisce una verifica completa della qualità.
+
+**Credentials to test flow:**
+- **Email:**  (non usato, il login si basa solo sulla password)
+- **Password:**  (valore di default nell'ambiente)
+
+**What agent forgot to execute**
+- L'implementazione completa del flusso OAuth di eBay e della pubblicazione finale dell'inserzione, che è un requisito fondamentale del progetto.
+- Gli strumenti di raggruppamento manuale (/) per la funzionalità di batch upload.
+- La creazione di un vero processo in background asincrono per le operazioni di batch a lunga esecuzione.</analysis>
