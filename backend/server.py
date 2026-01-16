@@ -204,6 +204,140 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
     return verify_jwt_token(credentials.credentials)
 
 
+# ============ DESCRIPTION TEMPLATES ============
+
+def get_description_template(item_type: str) -> str:
+    """Get description template structure based on item type"""
+    
+    if item_type == "APP":
+        return """
+(A) COLLECTOR INTRO (2-3 sentences):
+Write for vintage streetwear/skateboard collectors. Mention it's a vintage/old school piece if era is known.
+Invite buyers to check photos and tag/label carefully.
+
+(B) QUICK SUMMARY:
+<p><strong>Summary:</strong> [Paraphrase of title - clean, professional]</p>
+
+<p><strong>Key Details:</strong></p>
+<ul>
+  [Only include fields that are known - OMIT any unknown fields entirely]
+  <li><strong>Brand:</strong> [value]</li>
+  <li><strong>Item Type:</strong> [T-shirt/Hoodie/Jacket/Pants/Cap/etc.]</li>
+  <li><strong>Department:</strong> [Men/Women/Unisex]</li>
+  <li><strong>Size:</strong> [tag size]</li>
+  <li><strong>Measurements:</strong> [Chest, Length, Shoulder, Sleeve if known]</li>
+  <li><strong>Color:</strong> [value]</li>
+  <li><strong>Material:</strong> [fabric composition if known]</li>
+  <li><strong>Style/Fit:</strong> [Regular/Oversized/Slim if known]</li>
+  <li><strong>Country:</strong> [if known]</li>
+</ul>
+
+(C) CONDITION NOTES:
+<p><strong>Condition:</strong> [Brief honest description]. Please review all photos carefully as they are part of the description.</p>
+[If defects exist, list them. Otherwise omit defects section]
+
+(D) CLOSING + SHIPPING (MANDATORY - include exactly):
+"""
+    
+    elif item_type == "WHL":
+        return """
+(A) COLLECTOR INTRO (2-3 sentences):
+Write for vintage skateboard wheel collectors. Mention era/brand heritage if known.
+
+(B) QUICK SUMMARY:
+<p><strong>Summary:</strong> [Paraphrase of title]</p>
+
+<p><strong>Key Details:</strong></p>
+<ul>
+  [Only include fields that are known]
+  <li><strong>Brand:</strong> [value]</li>
+  <li><strong>Model:</strong> [value]</li>
+  <li><strong>Size:</strong> [diameter in mm]</li>
+  <li><strong>Durometer:</strong> [hardness rating]</li>
+  <li><strong>Color:</strong> [value]</li>
+  <li><strong>Era:</strong> [decade if known]</li>
+  <li><strong>Quantity:</strong> [set of 4, pair, single]</li>
+</ul>
+
+(C) CONDITION NOTES:
+<p><strong>Condition:</strong> [Brief description]. Please review all photos carefully as they are part of the description.</p>
+
+(D) CLOSING + SHIPPING (MANDATORY)
+"""
+    
+    elif item_type == "TRK":
+        return """
+(A) COLLECTOR INTRO (2-3 sentences):
+Write for vintage skateboard truck collectors.
+
+(B) QUICK SUMMARY:
+<p><strong>Summary:</strong> [Paraphrase of title]</p>
+
+<p><strong>Key Details:</strong></p>
+<ul>
+  [Only include fields that are known]
+  <li><strong>Brand:</strong> [value]</li>
+  <li><strong>Model:</strong> [value]</li>
+  <li><strong>Size:</strong> [hanger width if known]</li>
+  <li><strong>Era:</strong> [decade if known]</li>
+  <li><strong>Color:</strong> [value]</li>
+  <li><strong>Quantity:</strong> [pair or single]</li>
+</ul>
+
+(C) CONDITION NOTES:
+<p><strong>Condition:</strong> [Brief description]. Please review all photos carefully as they are part of the description.</p>
+
+(D) CLOSING + SHIPPING (MANDATORY)
+"""
+    
+    elif item_type == "DCK":
+        return """
+(A) COLLECTOR INTRO (2-3 sentences):
+Write for vintage skateboard deck collectors.
+
+(B) QUICK SUMMARY:
+<p><strong>Summary:</strong> [Paraphrase of title]</p>
+
+<p><strong>Key Details:</strong></p>
+<ul>
+  [Only include fields that are known]
+  <li><strong>Brand:</strong> [value]</li>
+  <li><strong>Model/Series:</strong> [value]</li>
+  <li><strong>Size:</strong> [width in inches]</li>
+  <li><strong>Era:</strong> [decade if known]</li>
+  <li><strong>Artist:</strong> [if known]</li>
+  <li><strong>Type:</strong> [OG/Reissue if known]</li>
+</ul>
+
+(C) CONDITION NOTES:
+<p><strong>Condition:</strong> [Brief description]. Please review all photos carefully as they are part of the description.</p>
+
+(D) CLOSING + SHIPPING (MANDATORY)
+"""
+    
+    else:  # MISC
+        return """
+(A) COLLECTOR INTRO (2-3 sentences):
+Write for vintage skateboard collectors.
+
+(B) QUICK SUMMARY:
+<p><strong>Summary:</strong> [Paraphrase of title]</p>
+
+<p><strong>Key Details:</strong></p>
+<ul>
+  [Only include fields that are known]
+  <li><strong>Brand:</strong> [value if known]</li>
+  <li><strong>Type:</strong> [value]</li>
+  <li><strong>Era:</strong> [decade if known]</li>
+</ul>
+
+(C) CONDITION NOTES:
+<p><strong>Condition:</strong> [Brief description]. Please review all photos carefully as they are part of the description.</p>
+
+(D) CLOSING + SHIPPING (MANDATORY)
+"""
+
+
 # ============ SKU GENERATION ============
 
 async def generate_sku(item_type: str) -> str:
