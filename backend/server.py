@@ -1664,7 +1664,7 @@ Generate a professional listing template. Do NOT include Unknown values."""
                             aspects = generated.get("aspects", {})
                             # Remove any Unknown values from aspects
                             aspects = {k: v for k, v in aspects.items() if v and "unknown" not in v.lower()}
-                    except:
+                    except (json.JSONDecodeError, ValueError):
                         pass
                         
             except Exception as e:
