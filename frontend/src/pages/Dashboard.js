@@ -68,9 +68,6 @@ export default function Dashboard() {
   };
 
   const handleDelete = async (id, e) => {
-    e.stopPropagation();
-    e.preventDefault();
-    
     if (!window.confirm("Sei sicuro di voler cancellare questo draft?")) return;
     
     try {
