@@ -1057,26 +1057,41 @@ async def autofill_draft_aspects(draft_id: str, force: bool = False, user = Depe
         if image_urls:
             extraction_prompt = get_aspects_prompt_for_type(item_type)
             
-            # Prepare image URLs (make them absolute)
-            abs_image_urls = []
-            for url in image_urls[:5]:  # Limit to first 5 images
-                if url.startswith("http"):
-                    abs_image_urls.append(url)
-                else:
-                    abs_image_urls.append(f"{backend_url}{url}")
+            # Prepare image URLs and convert to base64
+            import base64
+            import httpx
             
-            # Create chat with vision model
-            chat = LlmChat(
-                api_key=EMERGENT_LLM_KEY,
-                session_id=f"autofill-{draft_id}",
-                system_message="You are an expert at identifying vintage skateboard items from photos. Analyze images carefully and extract item specifics. Only provide values you can actually see or read from the images. Never guess or assume values. For each field, also provide a confidence score between 0 and 1."
-            ).with_model("openai", "gpt-5.2")
+            image_contents = []
+            for url in image_urls[:3]:  # Limit to first 3 images for speed
+                try:
+                    # Make URL absolute
+                    if url.startswith("http"):
+                        img_url = url
+                    else:
+                        img_url = f"{backend_url}{url}"
+                    
+                    # Download image
+                    async with httpx.AsyncClient() as client:
+                        resp = await client.get(img_url, timeout=10)
+                        if resp.status_code == 200:
+                            img_base64 = base64.b64encode(resp.content).decode('utf-8')
+                            image_contents.append(ImageContent(image_base64=img_base64))
+                except Exception as img_err:
+                    logger.warning(f"Failed to download image {url}: {img_err}")
             
-            # Build the message with images
-            image_contents = [ImageContent(url=url) for url in abs_image_urls]
-            
-            # Enhanced prompt to get confidence scores
-            enhanced_prompt = extraction_prompt + """
+            if not image_contents:
+                # No images could be downloaded, try title fallback
+                pass
+            else:
+                # Create chat with vision model
+                chat = LlmChat(
+                    api_key=EMERGENT_LLM_KEY,
+                    session_id=f"autofill-{draft_id}",
+                    system_message="You are an expert at identifying vintage skateboard items from photos. Analyze images carefully and extract item specifics. Only provide values you can actually see or read from the images. Never guess or assume values. For each field, also provide a confidence score between 0 and 1."
+                ).with_model("openai", "gpt-5.2")
+                
+                # Enhanced prompt to get confidence scores
+                enhanced_prompt = extraction_prompt + """
 
 ALSO include a "confidence" object with confidence scores (0-1) for each extracted field:
 {
@@ -1089,24 +1104,24 @@ ALSO include a "confidence" object with confidence scores (0-1) for each extract
     ...
   }
 }"""
-            
-            user_message = UserMessage(
-                text=f"Analyze these images of a vintage skateboard item and extract the item specifics.\n\n{enhanced_prompt}",
-                images=image_contents
-            )
-            
-            response = await chat.send_message(user_message)
-            source = "photo"
-            
-            # Parse JSON from response
-            try:
-                json_start = response.find("{")
-                json_end = response.rfind("}") + 1
-                if json_start >= 0 and json_end > json_start:
-                    json_str = response[json_start:json_end]
-                    extracted_aspects = json.loads(json_str)
-            except (json.JSONDecodeError, ValueError):
-                logger.warning("Failed to parse LLM vision response, trying title fallback")
+                
+                user_message = UserMessage(
+                    text=f"Analyze these images of a vintage skateboard item and extract the item specifics.\n\n{enhanced_prompt}",
+                    images=image_contents
+                )
+                
+                response = await chat.send_message(user_message)
+                source = "photo"
+                
+                # Parse JSON from response
+                try:
+                    json_start = response.find("{")
+                    json_end = response.rfind("}") + 1
+                    if json_start >= 0 and json_end > json_start:
+                        json_str = response[json_start:json_end]
+                        extracted_aspects = json.loads(json_str)
+                except (json.JSONDecodeError, ValueError):
+                    logger.warning("Failed to parse LLM vision response, trying title fallback")
         
         # Fallback to title extraction if vision didn't work or no images
         if not extracted_aspects and existing_title:
