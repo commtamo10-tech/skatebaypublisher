@@ -13,11 +13,27 @@ import httpx
 import uuid
 import shutil
 import json
+import bleach
 from pathlib import Path
 from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any
 from datetime import datetime, timezone, timedelta
 import jwt
+
+# HTML Sanitization config for eBay descriptions
+ALLOWED_TAGS = ['p', 'br', 'ul', 'ol', 'li', 'strong', 'em', 'b', 'i', 'h2', 'h3', 'h4', 'blockquote', 'hr']
+ALLOWED_ATTRIBUTES = {}  # No attributes allowed
+
+def sanitize_html(html_content: str) -> str:
+    """Sanitize HTML content to prevent XSS attacks"""
+    if not html_content:
+        return ""
+    return bleach.clean(
+        html_content,
+        tags=ALLOWED_TAGS,
+        attributes=ALLOWED_ATTRIBUTES,
+        strip=True
+    )
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
