@@ -489,6 +489,256 @@ class SkateBAYAPITester:
         
         return False
 
+    def create_test_image(self, filename="test_image.jpg"):
+        """Create a test image file"""
+        img = Image.new('RGB', (100, 100), color='red')
+        img_bytes = io.BytesIO()
+        img.save(img_bytes, format='JPEG')
+        img_bytes.seek(0)
+        return img_bytes
+
+    def test_create_batch(self):
+        """Test creating a new batch"""
+        print("\n📦 Testing Batch Creation...")
+        
+        if not self.token:
+            self.log_result("POST /batches", False, "No token available")
+            return False
+            
+        try:
+            response = self.session.post(
+                f"{self.base_url}/api/batches",
+                json={"name": "Test Batch Upload"},
+                headers={"Content-Type": "application/json"}
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                if "id" in data:
+                    self.batch_id = data["id"]
+                    self.log_result("POST /batches", True)
+                    return True
+                else:
+                    self.log_result("POST /batches", False, f"No ID in response: {data}")
+            else:
+                self.log_result("POST /batches", False, f"Status {response.status_code}: {response.text}")
+                
+        except Exception as e:
+            self.log_result("POST /batches", False, f"Exception: {str(e)}")
+        
+        return False
+
+    def test_upload_batch_images(self):
+        """Test uploading multiple images to batch"""
+        print("\n📸 Testing Batch Image Upload...")
+        
+        if not self.token or not self.batch_id:
+            self.log_result("POST /batches/{id}/upload", False, "No token or batch_id available")
+            return False
+            
+        try:
+            # Create test images
+            files = []
+            for i in range(3):
+                img_data = self.create_test_image(f"test_{i}.jpg")
+                files.append(('files', (f'test_{i}.jpg', img_data, 'image/jpeg')))
+
+            # Remove Content-Type header for multipart upload
+            headers = {"Authorization": f"Bearer {self.token}"}
+            
+            response = requests.post(
+                f"{self.base_url}/api/batches/{self.batch_id}/upload",
+                files=files,
+                headers=headers
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                if "uploaded" in data and len(data["uploaded"]) > 0:
+                    self.log_result("POST /batches/{id}/upload", True)
+                    return True
+                else:
+                    self.log_result("POST /batches/{id}/upload", False, f"No uploads in response: {data}")
+            else:
+                self.log_result("POST /batches/{id}/upload", False, f"Status {response.status_code}: {response.text}")
+                
+        except Exception as e:
+            self.log_result("POST /batches/{id}/upload", False, f"Exception: {str(e)}")
+        
+        return False
+
+    def test_list_batches(self):
+        """Test listing all batches"""
+        print("\n📋 Testing List Batches...")
+        
+        if not self.token:
+            self.log_result("GET /batches", False, "No token available")
+            return False
+            
+        try:
+            response = self.session.get(f"{self.base_url}/api/batches")
+            
+            if response.status_code == 200:
+                data = response.json()
+                if isinstance(data, list):
+                    self.log_result("GET /batches", True)
+                    return True
+                else:
+                    self.log_result("GET /batches", False, f"Expected list, got: {type(data)}")
+            else:
+                self.log_result("GET /batches", False, f"Status {response.status_code}: {response.text}")
+                
+        except Exception as e:
+            self.log_result("GET /batches", False, f"Exception: {str(e)}")
+        
+        return False
+
+    def test_get_batch_details(self):
+        """Test getting batch details"""
+        print("\n🔍 Testing Get Batch Details...")
+        
+        if not self.token or not self.batch_id:
+            self.log_result("GET /batches/{id}", False, "No token or batch_id available")
+            return False
+            
+        try:
+            response = self.session.get(f"{self.base_url}/api/batches/{self.batch_id}")
+            
+            if response.status_code == 200:
+                data = response.json()
+                if "id" in data and "status" in data:
+                    self.log_result("GET /batches/{id}", True)
+                    return True
+                else:
+                    self.log_result("GET /batches/{id}", False, f"Missing required fields: {data}")
+            else:
+                self.log_result("GET /batches/{id}", False, f"Status {response.status_code}: {response.text}")
+                
+        except Exception as e:
+            self.log_result("GET /batches/{id}", False, f"Exception: {str(e)}")
+        
+        return False
+
+    def test_get_batch_images(self):
+        """Test getting batch images"""
+        print("\n🖼️ Testing Get Batch Images...")
+        
+        if not self.token or not self.batch_id:
+            self.log_result("GET /batches/{id}/images", False, "No token or batch_id available")
+            return False
+            
+        try:
+            response = self.session.get(f"{self.base_url}/api/batches/{self.batch_id}/images")
+            
+            if response.status_code == 200:
+                data = response.json()
+                if "images" in data and isinstance(data["images"], list):
+                    self.log_result("GET /batches/{id}/images", True)
+                    return True
+                else:
+                    self.log_result("GET /batches/{id}/images", False, f"Invalid response format: {data}")
+            else:
+                self.log_result("GET /batches/{id}/images", False, f"Status {response.status_code}: {response.text}")
+                
+        except Exception as e:
+            self.log_result("GET /batches/{id}/images", False, f"Exception: {str(e)}")
+        
+        return False
+
+    def test_auto_group_batch(self):
+        """Test starting auto-grouping job"""
+        print("\n🤖 Testing Auto-Group Batch...")
+        
+        if not self.token or not self.batch_id:
+            self.log_result("POST /batches/{id}/auto_group", False, "No token or batch_id available")
+            return False
+            
+        try:
+            response = self.session.post(f"{self.base_url}/api/batches/{self.batch_id}/auto_group")
+            
+            if response.status_code == 200:
+                data = response.json()
+                if "job_id" in data:
+                    self.job_id = data["job_id"]
+                    self.log_result("POST /batches/{id}/auto_group", True)
+                    return True
+                else:
+                    self.log_result("POST /batches/{id}/auto_group", False, f"No job_id in response: {data}")
+            else:
+                self.log_result("POST /batches/{id}/auto_group", False, f"Status {response.status_code}: {response.text}")
+                
+        except Exception as e:
+            self.log_result("POST /batches/{id}/auto_group", False, f"Exception: {str(e)}")
+        
+        return False
+
+    def test_job_progress(self):
+        """Test getting job progress"""
+        print("\n⏳ Testing Job Progress...")
+        
+        if not self.token or not self.job_id:
+            self.log_result("GET /jobs/{id}", False, "No token or job_id available")
+            return False
+            
+        try:
+            # Poll job status for up to 30 seconds
+            for i in range(30):
+                response = self.session.get(f"{self.base_url}/api/jobs/{self.job_id}")
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    status = data.get('status', 'UNKNOWN')
+                    progress = data.get('progress', 0)
+                    
+                    if status == 'COMPLETED':
+                        self.log_result("GET /jobs/{id}", True)
+                        return True
+                    elif status == 'ERROR':
+                        self.log_result("GET /jobs/{id}", False, f"Job failed: {data.get('error', 'Unknown error')}")
+                        return False
+                    
+                    # Continue polling
+                    time.sleep(1)
+                else:
+                    self.log_result("GET /jobs/{id}", False, f"Status {response.status_code}: {response.text}")
+                    return False
+            
+            self.log_result("GET /jobs/{id}", False, "Job did not complete within 30 seconds")
+                
+        except Exception as e:
+            self.log_result("GET /jobs/{id}", False, f"Exception: {str(e)}")
+        
+        return False
+
+    def test_get_batch_groups(self):
+        """Test getting batch groups after auto-grouping"""
+        print("\n👥 Testing Get Batch Groups...")
+        
+        if not self.token or not self.batch_id:
+            self.log_result("GET /batches/{id}/groups", False, "No token or batch_id available")
+            return False
+            
+        try:
+            response = self.session.get(f"{self.base_url}/api/batches/{self.batch_id}/groups")
+            
+            if response.status_code == 200:
+                data = response.json()
+                if "groups" in data and isinstance(data["groups"], list):
+                    groups = data["groups"]
+                    if groups:
+                        self.group_ids = [g['id'] for g in groups]
+                    self.log_result("GET /batches/{id}/groups", True)
+                    return True
+                else:
+                    self.log_result("GET /batches/{id}/groups", False, f"Invalid response format: {data}")
+            else:
+                self.log_result("GET /batches/{id}/groups", False, f"Status {response.status_code}: {response.text}")
+                
+        except Exception as e:
+            self.log_result("GET /batches/{id}/groups", False, f"Exception: {str(e)}")
+        
+        return False
+
     def run_all_tests(self):
         """Run all API tests"""
         print("🚀 Starting SkateBay API Tests...")
