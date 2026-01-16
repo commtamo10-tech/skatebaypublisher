@@ -44,6 +44,10 @@ Full-stack web app (React frontend + FastAPI backend + MongoDB) per creare inser
 - [x] Draft Editor with full editing capabilities
 - [x] Settings page with eBay connection
 - [x] **Draft Preview page with Desktop/Mobile tabs and Rendered/HTML toggle**
+- [x] **Auto-title generation from Item Specifics (Brand, Model, Size, Era)**
+- [x] **Manual override flag - title stops auto-updating when manually edited**
+- [x] **Regenerate title button to rebuild from aspects**
+- [x] **Preview auto-saves before opening**
 
 ### API Endpoints
 - POST /api/auth/login
