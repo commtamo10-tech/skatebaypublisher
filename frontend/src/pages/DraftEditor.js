@@ -29,7 +29,6 @@ const CONDITIONS = [
 ];
 
 const ERA_OPTIONS = [
-  { value: "", label: "Select Era..." },
   { value: "1970s", label: "1970s" },
   { value: "1980s", label: "1980s" },
   { value: "1990s", label: "1990s" },
