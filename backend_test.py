@@ -307,6 +307,181 @@ class SkateBAYAPITester:
         
         return False
 
+    def test_title_manually_edited_field(self, draft_id):
+        """Test that draft loads with title_manually_edited field"""
+        print("\n🏷️ Testing Title Manually Edited Field...")
+        
+        if not self.token or not draft_id:
+            self.log_result("Draft has title_manually_edited field", False, "No token or draft_id available")
+            return False
+            
+        try:
+            response = self.session.get(f"{self.base_url}/api/drafts/{draft_id}")
+            
+            if response.status_code == 200:
+                data = response.json()
+                if "title_manually_edited" in data:
+                    # Should default to False for new drafts
+                    if data["title_manually_edited"] == False:
+                        self.log_result("Draft has title_manually_edited field", True)
+                        return True
+                    else:
+                        self.log_result("Draft has title_manually_edited field", False, f"Expected False, got {data['title_manually_edited']}")
+                else:
+                    self.log_result("Draft has title_manually_edited field", False, "Field missing from response")
+            else:
+                self.log_result("Draft has title_manually_edited field", False, f"Status {response.status_code}: {response.text}")
+                
+        except Exception as e:
+            self.log_result("Draft has title_manually_edited field", False, f"Exception: {str(e)}")
+        
+        return False
+
+    def test_patch_title_manually_edited(self, draft_id):
+        """Test PATCH /api/drafts/{id} updates title_manually_edited field"""
+        print("\n✏️ Testing PATCH title_manually_edited...")
+        
+        if not self.token or not draft_id:
+            self.log_result("PATCH title_manually_edited", False, "No token or draft_id available")
+            return False
+            
+        try:
+            # Test updating title_manually_edited to True
+            update_data = {
+                "title_manually_edited": True,
+                "title": "Manual Test Title"
+            }
+            
+            response = self.session.patch(
+                f"{self.base_url}/api/drafts/{draft_id}",
+                json=update_data,
+                headers={"Content-Type": "application/json"}
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                if data.get("title_manually_edited") == True and data.get("title") == "Manual Test Title":
+                    self.log_result("PATCH title_manually_edited", True)
+                    return True
+                else:
+                    self.log_result("PATCH title_manually_edited", False, f"Update failed: {data}")
+            else:
+                self.log_result("PATCH title_manually_edited", False, f"Status {response.status_code}: {response.text}")
+                
+        except Exception as e:
+            self.log_result("PATCH title_manually_edited", False, f"Exception: {str(e)}")
+        
+        return False
+
+    def test_title_no_unknown_values(self, draft_id):
+        """Test that title never contains 'Unknown' or 'N/A'"""
+        print("\n🚫 Testing Title Excludes Unknown Values...")
+        
+        if not self.token or not draft_id:
+            self.log_result("Title excludes Unknown/N/A", False, "No token or draft_id available")
+            return False
+            
+        try:
+            # Update draft with aspects containing Unknown values
+            aspects_with_unknown = {
+                "Brand": "Powell Peralta",
+                "Model": "Unknown",
+                "Size": "N/A",
+                "Era": "1980s",
+                "Color": "Red"
+            }
+            
+            update_data = {
+                "aspects": aspects_with_unknown,
+                "title_manually_edited": False  # Allow auto-generation
+            }
+            
+            response = self.session.patch(
+                f"{self.base_url}/api/drafts/{draft_id}",
+                json=update_data,
+                headers={"Content-Type": "application/json"}
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                title = data.get("title", "")
+                
+                # Check that title doesn't contain Unknown or N/A
+                forbidden_words = ["Unknown", "N/A", "(Unknown)", "undefined", "null"]
+                has_forbidden = any(word.lower() in title.lower() for word in forbidden_words)
+                
+                if not has_forbidden:
+                    self.log_result("Title excludes Unknown/N/A", True)
+                    return True
+                else:
+                    self.log_result("Title excludes Unknown/N/A", False, f"Title contains forbidden words: {title}")
+            else:
+                self.log_result("Title excludes Unknown/N/A", False, f"Status {response.status_code}: {response.text}")
+                
+        except Exception as e:
+            self.log_result("Title excludes Unknown/N/A", False, f"Exception: {str(e)}")
+        
+        return False
+
+    def test_preview_cache_busting(self, draft_id):
+        """Test that preview fetches fresh data (no cache)"""
+        print("\n🔄 Testing Preview Cache Busting...")
+        
+        if not self.token or not draft_id:
+            self.log_result("Preview fetches fresh data", False, "No token or draft_id available")
+            return False
+            
+        try:
+            # Make first preview request
+            response1 = self.session.get(f"{self.base_url}/api/drafts/{draft_id}/preview")
+            
+            if response1.status_code != 200:
+                self.log_result("Preview fetches fresh data", False, f"First request failed: {response1.status_code}")
+                return False
+            
+            # Update the draft
+            update_data = {
+                "title": f"Updated Title {datetime.now().strftime('%H%M%S')}"
+            }
+            
+            update_response = self.session.patch(
+                f"{self.base_url}/api/drafts/{draft_id}",
+                json=update_data,
+                headers={"Content-Type": "application/json"}
+            )
+            
+            if update_response.status_code != 200:
+                self.log_result("Preview fetches fresh data", False, "Failed to update draft")
+                return False
+            
+            # Make second preview request with cache-busting headers
+            response2 = self.session.get(
+                f"{self.base_url}/api/drafts/{draft_id}/preview",
+                headers={
+                    'Cache-Control': 'no-cache',
+                    'Pragma': 'no-cache'
+                },
+                params={'_t': datetime.now().timestamp()}
+            )
+            
+            if response2.status_code == 200:
+                data1 = response1.json()
+                data2 = response2.json()
+                
+                # Check that the title was updated
+                if data1.get("title") != data2.get("title"):
+                    self.log_result("Preview fetches fresh data", True)
+                    return True
+                else:
+                    self.log_result("Preview fetches fresh data", False, "Title not updated in preview")
+            else:
+                self.log_result("Preview fetches fresh data", False, f"Second request failed: {response2.status_code}")
+                
+        except Exception as e:
+            self.log_result("Preview fetches fresh data", False, f"Exception: {str(e)}")
+        
+        return False
+
     def run_all_tests(self):
         """Run all API tests"""
         print("🚀 Starting SkateBay API Tests...")
