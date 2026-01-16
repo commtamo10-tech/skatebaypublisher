@@ -256,7 +256,7 @@ export default function Dashboard() {
                     </div>
                     
                     {/* Actions */}
-                    <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="flex items-center gap-2">
                       <Button
                         variant="ghost"
                         size="sm"
