@@ -539,42 +539,54 @@ async def generate_draft_content(draft_id: str, user = Depends(get_current_user)
     item_types_full = {"WHL": "Skateboard Wheels", "TRK": "Skateboard Trucks", "DCK": "Skateboard Deck"}
     item_type_name = item_types_full.get(draft["item_type"], "Skateboard Part")
     
+    # Build description template based on item type
+    description_structure = get_description_template(draft["item_type"])
+    
     # Build prompt
-    system_message = """You are an eBay listing expert for vintage skateboard parts. Generate optimized eBay listings.
+    system_message = f"""You are an eBay listing expert for vintage skateboard items and apparel. Generate optimized eBay listings.
 
-RULES:
+CRITICAL RULES:
 - Title MUST be ≤80 characters
-- Title order: Brand + Model + Era + OG/NOS + key specs (size/durometer)
+- NEVER include "Unknown", "N/A", "assumed", "estimate", "(Unknown)", or empty values in title or description
+- If a value is not known, simply OMIT that field entirely
 - No ALL CAPS words, no keyword stuffing
-- If information is not visible/certain, omit it or mark as "Unknown"
-- Description sections: Overview, Specs (bullets), Condition notes, Shipping & Returns
-- Always append these two lines at end of description:
-  "Ships from Milan, Italy. Combined shipping available—please message before purchase."
-  "International buyers: import duties/taxes are not included and are the buyer's responsibility."
 
-OUTPUT FORMAT (JSON only):
-{
-  "title": "string (max 80 chars)",
-  "description": "string (HTML formatted)",
-  "aspects": {
-    "Brand": "string or Unknown",
-    "Model": "string or Unknown", 
-    "Type": "string",
-    "Size": "string or Unknown",
-    "Era": "string or Unknown",
-    "Material": "string or Unknown"
-  }
-}"""
+TITLE ORDER BY TYPE:
+- Wheels (WHL): Brand + Model + Era + OG/NOS + Color + Size(mm) + Durometer(A) + "Skateboard Wheels"
+- Trucks (TRK): Brand + Model + Size + Era + OG/NOS + "Skateboard Trucks"
+- Decks (DCK): Brand + Model/Series + Era + OG/Reissue + Size(in) + "Skateboard Deck"
+- Apparel (APP): Brand + Item Type + Size + Era/Vintage + Color + "Skateboard" + category
+
+DESCRIPTION STRUCTURE (HTML format):
+{description_structure}
+
+MANDATORY CLOSING (always include exactly these lines at the end):
+<p>Questions? Feel free to message—happy to help.</p>
+<p>Ships from Milan, Italy. Combined shipping available—please message before purchase.</p>
+<p>International buyers: import duties/taxes are not included and are the buyer's responsibility.</p>
+<p>Thanks for looking!</p>
+
+OUTPUT FORMAT (JSON only, NO "Unknown" values anywhere):
+{{
+  "title": "string (max 80 chars, no Unknown)",
+  "description": "string (HTML formatted, no Unknown)",
+  "aspects": {{
+    "Brand": "string (only if known)",
+    "Model": "string (only if known)",
+    ... other fields only if known
+  }}
+}}"""
 
     user_message = f"""Generate an eBay listing for this vintage {item_type_name}.
 
-Item Type: {item_type_name}
+Item Type: {item_type_name} ({draft['item_type']})
 Category ID: {draft['category_id']}
 Images uploaded: {len(draft.get('image_urls', []))} photos
 
-Based on the item type, generate appropriate title, description, and aspects.
-Since I cannot see the actual photos, generate a template that I can customize.
-Make reasonable assumptions for a vintage skateboard item from the 80s-90s era."""
+Generate a professional listing. Remember:
+- NEVER use "Unknown" or placeholder values
+- Only include aspects that are actually known
+- Description must follow the exact structure provided"""
 
     try:
         from emergentintegrations.llm.chat import LlmChat, UserMessage
