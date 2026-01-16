@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import api from "../lib/api";
 import { Button } from "../components/ui/button";
@@ -28,6 +28,16 @@ const CONDITIONS = [
   { value: "FOR_PARTS_OR_NOT_WORKING", label: "For Parts" },
 ];
 
+const ERA_OPTIONS = [
+  { value: "", label: "Select Era..." },
+  { value: "1970s", label: "1970s" },
+  { value: "1980s", label: "1980s" },
+  { value: "1990s", label: "1990s" },
+  { value: "2000s", label: "2000s" },
+  { value: "1980s-1990s", label: "1980s–1990s" },
+  { value: "1970s-1980s", label: "1970s–1980s" },
+];
+
 const STATUS_STYLES = {
   DRAFT: { bg: "bg-gray-200", text: "text-black", icon: Clock },
   READY: { bg: "bg-amber-400", text: "text-black", icon: Circle },
@@ -37,8 +47,6 @@ const STATUS_STYLES = {
 
 // ============ TITLE BUILDER ============
 const FILLER_WORDS = ["Unknown", "N/A", "(Unknown)", "undefined", "null", "", "assumed", "estimate"];
-
-// Keyword fillers in priority order (OG/NOS handled separately based on aspects)
 const KEYWORD_FILLERS = ["Old School", "Vintage"];
 
 const cleanValue = (val) => {
@@ -49,59 +57,39 @@ const cleanValue = (val) => {
   return trimmed;
 };
 
-const buildEbayTitle = (itemType, aspects) => {
-  if (!aspects) return "";
+const buildEbayTitle = (itemType, coreDetails, aspects) => {
+  // Merge core details with aspects for title building
+  const merged = { ...aspects, ...coreDetails };
   
-  const brand = cleanValue(aspects.Brand);
-  const model = cleanValue(aspects.Model);
-  const era = cleanValue(aspects.Era) || cleanValue(aspects.Decade);
-  const size = cleanValue(aspects.Size) || cleanValue(aspects.Width);
-  const color = cleanValue(aspects.Color);
-  const durometer = cleanValue(aspects.Durometer);
-  const series = cleanValue(aspects.Series);
-  const itemTypeAspect = cleanValue(aspects["Item Type"]);
-  const department = cleanValue(aspects.Department);
+  const brand = cleanValue(merged.brand) || cleanValue(merged.Brand);
+  const model = cleanValue(merged.model) || cleanValue(merged.Model);
+  const era = cleanValue(merged.era) || cleanValue(merged.Era) || cleanValue(merged.Decade);
+  const size = cleanValue(merged.size) || cleanValue(merged.Size) || cleanValue(merged.Width);
+  const color = cleanValue(merged.color) || cleanValue(merged.Color);
+  const durometer = cleanValue(merged.Durometer);
+  const series = cleanValue(merged.Series);
+  const itemTypeAspect = cleanValue(merged["Item Type"]);
   
-  // Handle OG/NOS - mutually exclusive
-  const ogValue = cleanValue(aspects.OG);
-  const nosValue = cleanValue(aspects.NOS);
-  const ogNosValue = cleanValue(aspects["OG/NOS"]);
-  const typeValue = cleanValue(aspects.Type);
-  
+  // Handle OG/NOS
+  const typeValue = cleanValue(merged.Type);
   let ogNos = null;
   let hasOG = false;
   let hasNOS = false;
   
-  // Check Type field for OG/NOS
   if (typeValue) {
-    if (typeValue.toUpperCase() === "NOS" || typeValue.toUpperCase().includes("NOS")) {
+    if (typeValue.toUpperCase().includes("NOS")) {
       hasNOS = true;
       ogNos = "NOS";
-    } else if (typeValue.toUpperCase() === "OG" || typeValue.toUpperCase().includes("OG")) {
+    } else if (typeValue.toUpperCase().includes("OG")) {
       hasOG = true;
       ogNos = "OG";
-    }
-  }
-  
-  // Also check dedicated OG/NOS fields
-  if (!hasNOS && !hasOG) {
-    if (nosValue && (nosValue.toLowerCase() === "true" || nosValue.toLowerCase() === "yes" || nosValue === "NOS")) {
-      ogNos = "NOS";
-      hasNOS = true;
-    } else if (ogValue && (ogValue.toLowerCase() === "true" || ogValue.toLowerCase() === "yes" || ogValue === "OG")) {
-      ogNos = "OG";
-      hasOG = true;
-    } else if (ogNosValue) {
-      ogNos = ogNosValue;
-      if (ogNosValue.toUpperCase().includes("NOS")) hasNOS = true;
-      if (ogNosValue.toUpperCase().includes("OG")) hasOG = true;
     }
   }
   
   let parts = [];
   
   switch (itemType) {
-    case "WHL": // Wheels
+    case "WHL":
       if (brand) parts.push(brand);
       if (model) parts.push(model);
       if (era) parts.push(era);
@@ -112,7 +100,7 @@ const buildEbayTitle = (itemType, aspects) => {
       parts.push("Skateboard Wheels");
       break;
       
-    case "TRK": // Trucks
+    case "TRK":
       if (brand) parts.push(brand);
       if (model) parts.push(model);
       if (size) parts.push(size);
@@ -121,7 +109,7 @@ const buildEbayTitle = (itemType, aspects) => {
       parts.push("Skateboard Trucks");
       break;
       
-    case "DCK": // Decks
+    case "DCK":
       if (brand) parts.push(brand);
       if (model || series) parts.push(model || series);
       if (era) parts.push(era);
@@ -130,114 +118,86 @@ const buildEbayTitle = (itemType, aspects) => {
       parts.push("Skateboard Deck");
       break;
       
-    case "APP": // Apparel
+    case "APP":
       if (brand) parts.push(brand);
       if (itemTypeAspect) parts.push(itemTypeAspect);
       if (size) parts.push(size);
       if (era) parts.push(era);
       if (color) parts.push(color);
       parts.push("Skateboard");
-      if (!itemTypeAspect) {
-        parts.push("Apparel");
-      }
+      if (!itemTypeAspect) parts.push("Apparel");
       break;
       
-    default: // MISC
+    default:
       if (brand) parts.push(brand);
       if (model || itemTypeAspect) parts.push(model || itemTypeAspect);
       if (era) parts.push(era);
       parts.push("Skateboard Part");
   }
   
-  // Build base title and clean up
-  let title = parts.join(" ");
-  title = title.replace(/\s+/g, " ").trim();
-  title = title.replace(/,\s*,/g, ",").replace(/\s+,/g, ",");
+  let title = parts.join(" ").replace(/\s+/g, " ").trim();
   
-  // Check what specs are missing for keyword filler decision
-  const missingImportantSpecs = !size || !durometer || !model;
-  
-  // Add keyword fillers if title < 70 chars and missing important specs
-  if (title.length < 70 && missingImportantSpecs) {
+  // Keyword filler if title < 70 chars
+  if (title.length < 70) {
     const titleLower = title.toLowerCase();
-    
-    // Try adding keyword fillers in priority order
     for (const keyword of KEYWORD_FILLERS) {
-      // Don't add if already present in title
-      if (titleLower.includes(keyword.toLowerCase())) continue;
-      
-      // Check if adding would exceed 80
-      const potentialTitle = `${keyword} ${title}`;
-      if (potentialTitle.length <= 80) {
-        title = potentialTitle;
-        // Check if we've reached target range (70-80)
-        if (title.length >= 70) break;
-      }
-    }
-    
-    // Try adding OG or NOS if applicable and not already present
-    if (title.length < 70) {
-      if (hasNOS && !titleLower.includes("nos")) {
-        const potentialTitle = title.replace("Skateboard", "NOS Skateboard");
-        if (potentialTitle.length <= 80 && !title.includes("NOS")) {
+      if (!titleLower.includes(keyword.toLowerCase())) {
+        const potentialTitle = `${keyword} ${title}`;
+        if (potentialTitle.length <= 80) {
           title = potentialTitle;
-        }
-      } else if (hasOG && !titleLower.includes(" og ") && !titleLower.includes("og ")) {
-        const potentialTitle = title.replace("Skateboard", "OG Skateboard");
-        if (potentialTitle.length <= 80 && !title.includes("OG")) {
-          title = potentialTitle;
+          if (title.length >= 70) break;
         }
       }
     }
   }
   
-  // Hard limit: truncate to 80 chars
+  // Hard limit
   if (title.length > 80) {
-    let shortened = title.replace(/Skateboard\s*/gi, "");
-    if (shortened.length <= 80) {
-      title = shortened;
-    } else {
-      title = title.substring(0, 77) + "...";
-    }
+    title = title.substring(0, 77) + "...";
   }
   
   return title;
 };
 
 // ============ 90s STICKER LABEL DESCRIPTION BUILDER ============
-const build90sDescription = (itemType, title, aspects, condition) => {
-  if (!aspects || Object.keys(aspects).length === 0) return "";
+const build90sDescription = (itemType, coreDetails, aspects, condition) => {
+  // Merge core details with aspects
+  const merged = { ...aspects };
+  if (coreDetails.brand) merged.Brand = coreDetails.brand;
+  if (coreDetails.model) merged.Model = coreDetails.model;
+  if (coreDetails.size) merged.Size = coreDetails.size;
+  if (coreDetails.color) merged.Color = coreDetails.color;
+  if (coreDetails.era) merged.Era = coreDetails.era;
   
+  // Filter out empty values
   const cleanAspects = {};
-  Object.entries(aspects).forEach(([k, v]) => {
+  Object.entries(merged).forEach(([k, v]) => {
     const clean = cleanValue(v);
     if (clean) cleanAspects[k] = clean;
   });
   
   if (Object.keys(cleanAspects).length === 0) return "";
   
-  // Get era for sticker header
   const era = cleanAspects.Era || cleanAspects.Decade || "";
   const eraTag = era ? ` • ${era}` : "";
   
-  // Build key details based on item type
+  // Key details order by type
   let keyDetailsOrder = [];
-  
   switch (itemType) {
     case "APP":
-      keyDetailsOrder = ["Brand", "Item Type", "Department", "Size", "Measurements", "Color", "Material", "Style", "Fit", "Country", "MPN", "UPC"];
+      keyDetailsOrder = ["Brand", "Item Type", "Department", "Size", "Measurements", "Color", "Material", "Style", "Fit"];
       break;
     case "WHL":
-      keyDetailsOrder = ["Brand", "Model", "Size", "Durometer", "Color", "Era", "Core", "Material", "Quantity", "MPN"];
+      keyDetailsOrder = ["Brand", "Model", "Size", "Durometer", "Color", "Era", "Core", "Material", "Quantity"];
       break;
     case "TRK":
-      keyDetailsOrder = ["Brand", "Model", "Size", "Era", "Color", "Material", "Quantity", "MPN"];
+      keyDetailsOrder = ["Brand", "Model", "Size", "Era", "Color", "Material", "Quantity"];
       break;
     case "DCK":
-      keyDetailsOrder = ["Brand", "Model", "Series", "Width", "Length", "Era", "Artist", "Type", "Material", "MPN"];
+      keyDetailsOrder = ["Brand", "Model", "Series", "Width", "Length", "Era", "Artist", "Type", "Material"];
       break;
     default:
-      keyDetailsOrder = ["Brand", "Item Type", "Era", "Size", "Color", "Material", "Notes"];
+      keyDetailsOrder = ["Brand", "Item Type", "Era", "Size", "Color", "Material"];
   }
   
   // Build key details HTML
@@ -248,16 +208,15 @@ const build90sDescription = (itemType, title, aspects, condition) => {
     }
   });
   
-  // Add any extra aspects not in the order
+  // Add extra aspects
   Object.entries(cleanAspects).forEach(([key, value]) => {
     if (!keyDetailsOrder.includes(key) && key !== "Era" && key !== "Decade") {
       keyDetailsHtml += `  <li><strong>${key}:</strong> ${value}</li>\n`;
     }
   });
   
-  // Collector intro based on type
+  // Collector intro
   let intro = "";
-  
   switch (itemType) {
     case "APP":
       intro = era 
@@ -287,13 +246,11 @@ const build90sDescription = (itemType, title, aspects, condition) => {
   const conditionLabel = condition ? CONDITIONS.find(c => c.value === condition)?.label || condition : "New";
   let conditionSection = `<strong>${conditionLabel}.</strong> Please review all photos carefully as they are part of the description.`;
   
-  // Add NOS note if applicable and condition is NEW
-  if (condition === "NEW" && (cleanAspects.Type === "NOS" || cleanAspects.NOS === "true" || cleanAspects.NOS === "Yes")) {
+  if (condition === "NEW" && (cleanAspects.Type === "NOS" || era)) {
     conditionSection += ` May show light storage/shelf wear.`;
   }
   
-  // Build 90s sticker label HTML
-  const description = `<div style="font-family: Arial, Helvetica, sans-serif; font-size: 14px; line-height: 1.45; color: #111; max-width: 800px;">
+  return `<div style="font-family: Arial, Helvetica, sans-serif; font-size: 14px; line-height: 1.45; color: #111; max-width: 800px;">
 
 <div style="display: inline-block; border: 1px solid #111; padding: 6px 10px; font-family: 'Courier New', Courier, monospace; letter-spacing: 1px; margin-bottom: 16px;">
 [ OLD SCHOOL SKATE ]${eraTag}
@@ -314,13 +271,11 @@ ${keyDetailsHtml}</ul>
 <p style="margin: 8px 0;">International buyers: import duties/taxes are not included and are the buyer's responsibility.</p>
 <p style="margin: 8px 0;"><strong>Thanks for looking!</strong></p>
 
-</div>`;
-  
-  return description.trim();
+</div>`.trim();
 };
 
 // Key aspects that trigger title/description rebuild
-const TITLE_TRIGGER_KEYS = ["Brand", "Model", "Size", "Width", "Era", "Decade", "Color", "Durometer", "OG", "NOS", "OG/NOS", "Type", "Series", "Item Type", "Department"];
+const TITLE_TRIGGER_KEYS = ["Brand", "Model", "Size", "Width", "Era", "Decade", "Color", "Durometer", "Type", "Series", "Item Type"];
 
 export default function DraftEditor() {
   const { id } = useParams();
@@ -337,10 +292,20 @@ export default function DraftEditor() {
   const [description, setDescription] = useState("");
   const [descriptionManuallyEdited, setDescriptionManuallyEdited] = useState(false);
   const [aspects, setAspects] = useState({});
-  const [autoFilledAspects, setAutoFilledAspects] = useState([]);
+  const [aspectsMetadata, setAspectsMetadata] = useState({});
   const [condition, setCondition] = useState("NEW");
   const [categoryId, setCategoryId] = useState("");
   const [price, setPrice] = useState("");
+  
+  // Core Details (always visible)
+  const [coreDetails, setCoreDetails] = useState({
+    brand: "",
+    model: "",
+    size: "",
+    color: "",
+    era: ""
+  });
+  
   const [newAspectKey, setNewAspectKey] = useState("");
   const [newAspectValue, setNewAspectValue] = useState("");
 
@@ -348,31 +313,31 @@ export default function DraftEditor() {
     fetchDraft();
   }, [id]);
 
-  // Auto-update title when aspects change (if not manually edited)
+  // Auto-update title when core details or aspects change (if not manually edited)
   useEffect(() => {
-    if (!titleManuallyEdited && draft?.item_type && aspects) {
-      const hasRelevantAspects = TITLE_TRIGGER_KEYS.some(key => cleanValue(aspects[key]));
-      if (hasRelevantAspects) {
-        const newTitle = buildEbayTitle(draft.item_type, aspects);
+    if (!titleManuallyEdited && draft?.item_type) {
+      const hasCoreData = Object.values(coreDetails).some(v => cleanValue(v));
+      if (hasCoreData) {
+        const newTitle = buildEbayTitle(draft.item_type, coreDetails, aspects);
         if (newTitle && newTitle !== title) {
           setTitle(newTitle);
         }
       }
     }
-  }, [aspects, draft?.item_type, titleManuallyEdited]);
+  }, [coreDetails, aspects, draft?.item_type, titleManuallyEdited]);
 
-  // Auto-update description when title or aspects change (if not manually edited)
+  // Auto-update description when core details change (if not manually edited)
   useEffect(() => {
-    if (!descriptionManuallyEdited && draft?.item_type && aspects) {
-      const hasRelevantAspects = TITLE_TRIGGER_KEYS.some(key => cleanValue(aspects[key]));
-      if (hasRelevantAspects || title) {
-        const newDescription = build90sDescription(draft.item_type, title, aspects, condition);
+    if (!descriptionManuallyEdited && draft?.item_type) {
+      const hasCoreData = Object.values(coreDetails).some(v => cleanValue(v));
+      if (hasCoreData) {
+        const newDescription = build90sDescription(draft.item_type, coreDetails, aspects, condition);
         if (newDescription && newDescription !== description) {
           setDescription(newDescription);
         }
       }
     }
-  }, [aspects, title, condition, draft?.item_type, descriptionManuallyEdited]);
+  }, [coreDetails, aspects, condition, draft?.item_type, descriptionManuallyEdited]);
 
   const fetchDraft = async () => {
     try {
@@ -384,16 +349,40 @@ export default function DraftEditor() {
       setDescription(data.description || "");
       setDescriptionManuallyEdited(data.description_manually_edited || false);
       setAspects(data.aspects || {});
-      setAutoFilledAspects(data.auto_filled_aspects || []);
+      setAspectsMetadata(data.aspects_metadata || {});
       setCondition(data.condition || "NEW");
       setCategoryId(data.category_id || "");
       setPrice(data.price?.toString() || "");
+      
+      // Set core details from response or extract from aspects
+      setCoreDetails({
+        brand: data.brand || data.aspects?.Brand || "",
+        model: data.model || data.aspects?.Model || "",
+        size: data.size || data.aspects?.Size || data.aspects?.Width || "",
+        color: data.color || data.aspects?.Color || "",
+        era: data.era || data.aspects?.Era || data.aspects?.Decade || ""
+      });
     } catch (error) {
       toast.error("Failed to load draft");
       navigate("/");
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleCoreDetailChange = (field, value) => {
+    setCoreDetails(prev => ({ ...prev, [field]: value }));
+    // Mark as manual edit in metadata
+    const aspectKey = field === "era" ? "Era" : field.charAt(0).toUpperCase() + field.slice(1);
+    setAspectsMetadata(prev => ({
+      ...prev,
+      [aspectKey]: { source: "manual", confidence: 1 }
+    }));
+    // Also sync to aspects
+    setAspects(prev => ({
+      ...prev,
+      [aspectKey]: value
+    }));
   };
 
   const handleTitleChange = (e) => {
@@ -407,40 +396,51 @@ export default function DraftEditor() {
   };
 
   const handleRegenerateTitle = () => {
-    if (draft?.item_type && aspects) {
-      const newTitle = buildEbayTitle(draft.item_type, aspects);
+    if (draft?.item_type) {
+      const newTitle = buildEbayTitle(draft.item_type, coreDetails, aspects);
       setTitle(newTitle);
       setTitleManuallyEdited(false);
-      toast.success("Titolo rigenerato dagli specifics");
+      toast.success("Title regenerated");
     }
   };
 
   const handleRegenerateDescription = () => {
     if (draft?.item_type) {
-      const newDescription = build90sDescription(draft.item_type, title, aspects, condition);
+      const newDescription = build90sDescription(draft.item_type, coreDetails, aspects, condition);
       setDescription(newDescription);
       setDescriptionManuallyEdited(false);
-      toast.success("Description rigenerata");
+      toast.success("Description regenerated");
     }
   };
 
-  const handleAutoFillAspects = async () => {
+  const handleAutoFillAspects = async (force = false) => {
     setAutoFilling(true);
     try {
       toast.loading("Analyzing images...");
-      const response = await api.post(`/drafts/${id}/autofill_aspects`);
+      const response = await api.post(`/drafts/${id}/autofill_aspects?force=${force}`);
       toast.dismiss();
       
-      const { extracted_aspects, auto_filled_keys } = response.data;
+      const { extracted_aspects, aspects_metadata: newMetadata, source } = response.data;
       
       // Update local state
-      setAspects(response.data.draft.aspects || {});
-      setAutoFilledAspects(response.data.draft.auto_filled_aspects || []);
+      const newDraft = response.data.draft;
+      setAspects(newDraft.aspects || {});
+      setAspectsMetadata(newDraft.aspects_metadata || {});
       
-      if (auto_filled_keys.length > 0) {
-        toast.success(`Auto-filled ${auto_filled_keys.length} aspects: ${auto_filled_keys.join(", ")}`);
+      // Update core details
+      setCoreDetails({
+        brand: newDraft.brand || newDraft.aspects?.Brand || "",
+        model: newDraft.model || newDraft.aspects?.Model || "",
+        size: newDraft.size || newDraft.aspects?.Size || newDraft.aspects?.Width || "",
+        color: newDraft.color || newDraft.aspects?.Color || "",
+        era: newDraft.era || newDraft.aspects?.Era || newDraft.aspects?.Decade || ""
+      });
+      
+      const count = Object.keys(extracted_aspects || {}).length;
+      if (count > 0) {
+        toast.success(`Auto-filled ${count} fields from ${source}`);
       } else {
-        toast.info("No new aspects could be extracted from images");
+        toast.info("No new aspects could be extracted");
       }
       
       await fetchDraft();
@@ -455,12 +455,11 @@ export default function DraftEditor() {
   const handleSave = async () => {
     setSaving(true);
     
-    // Auto-truncate title if over 80 chars
     let titleToSave = title;
     if (title.length > 80) {
       titleToSave = title.substring(0, 77) + "...";
       setTitle(titleToSave);
-      toast.warning("Titolo troncato a 80 caratteri");
+      toast.warning("Title truncated to 80 characters");
     }
     
     try {
@@ -470,15 +469,16 @@ export default function DraftEditor() {
         description,
         description_manually_edited: descriptionManuallyEdited,
         aspects,
-        auto_filled_aspects: autoFilledAspects,
+        aspects_metadata: aspectsMetadata,
         condition,
         category_id: categoryId,
-        price: parseFloat(price) || 0
+        price: parseFloat(price) || 0,
+        ...coreDetails
       });
-      toast.success("Draft salvato");
+      toast.success("Draft saved");
       await fetchDraft();
     } catch (error) {
-      toast.error("Errore nel salvataggio");
+      toast.error("Save failed");
     } finally {
       setSaving(false);
     }
@@ -525,14 +525,15 @@ export default function DraftEditor() {
         description,
         description_manually_edited: descriptionManuallyEdited,
         aspects,
-        auto_filled_aspects: autoFilledAspects,
+        aspects_metadata: aspectsMetadata,
         condition,
         category_id: categoryId,
-        price: parseFloat(price) || 0
+        price: parseFloat(price) || 0,
+        ...coreDetails
       });
       navigate(`/draft/${id}/preview`);
     } catch (error) {
-      toast.error("Errore nel salvataggio prima della preview");
+      toast.error("Save failed before preview");
     } finally {
       setSaving(false);
     }
@@ -541,14 +542,14 @@ export default function DraftEditor() {
   const handleRegenerate = async () => {
     setRegenerating(true);
     try {
-      toast.loading("Rigenerazione contenuto...");
+      toast.loading("Generating content...");
       await api.post(`/drafts/${id}/generate`);
       toast.dismiss();
-      toast.success("Contenuto rigenerato");
+      toast.success("Content regenerated");
       await fetchDraft();
     } catch (error) {
       toast.dismiss();
-      toast.error("Rigenerazione fallita");
+      toast.error("Regeneration failed");
     } finally {
       setRegenerating(false);
     }
@@ -556,15 +557,19 @@ export default function DraftEditor() {
 
   const handleAspectChange = (key, value) => {
     setAspects(prev => ({ ...prev, [key]: value }));
-    // Remove from auto-filled list when manually edited
-    if (autoFilledAspects.includes(key)) {
-      setAutoFilledAspects(prev => prev.filter(k => k !== key));
-    }
+    setAspectsMetadata(prev => ({
+      ...prev,
+      [key]: { source: "manual", confidence: 1 }
+    }));
   };
 
   const addAspect = () => {
     if (newAspectKey && newAspectValue) {
       setAspects(prev => ({ ...prev, [newAspectKey]: newAspectValue }));
+      setAspectsMetadata(prev => ({
+        ...prev,
+        [newAspectKey]: { source: "manual", confidence: 1 }
+      }));
       setNewAspectKey("");
       setNewAspectValue("");
     }
@@ -576,8 +581,28 @@ export default function DraftEditor() {
       delete newAspects[key];
       return newAspects;
     });
-    // Also remove from auto-filled list
-    setAutoFilledAspects(prev => prev.filter(k => k !== key));
+    setAspectsMetadata(prev => {
+      const newMeta = { ...prev };
+      delete newMeta[key];
+      return newMeta;
+    });
+  };
+
+  const getSourceBadge = (key) => {
+    const meta = aspectsMetadata[key];
+    if (!meta) return null;
+    
+    const { source, confidence } = meta;
+    if (source === "manual") return null;
+    
+    const confPercent = Math.round((confidence || 0.7) * 100);
+    const bgColor = source === "photo" ? "bg-cyan-100 text-cyan-700 border-cyan-300" : "bg-amber-100 text-amber-700 border-amber-300";
+    
+    return (
+      <Badge variant="outline" className={`text-[8px] ${bgColor} px-1 py-0 ml-1`}>
+        auto ({source}) {confPercent}%
+      </Badge>
+    );
   };
 
   if (loading) {
@@ -594,21 +619,21 @@ export default function DraftEditor() {
   const StatusIcon = statusStyle.icon;
   const isPublished = draft.status === "PUBLISHED";
   const titleLength = title.length;
-  const isTitleValid = titleLength <= 80;
 
-  // Get suggested aspects based on item type
-  const getSuggestedAspects = () => {
+  // Get suggested additional aspects based on item type
+  const getAdditionalAspects = () => {
+    const core = ["Brand", "Model", "Size", "Color", "Era"];
     switch (draft.item_type) {
-      case "APP":
-        return ["Brand", "Item Type", "Department", "Size", "Measurements", "Color", "Material", "Style", "Fit", "Era"];
       case "WHL":
-        return ["Brand", "Model", "Size", "Durometer", "Color", "Era", "Core", "Material", "Quantity"];
+        return ["Durometer", "Core", "Material", "Quantity", "MPN"];
       case "TRK":
-        return ["Brand", "Model", "Size", "Era", "Color", "Material", "Quantity"];
+        return ["Material", "Quantity", "MPN"];
       case "DCK":
-        return ["Brand", "Model", "Series", "Width", "Length", "Era", "Artist", "Type"];
+        return ["Series", "Width", "Length", "Artist", "Type", "Material"];
+      case "APP":
+        return ["Item Type", "Department", "Measurements", "Material", "Style", "Fit"];
       default:
-        return ["Brand", "Item Type", "Era", "Size", "Color", "Material"];
+        return ["Item Type", "Material", "Notes"];
     }
   };
 
@@ -634,61 +659,32 @@ export default function DraftEditor() {
             </div>
             
             <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handlePreview}
-                disabled={saving}
+              <Button variant="outline" size="sm" onClick={handlePreview} disabled={saving}
                 className="border-2 border-border shadow-hard-sm hover:translate-y-[1px] hover:shadow-none transition-all uppercase font-bold text-xs tracking-wider"
-                data-testid="preview-btn"
-              >
-                <Eye className="w-4 h-4 mr-2" />
-                Preview
+                data-testid="preview-btn">
+                <Eye className="w-4 h-4 mr-2" />Preview
               </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleRegenerate}
-                disabled={regenerating || isPublished}
+              <Button variant="outline" size="sm" onClick={handleRegenerate} disabled={regenerating || isPublished}
                 className="border-2 border-border shadow-hard-sm hover:translate-y-[1px] hover:shadow-none transition-all uppercase font-bold text-xs tracking-wider"
-                data-testid="regenerate-btn"
-              >
-                <RefreshCw className={`w-4 h-4 mr-2 ${regenerating ? 'animate-spin' : ''}`} />
-                Regenerate
+                data-testid="regenerate-btn">
+                <RefreshCw className={`w-4 h-4 mr-2 ${regenerating ? 'animate-spin' : ''}`} />Regenerate
               </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleSave}
-                disabled={saving || isPublished}
+              <Button variant="outline" size="sm" onClick={handleSave} disabled={saving || isPublished}
                 className="border-2 border-border shadow-hard-sm hover:translate-y-[1px] hover:shadow-none transition-all uppercase font-bold text-xs tracking-wider"
-                data-testid="save-btn"
-              >
-                <Save className="w-4 h-4 mr-2" />
-                Save
+                data-testid="save-btn">
+                <Save className="w-4 h-4 mr-2" />Save
               </Button>
               {!isPublished && draft.status !== "READY" && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleMarkReady}
-                  disabled={saving}
+                <Button variant="outline" size="sm" onClick={handleMarkReady} disabled={saving}
                   className="border-2 border-border shadow-hard-sm hover:translate-y-[1px] hover:shadow-none transition-all uppercase font-bold text-xs tracking-wider"
-                  data-testid="mark-ready-btn"
-                >
-                  <CheckCircle className="w-4 h-4 mr-2" />
-                  Mark Ready
+                  data-testid="mark-ready-btn">
+                  <CheckCircle className="w-4 h-4 mr-2" />Mark Ready
                 </Button>
               )}
-              <Button
-                size="sm"
-                onClick={handlePublish}
-                disabled={publishing || isPublished}
+              <Button size="sm" onClick={handlePublish} disabled={publishing || isPublished}
                 className="bg-primary text-primary-foreground border-2 border-border shadow-hard-sm hover:translate-y-[1px] hover:shadow-none transition-all uppercase font-bold text-xs tracking-wider"
-                data-testid="publish-btn"
-              >
-                <Send className="w-4 h-4 mr-2" />
-                {publishing ? "Publishing..." : "Publish"}
+                data-testid="publish-btn">
+                <Send className="w-4 h-4 mr-2" />{publishing ? "Publishing..." : "Publish"}
               </Button>
             </div>
           </div>
@@ -697,7 +693,7 @@ export default function DraftEditor() {
 
       <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Left Column - Images & Details */}
+          {/* Left Column */}
           <div className="space-y-6">
             {/* Images */}
             <div className="bg-card border-2 border-border p-4 shadow-hard">
@@ -705,8 +701,7 @@ export default function DraftEditor() {
               {draft.image_urls?.length > 0 ? (
                 <div className="grid grid-cols-2 gap-2">
                   {draft.image_urls.map((url, i) => (
-                    <img 
-                      key={i}
+                    <img key={i}
                       src={url.startsWith('http') ? url : `${process.env.REACT_APP_BACKEND_URL}${url}`}
                       alt={`Image ${i + 1}`}
                       className="w-full h-24 object-cover border-2 border-border"
@@ -718,32 +713,96 @@ export default function DraftEditor() {
               )}
             </div>
 
-            {/* Category & Price */}
+            {/* CORE DETAILS - Always Visible */}
+            <div className="bg-card border-2 border-primary p-4 shadow-hard">
+              <div className="flex items-center justify-between mb-4 border-b-2 border-border pb-2">
+                <h3 className="font-heading font-bold uppercase tracking-tight text-primary">Core Details</h3>
+                {!isPublished && (draft.image_urls?.length > 0 || title) && (
+                  <Button variant="outline" size="sm" onClick={() => handleAutoFillAspects(false)} disabled={autoFilling}
+                    className="border-2 border-border shadow-hard-sm text-xs" data-testid="autofill-core-btn">
+                    <Sparkles className={`w-3 h-3 mr-1 ${autoFilling ? 'animate-pulse' : ''}`} />
+                    {autoFilling ? "..." : "Auto-fill"}
+                  </Button>
+                )}
+              </div>
+              
+              <div className="space-y-3">
+                <div className="space-y-1">
+                  <div className="flex items-center">
+                    <Label className="text-xs font-bold uppercase tracking-widest">Brand</Label>
+                    {getSourceBadge("Brand")}
+                  </div>
+                  <Input value={coreDetails.brand} onChange={(e) => handleCoreDetailChange("brand", e.target.value)}
+                    disabled={isPublished} className="border-2 border-border font-mono h-9"
+                    placeholder="e.g., Santa Cruz, Powell Peralta" data-testid="core-brand" />
+                </div>
+                
+                <div className="space-y-1">
+                  <div className="flex items-center">
+                    <Label className="text-xs font-bold uppercase tracking-widest">Model</Label>
+                    {getSourceBadge("Model")}
+                  </div>
+                  <Input value={coreDetails.model} onChange={(e) => handleCoreDetailChange("model", e.target.value)}
+                    disabled={isPublished} className="border-2 border-border font-mono h-9"
+                    placeholder="e.g., OJ II, Street Bones" data-testid="core-model" />
+                </div>
+                
+                <div className="space-y-1">
+                  <div className="flex items-center">
+                    <Label className="text-xs font-bold uppercase tracking-widest">
+                      Size {draft.item_type === "WHL" ? "(mm)" : draft.item_type === "DCK" ? "(in)" : ""}
+                    </Label>
+                    {getSourceBadge("Size")}
+                  </div>
+                  <Input value={coreDetails.size} onChange={(e) => handleCoreDetailChange("size", e.target.value)}
+                    disabled={isPublished} className="border-2 border-border font-mono h-9"
+                    placeholder={draft.item_type === "WHL" ? "e.g., 63mm" : draft.item_type === "DCK" ? "e.g., 10" : "e.g., 149"}
+                    data-testid="core-size" />
+                </div>
+                
+                <div className="space-y-1">
+                  <div className="flex items-center">
+                    <Label className="text-xs font-bold uppercase tracking-widest">Color</Label>
+                    {getSourceBadge("Color")}
+                  </div>
+                  <Input value={coreDetails.color} onChange={(e) => handleCoreDetailChange("color", e.target.value)}
+                    disabled={isPublished} className="border-2 border-border font-mono h-9"
+                    placeholder="e.g., White, Red, Natural" data-testid="core-color" />
+                </div>
+                
+                <div className="space-y-1">
+                  <div className="flex items-center">
+                    <Label className="text-xs font-bold uppercase tracking-widest">Era / Decade</Label>
+                    {getSourceBadge("Era")}
+                  </div>
+                  <Select value={coreDetails.era} onValueChange={(v) => handleCoreDetailChange("era", v)} disabled={isPublished}>
+                    <SelectTrigger className="border-2 border-border h-9" data-testid="core-era">
+                      <SelectValue placeholder="Select era..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {ERA_OPTIONS.map(opt => (
+                        <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+
+            {/* Category & Price & Condition */}
             <div className="bg-card border-2 border-border p-4 shadow-hard space-y-4">
-              <h3 className="font-heading font-bold uppercase tracking-tight border-b-2 border-border pb-2">Details</h3>
+              <h3 className="font-heading font-bold uppercase tracking-tight border-b-2 border-border pb-2">Listing Details</h3>
               
               <div className="space-y-2">
                 <Label className="text-xs font-bold uppercase tracking-widest">Category ID</Label>
-                <Input
-                  value={categoryId}
-                  onChange={(e) => setCategoryId(e.target.value)}
-                  disabled={isPublished}
-                  className="border-2 border-border font-mono"
-                  data-testid="edit-category-input"
-                />
+                <Input value={categoryId} onChange={(e) => setCategoryId(e.target.value)} disabled={isPublished}
+                  className="border-2 border-border font-mono" data-testid="edit-category-input" />
               </div>
               
               <div className="space-y-2">
                 <Label className="text-xs font-bold uppercase tracking-widest">Price (USD)</Label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  value={price}
-                  onChange={(e) => setPrice(e.target.value)}
-                  disabled={isPublished}
-                  className="border-2 border-border font-mono"
-                  data-testid="edit-price-input"
-                />
+                <Input type="number" step="0.01" value={price} onChange={(e) => setPrice(e.target.value)} disabled={isPublished}
+                  className="border-2 border-border font-mono" data-testid="edit-price-input" />
               </div>
               
               <div className="space-y-2">
@@ -761,7 +820,7 @@ export default function DraftEditor() {
               </div>
             </div>
 
-            {/* Shipping Info (Locked) */}
+            {/* Shipping Info */}
             <div className="bg-card border-2 border-border p-4 shadow-hard opacity-75">
               <div className="flex items-center gap-2 mb-4 border-b-2 border-border pb-2">
                 <Lock className="w-4 h-4" />
@@ -772,7 +831,6 @@ export default function DraftEditor() {
                 <p>USA + Canada: $25</p>
                 <p>Rest of World: $45</p>
                 <p className="border-t border-border pt-2 mt-2">Returns: 30 days, buyer pays return</p>
-                <p>Handling: 2 business days</p>
               </div>
             </div>
           </div>
@@ -796,61 +854,32 @@ export default function DraftEditor() {
                 <div className="flex items-center gap-2">
                   <Label className="text-xs font-bold uppercase tracking-widest">Title</Label>
                   {titleManuallyEdited && (
-                    <Badge variant="outline" className="text-[9px] border-amber-400 text-amber-600">
-                      Manual
-                    </Badge>
+                    <Badge variant="outline" className="text-[9px] border-amber-400 text-amber-600">Manual</Badge>
                   )}
                 </div>
                 <div className="flex items-center gap-3">
-                  <button
-                    onClick={handleRegenerateTitle}
-                    disabled={isPublished}
+                  <button onClick={handleRegenerateTitle} disabled={isPublished}
                     className="text-xs text-primary hover:underline flex items-center gap-1 disabled:opacity-50"
-                    data-testid="regenerate-title-btn"
-                  >
-                    <Wand2 className="w-3 h-3" />
-                    Regenerate
+                    data-testid="regenerate-title-btn">
+                    <Wand2 className="w-3 h-3" />Regenerate
                   </button>
                   <div className="flex items-center gap-1">
                     <span className={`font-mono text-xs font-bold ${
-                      titleLength > 80 
-                        ? 'text-destructive' 
-                        : titleLength >= 70 
-                          ? 'text-green-600' 
-                          : 'text-muted-foreground'
-                    }`}>
-                      {titleLength}
-                    </span>
+                      titleLength > 80 ? 'text-destructive' : titleLength >= 70 ? 'text-green-600' : 'text-muted-foreground'
+                    }`}>{titleLength}</span>
                     <span className="font-mono text-xs text-muted-foreground">/80</span>
-                    {titleLength >= 70 && titleLength <= 80 && (
-                      <span className="text-[9px] text-green-600 font-bold ml-1">✓</span>
-                    )}
+                    {titleLength >= 70 && titleLength <= 80 && <span className="text-[9px] text-green-600 font-bold ml-1">✓</span>}
                   </div>
                 </div>
               </div>
-              <Input
-                value={title}
-                onChange={handleTitleChange}
-                disabled={isPublished}
-                className={`border-2 font-mono ${
-                  titleLength > 80 
-                    ? 'border-destructive bg-red-50' 
-                    : titleLength >= 70 
-                      ? 'border-green-500' 
-                      : 'border-border'
-                }`}
-                placeholder="eBay listing title (max 80 chars)"
-                data-testid="edit-title-input"
-              />
+              <Input value={title} onChange={handleTitleChange} disabled={isPublished}
+                className={`border-2 font-mono ${titleLength > 80 ? 'border-destructive bg-red-50' : titleLength >= 70 ? 'border-green-500' : 'border-border'}`}
+                placeholder="eBay listing title (max 80 chars)" data-testid="edit-title-input" />
               {titleLength > 80 && (
-                <p className="text-destructive text-xs font-mono mt-1">
-                  ⚠️ Titolo supera 80 caratteri - verrà troncato automaticamente al salvataggio
-                </p>
+                <p className="text-destructive text-xs font-mono mt-1">⚠️ Title exceeds 80 characters - will be truncated on save</p>
               )}
               {titleLength < 70 && titleLength > 0 && (
-                <p className="text-muted-foreground text-xs font-mono mt-1">
-                  💡 Target: 70-80 caratteri per migliore visibilità eBay
-                </p>
+                <p className="text-muted-foreground text-xs font-mono mt-1">💡 Target: 70-80 characters for best eBay visibility</p>
               )}
             </div>
 
@@ -858,125 +887,81 @@ export default function DraftEditor() {
             <div className="bg-card border-2 border-border p-4 shadow-hard">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
-                  <Label className="text-xs font-bold uppercase tracking-widest">Description</Label>
+                  <Label className="text-xs font-bold uppercase tracking-widest">Description (90s Sticker Label)</Label>
                   {descriptionManuallyEdited && (
-                    <Badge variant="outline" className="text-[9px] border-amber-400 text-amber-600">
-                      Manual
-                    </Badge>
+                    <Badge variant="outline" className="text-[9px] border-amber-400 text-amber-600">Manual</Badge>
                   )}
                 </div>
-                <button
-                  onClick={handleRegenerateDescription}
-                  disabled={isPublished}
+                <button onClick={handleRegenerateDescription} disabled={isPublished}
                   className="text-xs text-primary hover:underline flex items-center gap-1 disabled:opacity-50"
-                  data-testid="regenerate-description-btn"
-                >
-                  <Wand2 className="w-3 h-3" />
-                  Regenerate description
+                  data-testid="regenerate-description-btn">
+                  <Wand2 className="w-3 h-3" />Regenerate
                 </button>
               </div>
-              <Textarea
-                value={description}
-                onChange={handleDescriptionChange}
-                disabled={isPublished}
-                rows={12}
-                className="border-2 border-border font-mono text-sm"
-                placeholder="Product description (HTML supported)"
-                data-testid="edit-description-input"
-              />
+              <Textarea value={description} onChange={handleDescriptionChange} disabled={isPublished}
+                rows={12} className="border-2 border-border font-mono text-sm"
+                placeholder="Product description (HTML supported)" data-testid="edit-description-input" />
               <p className="text-xs text-muted-foreground mt-2 font-mono">
-                💡 La description si aggiorna automaticamente quando modifichi Title o Item Specifics (formato 90s sticker label).
+                💡 Description auto-updates when Core Details change (90s sticker label format).
               </p>
             </div>
 
-            {/* Aspects */}
+            {/* Additional Aspects */}
             <div className="bg-card border-2 border-border p-4 shadow-hard">
               <div className="flex items-center justify-between mb-4">
                 <Label className="text-xs font-bold uppercase tracking-widest">
-                  Item Specifics
+                  Additional Item Specifics
                   <span className="text-muted-foreground font-normal ml-2">({draft.item_type})</span>
                 </Label>
-                {!isPublished && draft.image_urls?.length > 0 && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleAutoFillAspects}
-                    disabled={autoFilling}
-                    className="border-2 border-border shadow-hard-sm hover:translate-y-[1px] hover:shadow-none transition-all text-xs"
-                    data-testid="autofill-aspects-btn"
-                  >
-                    <Sparkles className={`w-3 h-3 mr-1 ${autoFilling ? 'animate-pulse' : ''}`} />
-                    {autoFilling ? "Analyzing..." : "Auto-fill specifics"}
+                {!isPublished && (
+                  <Button variant="outline" size="sm" onClick={() => handleAutoFillAspects(true)} disabled={autoFilling}
+                    className="border-2 border-border shadow-hard-sm text-xs" data-testid="force-autofill-btn">
+                    <Sparkles className="w-3 h-3 mr-1" />Force Re-autofill
                   </Button>
                 )}
               </div>
               
-              {/* Suggested aspects hint */}
               <div className="mb-4 p-2 bg-muted border border-border text-xs font-mono text-muted-foreground">
-                <strong>Campi suggeriti per {draft.item_type}:</strong> {getSuggestedAspects().join(", ")}
+                <strong>Suggested:</strong> {getAdditionalAspects().join(", ")}
               </div>
               
               <div className="space-y-2 mb-4">
-                {Object.entries(aspects).map(([key, value]) => {
-                  const isKeyAspect = TITLE_TRIGGER_KEYS.includes(key);
-                  const isAutoFilled = autoFilledAspects.includes(key);
-                  return (
-                    <div key={key} className={`flex items-center gap-2 p-2 border-2 border-border ${isKeyAspect ? 'bg-primary/5' : 'bg-muted'}`}>
-                      <div className="w-32 flex items-center gap-1">
-                        <span className={`font-bold text-sm uppercase tracking-wider ${isKeyAspect ? 'text-primary' : ''}`}>
-                          {key}
-                        </span>
-                        {isKeyAspect && <span className="text-[9px]">★</span>}
-                        {isAutoFilled && (
-                          <Badge variant="outline" className="text-[8px] border-cyan-400 text-cyan-600 px-1 py-0">
-                            auto
-                          </Badge>
+                {Object.entries(aspects)
+                  .filter(([key]) => !["Brand", "Model", "Size", "Color", "Era", "Decade", "Width"].includes(key))
+                  .map(([key, value]) => {
+                    const meta = aspectsMetadata[key];
+                    const isAuto = meta && meta.source !== "manual";
+                    return (
+                      <div key={key} className={`flex items-center gap-2 p-2 border-2 border-border ${isAuto ? 'bg-cyan-50' : 'bg-muted'}`}>
+                        <div className="w-32 flex items-center gap-1">
+                          <span className="font-bold text-sm uppercase tracking-wider">{key}</span>
+                          {isAuto && (
+                            <Badge variant="outline" className="text-[8px] border-cyan-400 text-cyan-600 px-1 py-0">
+                              auto
+                            </Badge>
+                          )}
+                        </div>
+                        <Input value={value} onChange={(e) => handleAspectChange(key, e.target.value)} disabled={isPublished}
+                          className="flex-1 border-2 border-border font-mono text-sm h-8" data-testid={`aspect-${key}`} />
+                        {!isPublished && (
+                          <button onClick={() => removeAspect(key)}
+                            className="w-8 h-8 flex items-center justify-center bg-destructive text-white border-2 border-border hover:bg-destructive/80">
+                            <X className="w-4 h-4" />
+                          </button>
                         )}
                       </div>
-                      <Input
-                        value={value}
-                        onChange={(e) => handleAspectChange(key, e.target.value)}
-                        disabled={isPublished}
-                        className="flex-1 border-2 border-border font-mono text-sm h-8"
-                        data-testid={`aspect-${key}`}
-                      />
-                      {!isPublished && (
-                        <button
-                          onClick={() => removeAspect(key)}
-                          className="w-8 h-8 flex items-center justify-center bg-destructive text-white border-2 border-border hover:bg-destructive/80"
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
-                      )}
-                    </div>
-                  );
-                })}
+                    );
+                  })}
               </div>
               
               {!isPublished && (
                 <div className="flex gap-2 pt-2 border-t-2 border-border">
-                  <Input
-                    value={newAspectKey}
-                    onChange={(e) => setNewAspectKey(e.target.value)}
-                    placeholder="Key (es. Brand)"
-                    className="w-32 border-2 border-border font-mono text-sm"
-                    data-testid="new-aspect-key"
-                  />
-                  <Input
-                    value={newAspectValue}
-                    onChange={(e) => setNewAspectValue(e.target.value)}
-                    placeholder="Value"
-                    className="flex-1 border-2 border-border font-mono text-sm"
-                    data-testid="new-aspect-value"
-                  />
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={addAspect}
-                    disabled={!newAspectKey || !newAspectValue}
-                    className="border-2 border-border shadow-hard-sm"
-                    data-testid="add-aspect-btn"
-                  >
+                  <Input value={newAspectKey} onChange={(e) => setNewAspectKey(e.target.value)}
+                    placeholder="Key (e.g., Durometer)" className="w-32 border-2 border-border font-mono text-sm" data-testid="new-aspect-key" />
+                  <Input value={newAspectValue} onChange={(e) => setNewAspectValue(e.target.value)}
+                    placeholder="Value" className="flex-1 border-2 border-border font-mono text-sm" data-testid="new-aspect-value" />
+                  <Button variant="outline" size="sm" onClick={addAspect} disabled={!newAspectKey || !newAspectValue}
+                    className="border-2 border-border shadow-hard-sm" data-testid="add-aspect-btn">
                     <Plus className="w-4 h-4" />
                   </Button>
                 </div>
