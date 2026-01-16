@@ -954,7 +954,7 @@ export default function DraftEditor() {
                 <p className="text-destructive text-xs font-mono mt-1">⚠️ Title exceeds 80 characters - will be truncated on save</p>
               )}
               {titleLength < 70 && titleLength > 0 && (
-                <p className="text-muted-foreground text-xs font-mono mt-1">💡 Target: 70-80 characters for best eBay visibility</p>
+                <p className="text-amber-600 text-xs font-mono mt-1">⚠️ Title under 70 characters - add more details or click Regenerate</p>
               )}
             </div>
 
