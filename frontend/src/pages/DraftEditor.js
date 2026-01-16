@@ -1004,34 +1004,63 @@ export default function DraftEditor() {
               </p>
             </div>
 
-            {/* Additional Aspects */}
+            {/* Item Specifics - All fields for type */}
             <div className="bg-card border-2 border-border p-4 shadow-hard">
               <div className="flex items-center justify-between mb-4">
                 <Label className="text-xs font-bold uppercase tracking-widest">
-                  Additional Item Specifics
+                  Item Specifics
                   <span className="text-muted-foreground font-normal ml-2">({draft.item_type})</span>
                 </Label>
-                {!isPublished && (
+                {!isPublished && (draft.image_urls?.length > 0 || title) && (
                   <Button variant="outline" size="sm" onClick={() => handleAutoFillAspects(true)} disabled={autoFilling}
                     className="border-2 border-border shadow-hard-sm text-xs" data-testid="force-autofill-btn">
-                    <Sparkles className="w-3 h-3 mr-1" />Force Re-autofill
+                    <Sparkles className="w-3 h-3 mr-1" />{autoFilling ? "..." : "Auto-fill All"}
                   </Button>
                 )}
               </div>
               
-              <div className="mb-4 p-2 bg-muted border border-border text-xs font-mono text-muted-foreground">
-                <strong>Suggested:</strong> {getAdditionalAspects().join(", ")}
-              </div>
-              
+              {/* Pre-defined fields for this item type */}
               <div className="space-y-2 mb-4">
+                {getAllAspectsForType().map((key) => {
+                  const value = aspects[key] || "";
+                  const meta = aspectsMetadata[key];
+                  const isAuto = meta && meta.source !== "manual";
+                  const isCore = CORE_ASPECT_KEYS.includes(key);
+                  
+                  return (
+                    <div key={key} className={`flex items-center gap-2 p-2 border-2 ${isCore ? 'border-primary bg-primary/5' : 'border-border'} ${isAuto ? 'bg-cyan-50' : ''}`}>
+                      <div className="w-36 flex items-center gap-1">
+                        <span className={`font-bold text-sm uppercase tracking-wider ${isCore ? 'text-primary' : ''}`}>
+                          {key}
+                        </span>
+                        {isCore && <span className="text-[9px] text-primary">★</span>}
+                        {isAuto && (
+                          <Badge variant="outline" className="text-[8px] border-cyan-400 text-cyan-600 px-1 py-0">
+                            auto
+                          </Badge>
+                        )}
+                      </div>
+                      <Input 
+                        value={value} 
+                        onChange={(e) => handleAspectChange(key, e.target.value)} 
+                        disabled={isPublished}
+                        className="flex-1 border-2 border-border font-mono text-sm h-8" 
+                        placeholder={key === "Size" ? (draft.item_type === "WHL" ? "e.g., 63mm" : draft.item_type === "DCK" ? "e.g., 10in" : "") : ""}
+                        data-testid={`aspect-${key}`} 
+                      />
+                    </div>
+                  );
+                })}
+                
+                {/* Extra aspects not in predefined list */}
                 {Object.entries(aspects)
-                  .filter(([key]) => !["Brand", "Model", "Size", "Color", "Era", "Decade", "Width"].includes(key))
+                  .filter(([key]) => !getAllAspectsForType().includes(key))
                   .map(([key, value]) => {
                     const meta = aspectsMetadata[key];
                     const isAuto = meta && meta.source !== "manual";
                     return (
                       <div key={key} className={`flex items-center gap-2 p-2 border-2 border-border ${isAuto ? 'bg-cyan-50' : 'bg-muted'}`}>
-                        <div className="w-32 flex items-center gap-1">
+                        <div className="w-36 flex items-center gap-1">
                           <span className="font-bold text-sm uppercase tracking-wider">{key}</span>
                           {isAuto && (
                             <Badge variant="outline" className="text-[8px] border-cyan-400 text-cyan-600 px-1 py-0">
@@ -1052,10 +1081,11 @@ export default function DraftEditor() {
                   })}
               </div>
               
+              {/* Add custom aspect */}
               {!isPublished && (
                 <div className="flex gap-2 pt-2 border-t-2 border-border">
                   <Input value={newAspectKey} onChange={(e) => setNewAspectKey(e.target.value)}
-                    placeholder="Key (e.g., Durometer)" className="w-32 border-2 border-border font-mono text-sm" data-testid="new-aspect-key" />
+                    placeholder="Custom field..." className="w-36 border-2 border-border font-mono text-sm" data-testid="new-aspect-key" />
                   <Input value={newAspectValue} onChange={(e) => setNewAspectValue(e.target.value)}
                     placeholder="Value" className="flex-1 border-2 border-border font-mono text-sm" data-testid="new-aspect-value" />
                   <Button variant="outline" size="sm" onClick={addAspect} disabled={!newAspectKey || !newAspectValue}
@@ -1064,6 +1094,10 @@ export default function DraftEditor() {
                   </Button>
                 </div>
               )}
+              
+              <p className="text-xs text-muted-foreground mt-3 font-mono">
+                ★ Core fields (Brand, Model, Size, Color, Era) update Title and Description automatically
+              </p>
             </div>
 
             {/* Published Info */}
