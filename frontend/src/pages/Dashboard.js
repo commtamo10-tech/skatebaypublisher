@@ -68,8 +68,6 @@ export default function Dashboard() {
   };
 
   const handleDelete = async (id, e) => {
-    if (!window.confirm("Sei sicuro di voler cancellare questo draft?")) return;
-    
     try {
       await api.delete(`/drafts/${id}`);
       toast.success("Draft cancellato!");
