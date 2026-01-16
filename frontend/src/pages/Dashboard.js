@@ -69,14 +69,17 @@ export default function Dashboard() {
 
   const handleDelete = async (id, e) => {
     e.stopPropagation();
-    if (!window.confirm("Delete this draft?")) return;
+    e.preventDefault();
+    
+    if (!window.confirm("Sei sicuro di voler cancellare questo draft?")) return;
     
     try {
       await api.delete(`/drafts/${id}`);
-      toast.success("Draft deleted");
-      fetchData();
+      toast.success("Draft cancellato!");
+      await fetchData();
     } catch (error) {
-      toast.error("Failed to delete draft");
+      console.error("Delete error:", error);
+      toast.error("Errore: " + (error.response?.data?.detail || "Impossibile cancellare"));
     }
   };
 
