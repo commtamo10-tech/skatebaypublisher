@@ -966,6 +966,7 @@ export default function DraftEditor() {
                 {/* Extra aspects not in predefined list */}
                 {Object.entries(aspects)
                   .filter(([key]) => !getAllAspectsForType().includes(key))
+                  .filter(([key]) => !["Type", "Model", "Color", "Item Type", "Material", "Notes"].includes(key))
                   .map(([key, value]) => {
                     const meta = aspectsMetadata[key];
                     const isAuto = meta && meta.source !== "manual";
