@@ -381,6 +381,36 @@ class SkateBAYAPITester:
         
         return False
 
+    def test_description_manually_edited_field(self, draft_id):
+        """Test that draft loads with description_manually_edited field"""
+        print("\n📝 Testing Description Manually Edited Field...")
+        
+        if not self.token or not draft_id:
+            self.log_result("Draft has description_manually_edited field", False, "No token or draft_id available")
+            return False
+            
+        try:
+            response = self.session.get(f"{self.base_url}/api/drafts/{draft_id}")
+            
+            if response.status_code == 200:
+                data = response.json()
+                if "description_manually_edited" in data:
+                    # Should default to False for new drafts
+                    if data["description_manually_edited"] == False:
+                        self.log_result("Draft has description_manually_edited field", True)
+                        return True
+                    else:
+                        self.log_result("Draft has description_manually_edited field", False, f"Expected False, got {data['description_manually_edited']}")
+                else:
+                    self.log_result("Draft has description_manually_edited field", False, "Field missing from response")
+            else:
+                self.log_result("Draft has description_manually_edited field", False, f"Status {response.status_code}: {response.text}")
+                
+        except Exception as e:
+            self.log_result("Draft has description_manually_edited field", False, f"Exception: {str(e)}")
+        
+        return False
+
     def test_patch_title_manually_edited(self, draft_id):
         """Test PATCH /api/drafts/{id} updates title_manually_edited field"""
         print("\n✏️ Testing PATCH title_manually_edited...")
