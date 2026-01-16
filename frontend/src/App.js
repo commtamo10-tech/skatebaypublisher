@@ -4,6 +4,7 @@ import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import NewDraft from "./pages/NewDraft";
 import DraftEditor from "./pages/DraftEditor";
+import DraftPreview from "./pages/DraftPreview";
 import Settings from "./pages/Settings";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 
