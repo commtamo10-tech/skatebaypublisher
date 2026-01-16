@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import api from "../lib/api";
 import { Button } from "../components/ui/button";
@@ -16,7 +16,7 @@ import {
 import { toast } from "sonner";
 import { 
   ArrowLeft, Save, CheckCircle, Send, RefreshCw,
-  AlertCircle, Clock, Circle, Plus, X, Lock, Eye
+  AlertCircle, Clock, Circle, Plus, X, Lock, Eye, Wand2
 } from "lucide-react";
 
 const CONDITIONS = [
@@ -35,6 +35,95 @@ const STATUS_STYLES = {
   ERROR: { bg: "bg-red-500", text: "text-white", icon: AlertCircle },
 };
 
+// ============ TITLE BUILDER ============
+const FILLER_WORDS = ["Unknown", "N/A", "(Unknown)", "undefined", "null", "", "assumed", "Vintage"];
+
+const cleanValue = (val) => {
+  if (!val) return null;
+  const trimmed = String(val).trim();
+  if (FILLER_WORDS.some(fw => trimmed.toLowerCase() === fw.toLowerCase())) return null;
+  if (trimmed.length === 0) return null;
+  return trimmed;
+};
+
+const buildEbayTitle = (itemType, aspects) => {
+  if (!aspects) return "";
+  
+  const brand = cleanValue(aspects.Brand);
+  const model = cleanValue(aspects.Model);
+  const era = cleanValue(aspects.Era) || cleanValue(aspects.Decade);
+  const size = cleanValue(aspects.Size);
+  const color = cleanValue(aspects.Color);
+  const durometer = cleanValue(aspects.Durometer);
+  const ogNos = cleanValue(aspects.OG) || cleanValue(aspects.NOS) || cleanValue(aspects["OG/NOS"]);
+  const series = cleanValue(aspects.Series);
+  
+  let parts = [];
+  
+  switch (itemType) {
+    case "WHL": // Wheels
+      if (brand) parts.push(brand);
+      if (model) parts.push(model);
+      if (era) parts.push(era);
+      if (ogNos) parts.push(ogNos);
+      if (color) parts.push(color);
+      if (size) parts.push(size.includes("mm") ? size : `${size}mm`);
+      if (durometer) parts.push(durometer.includes("A") ? durometer : `${durometer}A`);
+      parts.push("Skateboard Wheels");
+      break;
+      
+    case "TRK": // Trucks
+      if (brand) parts.push(brand);
+      if (model) parts.push(model);
+      if (size) parts.push(size);
+      if (era) parts.push(era);
+      if (ogNos) parts.push(ogNos);
+      parts.push("Skateboard Trucks");
+      break;
+      
+    case "DCK": // Decks
+      if (brand) parts.push(brand);
+      if (model || series) parts.push(model || series);
+      if (era) parts.push(era);
+      if (ogNos) parts.push(ogNos);
+      if (size) parts.push(size.includes('"') || size.includes("in") ? size : `${size}"`);
+      parts.push("Skateboard Deck");
+      break;
+      
+    default:
+      if (brand) parts.push(brand);
+      if (model) parts.push(model);
+      if (era) parts.push(era);
+      parts.push("Skateboard Part");
+  }
+  
+  // Build title and clean up
+  let title = parts.join(" ");
+  
+  // Remove multiple spaces
+  title = title.replace(/\s+/g, " ").trim();
+  
+  // Remove double commas or weird punctuation
+  title = title.replace(/,\s*,/g, ",").replace(/\s+,/g, ",");
+  
+  // Truncate to 80 chars if needed, removing less important words first
+  if (title.length > 80) {
+    // Try removing "Skateboard" first
+    let shortened = title.replace(/Skateboard\s*/gi, "");
+    if (shortened.length <= 80) {
+      title = shortened;
+    } else {
+      // Just truncate
+      title = title.substring(0, 77) + "...";
+    }
+  }
+  
+  return title;
+};
+
+// Key aspects that trigger title rebuild
+const TITLE_TRIGGER_KEYS = ["Brand", "Model", "Size", "Era", "Decade", "Color", "Durometer", "OG", "NOS", "OG/NOS", "Series"];
+
 export default function DraftEditor() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -45,6 +134,7 @@ export default function DraftEditor() {
   
   const [draft, setDraft] = useState(null);
   const [title, setTitle] = useState("");
+  const [titleManuallyEdited, setTitleManuallyEdited] = useState(false);
   const [description, setDescription] = useState("");
   const [aspects, setAspects] = useState({});
   const [condition, setCondition] = useState("USED_GOOD");
@@ -57,12 +147,26 @@ export default function DraftEditor() {
     fetchDraft();
   }, [id]);
 
+  // Auto-update title when aspects change (if not manually edited)
+  useEffect(() => {
+    if (!titleManuallyEdited && draft?.item_type && aspects) {
+      const hasRelevantAspects = TITLE_TRIGGER_KEYS.some(key => cleanValue(aspects[key]));
+      if (hasRelevantAspects) {
+        const newTitle = buildEbayTitle(draft.item_type, aspects);
+        if (newTitle && newTitle !== title) {
+          setTitle(newTitle);
+        }
+      }
+    }
+  }, [aspects, draft?.item_type, titleManuallyEdited]);
+
   const fetchDraft = async () => {
     try {
       const response = await api.get(`/drafts/${id}`);
       const data = response.data;
       setDraft(data);
       setTitle(data.title || "");
+      setTitleManuallyEdited(data.title_manually_edited || false);
       setDescription(data.description || "");
       setAspects(data.aspects || {});
       setCondition(data.condition || "USED_GOOD");
@@ -76,21 +180,36 @@ export default function DraftEditor() {
     }
   };
 
+  const handleTitleChange = (e) => {
+    setTitle(e.target.value);
+    setTitleManuallyEdited(true);
+  };
+
+  const handleRegenerateTitle = () => {
+    if (draft?.item_type && aspects) {
+      const newTitle = buildEbayTitle(draft.item_type, aspects);
+      setTitle(newTitle);
+      setTitleManuallyEdited(false);
+      toast.success("Titolo rigenerato dagli specifics");
+    }
+  };
+
   const handleSave = async () => {
     setSaving(true);
     try {
       await api.patch(`/drafts/${id}`, {
         title,
+        title_manually_edited: titleManuallyEdited,
         description,
         aspects,
         condition,
         category_id: categoryId,
         price: parseFloat(price)
       });
-      toast.success("Draft saved");
-      fetchDraft();
+      toast.success("Draft salvato");
+      await fetchDraft();
     } catch (error) {
-      toast.error("Failed to save draft");
+      toast.error("Errore nel salvataggio");
     } finally {
       setSaving(false);
     }
@@ -101,7 +220,7 @@ export default function DraftEditor() {
     try {
       await api.patch(`/drafts/${id}`, { status: "READY" });
       toast.success("Draft marked as ready");
-      fetchDraft();
+      await fetchDraft();
     } catch (error) {
       toast.error("Failed to update status");
     } finally {
@@ -114,7 +233,7 @@ export default function DraftEditor() {
     try {
       const response = await api.post(`/drafts/${id}/publish`);
       toast.success(`Published! Listing ID: ${response.data.listing_id || 'N/A'}`);
-      fetchDraft();
+      await fetchDraft();
     } catch (error) {
       const detail = error.response?.data?.detail;
       if (detail?.errors) {
@@ -122,26 +241,52 @@ export default function DraftEditor() {
       } else {
         toast.error(typeof detail === 'string' ? detail : "Publish failed");
       }
-      fetchDraft();
+      await fetchDraft();
     } finally {
       setPublishing(false);
+    }
+  };
+
+  const handlePreview = async () => {
+    // Save first, then navigate to preview
+    setSaving(true);
+    try {
+      await api.patch(`/drafts/${id}`, {
+        title,
+        title_manually_edited: titleManuallyEdited,
+        description,
+        aspects,
+        condition,
+        category_id: categoryId,
+        price: parseFloat(price)
+      });
+      // Navigate to preview after successful save
+      navigate(`/draft/${id}/preview`);
+    } catch (error) {
+      toast.error("Errore nel salvataggio prima della preview");
+    } finally {
+      setSaving(false);
     }
   };
 
   const handleRegenerate = async () => {
     setRegenerating(true);
     try {
-      toast.loading("Regenerating content...");
+      toast.loading("Rigenerazione contenuto...");
       await api.post(`/drafts/${id}/generate`);
       toast.dismiss();
-      toast.success("Content regenerated");
-      fetchDraft();
+      toast.success("Contenuto rigenerato");
+      await fetchDraft();
     } catch (error) {
       toast.dismiss();
-      toast.error("Regeneration failed");
+      toast.error("Rigenerazione fallita");
     } finally {
       setRegenerating(false);
     }
+  };
+
+  const handleAspectChange = (key, value) => {
+    setAspects(prev => ({ ...prev, [key]: value }));
   };
 
   const addAspect = () => {
@@ -198,7 +343,8 @@ export default function DraftEditor() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => navigate(`/draft/${id}/preview`)}
+                onClick={handlePreview}
+                disabled={saving}
                 className="border-2 border-border shadow-hard-sm hover:translate-y-[1px] hover:shadow-none transition-all uppercase font-bold text-xs tracking-wider"
                 data-testid="preview-btn"
               >
@@ -353,14 +499,32 @@ export default function DraftEditor() {
             {/* Title */}
             <div className="bg-card border-2 border-border p-4 shadow-hard">
               <div className="flex items-center justify-between mb-2">
-                <Label className="text-xs font-bold uppercase tracking-widest">Title</Label>
-                <span className={`font-mono text-xs ${isTitleValid ? 'text-muted-foreground' : 'text-destructive font-bold'}`}>
-                  {titleLength}/80
-                </span>
+                <div className="flex items-center gap-2">
+                  <Label className="text-xs font-bold uppercase tracking-widest">Title</Label>
+                  {titleManuallyEdited && (
+                    <Badge variant="outline" className="text-[9px] border-amber-400 text-amber-600">
+                      Manual
+                    </Badge>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleRegenerateTitle}
+                    disabled={isPublished}
+                    className="text-xs text-primary hover:underline flex items-center gap-1 disabled:opacity-50"
+                    data-testid="regenerate-title-btn"
+                  >
+                    <Wand2 className="w-3 h-3" />
+                    Regenerate title
+                  </button>
+                  <span className={`font-mono text-xs ${isTitleValid ? 'text-muted-foreground' : 'text-destructive font-bold'}`}>
+                    {titleLength}/80
+                  </span>
+                </div>
               </div>
               <Input
                 value={title}
-                onChange={(e) => setTitle(e.target.value)}
+                onChange={handleTitleChange}
                 disabled={isPublished}
                 className={`border-2 font-mono ${isTitleValid ? 'border-border' : 'border-destructive'}`}
                 placeholder="eBay listing title (max 80 chars)"
@@ -369,6 +533,9 @@ export default function DraftEditor() {
               {!isTitleValid && (
                 <p className="text-destructive text-xs font-mono mt-1">Title exceeds 80 character limit</p>
               )}
+              <p className="text-xs text-muted-foreground mt-2 font-mono">
+                💡 Il titolo si aggiorna automaticamente quando modifichi Brand, Model, Size, Era negli Item Specifics.
+              </p>
             </div>
 
             {/* Description */}
@@ -387,28 +554,38 @@ export default function DraftEditor() {
 
             {/* Aspects */}
             <div className="bg-card border-2 border-border p-4 shadow-hard">
-              <Label className="text-xs font-bold uppercase tracking-widest mb-4 block">Item Specifics</Label>
+              <Label className="text-xs font-bold uppercase tracking-widest mb-4 block">
+                Item Specifics
+                <span className="text-muted-foreground font-normal ml-2">(modificali per aggiornare il titolo)</span>
+              </Label>
               
               <div className="space-y-2 mb-4">
-                {Object.entries(aspects).map(([key, value]) => (
-                  <div key={key} className="flex items-center gap-2 bg-muted p-2 border-2 border-border">
-                    <span className="font-bold text-sm uppercase tracking-wider w-32">{key}</span>
-                    <Input
-                      value={value}
-                      onChange={(e) => setAspects(prev => ({ ...prev, [key]: e.target.value }))}
-                      disabled={isPublished}
-                      className="flex-1 border-2 border-border font-mono text-sm h-8"
-                    />
-                    {!isPublished && (
-                      <button
-                        onClick={() => removeAspect(key)}
-                        className="w-8 h-8 flex items-center justify-center bg-destructive text-white border-2 border-border hover:bg-destructive/80"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    )}
-                  </div>
-                ))}
+                {Object.entries(aspects).map(([key, value]) => {
+                  const isKeyAspect = TITLE_TRIGGER_KEYS.includes(key);
+                  return (
+                    <div key={key} className={`flex items-center gap-2 p-2 border-2 border-border ${isKeyAspect ? 'bg-primary/5' : 'bg-muted'}`}>
+                      <span className={`font-bold text-sm uppercase tracking-wider w-32 ${isKeyAspect ? 'text-primary' : ''}`}>
+                        {key}
+                        {isKeyAspect && <span className="text-[9px] ml-1">★</span>}
+                      </span>
+                      <Input
+                        value={value}
+                        onChange={(e) => handleAspectChange(key, e.target.value)}
+                        disabled={isPublished}
+                        className="flex-1 border-2 border-border font-mono text-sm h-8"
+                        data-testid={`aspect-${key}`}
+                      />
+                      {!isPublished && (
+                        <button
+                          onClick={() => removeAspect(key)}
+                          className="w-8 h-8 flex items-center justify-center bg-destructive text-white border-2 border-border hover:bg-destructive/80"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
               
               {!isPublished && (
@@ -416,7 +593,7 @@ export default function DraftEditor() {
                   <Input
                     value={newAspectKey}
                     onChange={(e) => setNewAspectKey(e.target.value)}
-                    placeholder="Key"
+                    placeholder="Key (es. Brand)"
                     className="w-32 border-2 border-border font-mono text-sm"
                     data-testid="new-aspect-key"
                   />
