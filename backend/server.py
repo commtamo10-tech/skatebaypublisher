@@ -901,6 +901,637 @@ async def get_stats(user = Depends(get_current_user)):
     return stats
 
 
+# ============ BATCH UPLOAD & AUTO-GROUP ============
+
+@api_router.post("/batches", response_model=BatchResponse)
+async def create_batch(batch: BatchCreate, user = Depends(get_current_user)):
+    """Create a new batch for multi-image upload"""
+    now = datetime.now(timezone.utc).isoformat()
+    doc = {
+        "id": str(uuid.uuid4()),
+        "name": batch.name or f"Batch {datetime.now().strftime('%Y-%m-%d %H:%M')}",
+        "status": "CREATED",
+        "image_count": 0,
+        "group_count": 0,
+        "draft_count": 0,
+        "created_at": now,
+        "updated_at": now
+    }
+    await db.batches.insert_one(doc)
+    doc.pop("_id", None)
+    return BatchResponse(**doc)
+
+@api_router.get("/batches", response_model=List[BatchResponse])
+async def list_batches(user = Depends(get_current_user)):
+    """List all batches"""
+    cursor = db.batches.find({}, {"_id": 0}).sort("created_at", -1)
+    batches = await cursor.to_list(100)
+    return [BatchResponse(**b) for b in batches]
+
+@api_router.get("/batches/{batch_id}", response_model=BatchResponse)
+async def get_batch(batch_id: str, user = Depends(get_current_user)):
+    """Get batch details"""
+    batch = await db.batches.find_one({"id": batch_id}, {"_id": 0})
+    if not batch:
+        raise HTTPException(status_code=404, detail="Batch not found")
+    return BatchResponse(**batch)
+
+@api_router.post("/batches/{batch_id}/upload")
+async def upload_batch_images(
+    batch_id: str,
+    files: List[UploadFile] = File(...),
+    user = Depends(get_current_user)
+):
+    """Upload multiple images to a batch"""
+    batch = await db.batches.find_one({"id": batch_id})
+    if not batch:
+        raise HTTPException(status_code=404, detail="Batch not found")
+    
+    uploaded = []
+    for file in files:
+        if not file.content_type or not file.content_type.startswith("image/"):
+            continue
+        
+        ext = file.filename.split(".")[-1] if "." in file.filename else "jpg"
+        image_id = str(uuid.uuid4())
+        filename = f"{image_id}.{ext}"
+        filepath = UPLOADS_DIR / filename
+        
+        with open(filepath, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+        
+        url = f"/api/uploads/{filename}"
+        
+        # Save to batch_images collection
+        await db.batch_images.insert_one({
+            "id": image_id,
+            "batch_id": batch_id,
+            "url": url,
+            "filename": file.filename,
+            "group_id": None,
+            "created_at": datetime.now(timezone.utc).isoformat()
+        })
+        
+        uploaded.append({"id": image_id, "url": url, "filename": file.filename})
+    
+    # Update batch image count
+    new_count = batch.get("image_count", 0) + len(uploaded)
+    await db.batches.update_one(
+        {"id": batch_id},
+        {"$set": {"image_count": new_count, "status": "UPLOADING", "updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    
+    return {"uploaded": uploaded, "count": len(uploaded)}
+
+@api_router.get("/batches/{batch_id}/images")
+async def get_batch_images(batch_id: str, user = Depends(get_current_user)):
+    """Get all images in a batch"""
+    cursor = db.batch_images.find({"batch_id": batch_id}, {"_id": 0})
+    images = await cursor.to_list(500)
+    return {"images": images}
+
+@api_router.get("/batches/{batch_id}/groups")
+async def get_batch_groups(batch_id: str, user = Depends(get_current_user)):
+    """Get all groups in a batch"""
+    cursor = db.batch_groups.find({"batch_id": batch_id}, {"_id": 0})
+    groups = await cursor.to_list(100)
+    return {"groups": groups}
+
+
+# Background task for auto-grouping
+async def run_auto_group(batch_id: str, job_id: str):
+    """Background task to auto-group images using LLM vision"""
+    try:
+        await db.jobs.update_one({"id": job_id}, {"$set": {"status": "RUNNING", "progress": 10}})
+        
+        # Get all images in batch
+        cursor = db.batch_images.find({"batch_id": batch_id}, {"_id": 0})
+        images = await cursor.to_list(500)
+        
+        if not images:
+            await db.jobs.update_one({"id": job_id}, {"$set": {"status": "ERROR", "error": "No images found"}})
+            return
+        
+        await db.jobs.update_one({"id": job_id}, {"$set": {"progress": 20, "message": f"Analyzing {len(images)} images..."}})
+        
+        # For MVP: Use LLM to classify each image and group by type
+        # Since we don't have CLIP embeddings, we'll use filename patterns + LLM classification
+        
+        groups_by_type = {"WHL": [], "TRK": [], "DCK": [], "APP": [], "MISC": []}
+        
+        backend_url = os.environ.get('REACT_APP_BACKEND_URL', FRONTEND_URL.replace(':3000', ':8001'))
+        
+        # Process images in batches of 5 for LLM classification
+        batch_size = 5
+        for i in range(0, len(images), batch_size):
+            batch_images = images[i:i+batch_size]
+            progress = 20 + int((i / len(images)) * 60)
+            await db.jobs.update_one({"id": job_id}, {"$set": {"progress": progress}})
+            
+            for img in batch_images:
+                # Get full URL for image
+                img_url = img["url"]
+                if not img_url.startswith("http"):
+                    img_url = f"{backend_url}{img_url}"
+                
+                # Use LLM to classify the image
+                try:
+                    if EMERGENT_LLM_KEY:
+                        from emergentintegrations.llm.chat import LlmChat, UserMessage
+                        
+                        chat = LlmChat(
+                            api_key=EMERGENT_LLM_KEY,
+                            session_id=f"classify-{img['id']}",
+                            system_message="You are an expert at identifying vintage skateboard parts. Classify images into: WHL (wheels), TRK (trucks), DCK (decks), APP (apparel), MISC (other). Respond with ONLY the 3-4 letter code."
+                        ).with_model("openai", "gpt-5.2")
+                        
+                        # For text-only model, use filename hints
+                        filename_lower = img.get("filename", "").lower()
+                        
+                        prompt = f"Based on this skateboard item image filename '{img.get('filename', 'unknown')}', what type is it? Respond with ONLY one of: WHL, TRK, DCK, APP, MISC"
+                        
+                        response = await chat.send_message(UserMessage(text=prompt))
+                        item_type = response.strip().upper()[:4]
+                        
+                        if item_type not in groups_by_type:
+                            item_type = "MISC"
+                    else:
+                        # Fallback: use filename patterns
+                        filename_lower = img.get("filename", "").lower()
+                        if any(w in filename_lower for w in ["wheel", "whl", "ruota"]):
+                            item_type = "WHL"
+                        elif any(w in filename_lower for w in ["truck", "trk", "asse"]):
+                            item_type = "TRK"
+                        elif any(w in filename_lower for w in ["deck", "dck", "tavola", "board"]):
+                            item_type = "DCK"
+                        elif any(w in filename_lower for w in ["shirt", "tee", "hat", "cap", "apparel"]):
+                            item_type = "APP"
+                        else:
+                            item_type = "MISC"
+                    
+                    groups_by_type[item_type].append(img["id"])
+                    
+                except Exception as e:
+                    logger.error(f"Classification error for {img['id']}: {e}")
+                    groups_by_type["MISC"].append(img["id"])
+        
+        await db.jobs.update_one({"id": job_id}, {"$set": {"progress": 85, "message": "Creating groups..."}})
+        
+        # Create groups in DB
+        group_count = 0
+        for item_type, image_ids in groups_by_type.items():
+            if not image_ids:
+                continue
+            
+            # For large groups, split into chunks of ~5 images per group
+            chunk_size = 5
+            for chunk_start in range(0, len(image_ids), chunk_size):
+                chunk = image_ids[chunk_start:chunk_start + chunk_size]
+                group_id = str(uuid.uuid4())
+                
+                await db.batch_groups.insert_one({
+                    "id": group_id,
+                    "batch_id": batch_id,
+                    "image_ids": chunk,
+                    "suggested_type": item_type,
+                    "confidence": 0.7 if item_type != "MISC" else 0.3,
+                    "draft_id": None,
+                    "created_at": datetime.now(timezone.utc).isoformat()
+                })
+                
+                # Update images with group_id
+                await db.batch_images.update_many(
+                    {"id": {"$in": chunk}},
+                    {"$set": {"group_id": group_id}}
+                )
+                
+                group_count += 1
+        
+        # Update batch
+        await db.batches.update_one(
+            {"id": batch_id},
+            {"$set": {"status": "GROUPED", "group_count": group_count, "updated_at": datetime.now(timezone.utc).isoformat()}}
+        )
+        
+        await db.jobs.update_one({"id": job_id}, {"$set": {"status": "COMPLETED", "progress": 100, "message": f"Created {group_count} groups"}})
+        
+    except Exception as e:
+        logger.error(f"Auto-group error: {e}")
+        await db.jobs.update_one({"id": job_id}, {"$set": {"status": "ERROR", "error": str(e)}})
+        await db.batches.update_one({"id": batch_id}, {"$set": {"status": "ERROR"}})
+
+
+@api_router.post("/batches/{batch_id}/auto_group")
+async def auto_group_batch(batch_id: str, background_tasks: BackgroundTasks, user = Depends(get_current_user)):
+    """Start auto-grouping of images (background task)"""
+    batch = await db.batches.find_one({"id": batch_id})
+    if not batch:
+        raise HTTPException(status_code=404, detail="Batch not found")
+    
+    # Create job
+    job_id = str(uuid.uuid4())
+    await db.jobs.insert_one({
+        "id": job_id,
+        "type": "auto_group",
+        "batch_id": batch_id,
+        "status": "PENDING",
+        "progress": 0,
+        "message": "Starting auto-group...",
+        "error": None,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    })
+    
+    # Start background task
+    background_tasks.add_task(run_auto_group, batch_id, job_id)
+    
+    return {"job_id": job_id, "message": "Auto-grouping started"}
+
+
+# Background task for generating drafts
+async def run_generate_drafts(batch_id: str, job_id: str):
+    """Background task to generate drafts from groups"""
+    try:
+        await db.jobs.update_one({"id": job_id}, {"$set": {"status": "RUNNING", "progress": 10}})
+        
+        # Get all groups
+        cursor = db.batch_groups.find({"batch_id": batch_id, "draft_id": None}, {"_id": 0})
+        groups = await cursor.to_list(100)
+        
+        if not groups:
+            await db.jobs.update_one({"id": job_id}, {"$set": {"status": "ERROR", "error": "No groups to process"}})
+            return
+        
+        await db.jobs.update_one({"id": job_id}, {"$set": {"progress": 15, "message": f"Generating {len(groups)} drafts..."}})
+        
+        backend_url = os.environ.get('REACT_APP_BACKEND_URL', FRONTEND_URL.replace(':3000', ':8001'))
+        draft_count = 0
+        
+        for idx, group in enumerate(groups):
+            progress = 15 + int((idx / len(groups)) * 80)
+            await db.jobs.update_one({"id": job_id}, {"$set": {"progress": progress, "message": f"Processing group {idx + 1}/{len(groups)}"}})
+            
+            # Get images for this group
+            image_cursor = db.batch_images.find({"id": {"$in": group["image_ids"]}}, {"_id": 0})
+            images = await image_cursor.to_list(50)
+            image_urls = [img["url"] for img in images]
+            
+            item_type = group["suggested_type"]
+            
+            # Generate SKU
+            sku = await generate_sku(item_type)
+            
+            # Generate content using LLM
+            title = ""
+            description = ""
+            aspects = {}
+            
+            try:
+                if EMERGENT_LLM_KEY:
+                    from emergentintegrations.llm.chat import LlmChat, UserMessage
+                    
+                    item_types_full = {"WHL": "Skateboard Wheels", "TRK": "Skateboard Trucks", "DCK": "Skateboard Deck", "APP": "Skateboard Apparel", "MISC": "Skateboard Part"}
+                    item_type_name = item_types_full.get(item_type, "Skateboard Part")
+                    
+                    system_message = """You are an eBay listing expert for vintage skateboard parts. Generate optimized eBay listings.
+
+RULES:
+- Title MUST be ≤80 characters
+- Title order: Brand + Model + Era + OG/NOS + key specs (size/durometer)
+- NEVER use "Unknown", "N/A", "(Unknown)", or leave empty fields in title
+- If information is not certain, simply omit it
+- Description sections: Overview, Specs (bullets), Condition notes, Shipping & Returns
+- Always append these two lines at end of description:
+  "Ships from Milan, Italy. Combined shipping available—please message before purchase."
+  "International buyers: import duties/taxes are not included and are the buyer's responsibility."
+
+OUTPUT FORMAT (JSON only):
+{
+  "title": "string (max 80 chars, no Unknown)",
+  "description": "string (HTML formatted)",
+  "aspects": {
+    "Brand": "string (only if known)",
+    "Model": "string (only if known)", 
+    "Type": "string",
+    "Size": "string (only if known)",
+    "Era": "string (only if known)"
+  }
+}"""
+
+                    user_message = f"""Generate an eBay listing for vintage {item_type_name}.
+Item Type: {item_type_name}
+Number of images: {len(image_urls)}
+Generate a professional listing template. Do NOT include Unknown values."""
+
+                    chat = LlmChat(
+                        api_key=EMERGENT_LLM_KEY,
+                        session_id=f"draft-gen-{group['id']}",
+                        system_message=system_message
+                    ).with_model("openai", "gpt-5.2")
+                    
+                    response = await chat.send_message(UserMessage(text=user_message))
+                    
+                    # Parse JSON from response
+                    try:
+                        json_start = response.find("{")
+                        json_end = response.rfind("}") + 1
+                        if json_start >= 0 and json_end > json_start:
+                            generated = json.loads(response[json_start:json_end])
+                            title = generated.get("title", "")[:80]
+                            description = generated.get("description", "")
+                            aspects = generated.get("aspects", {})
+                            # Remove any Unknown values from aspects
+                            aspects = {k: v for k, v in aspects.items() if v and "unknown" not in v.lower()}
+                    except:
+                        pass
+                        
+            except Exception as e:
+                logger.error(f"LLM generation error for group {group['id']}: {e}")
+            
+            # Fallback title if LLM failed
+            if not title:
+                type_names = {"WHL": "Vintage Skateboard Wheels", "TRK": "Vintage Skateboard Trucks", "DCK": "Vintage Skateboard Deck", "APP": "Vintage Skateboard Apparel", "MISC": "Vintage Skateboard Part"}
+                title = type_names.get(item_type, "Vintage Skateboard Part")
+            
+            # Create draft
+            now = datetime.now(timezone.utc).isoformat()
+            draft_id = str(uuid.uuid4())
+            
+            draft_doc = {
+                "id": draft_id,
+                "sku": sku,
+                "item_type": item_type,
+                "category_id": "",
+                "price": 0,
+                "image_urls": image_urls,
+                "status": "DRAFT",
+                "condition": "USED_GOOD",
+                "title": title,
+                "title_manually_edited": False,
+                "description": description,
+                "aspects": aspects,
+                "offer_id": None,
+                "listing_id": None,
+                "error_message": None,
+                "batch_id": batch_id,
+                "group_id": group["id"],
+                "confidence": group["confidence"],
+                "created_at": now,
+                "updated_at": now
+            }
+            
+            await db.drafts.insert_one(draft_doc)
+            
+            # Update group with draft_id
+            await db.batch_groups.update_one(
+                {"id": group["id"]},
+                {"$set": {"draft_id": draft_id}}
+            )
+            
+            draft_count += 1
+        
+        # Update batch
+        await db.batches.update_one(
+            {"id": batch_id},
+            {"$set": {"status": "READY", "draft_count": draft_count, "updated_at": datetime.now(timezone.utc).isoformat()}}
+        )
+        
+        await db.jobs.update_one({"id": job_id}, {"$set": {"status": "COMPLETED", "progress": 100, "message": f"Created {draft_count} drafts"}})
+        
+    except Exception as e:
+        logger.error(f"Generate drafts error: {e}")
+        await db.jobs.update_one({"id": job_id}, {"$set": {"status": "ERROR", "error": str(e)}})
+
+
+@api_router.post("/batches/{batch_id}/generate_drafts")
+async def generate_batch_drafts(batch_id: str, background_tasks: BackgroundTasks, user = Depends(get_current_user)):
+    """Generate drafts from groups (background task)"""
+    batch = await db.batches.find_one({"id": batch_id})
+    if not batch:
+        raise HTTPException(status_code=404, detail="Batch not found")
+    
+    # Create job
+    job_id = str(uuid.uuid4())
+    await db.jobs.insert_one({
+        "id": job_id,
+        "type": "generate_drafts",
+        "batch_id": batch_id,
+        "status": "PENDING",
+        "progress": 0,
+        "message": "Starting draft generation...",
+        "error": None,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    })
+    
+    # Start background task
+    background_tasks.add_task(run_generate_drafts, batch_id, job_id)
+    
+    return {"job_id": job_id, "message": "Draft generation started"}
+
+
+@api_router.get("/jobs/{job_id}", response_model=JobResponse)
+async def get_job(job_id: str, user = Depends(get_current_user)):
+    """Get job status and progress"""
+    job = await db.jobs.find_one({"id": job_id}, {"_id": 0})
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    return JobResponse(**job)
+
+
+# Group management endpoints
+@api_router.patch("/batches/{batch_id}/groups/{group_id}")
+async def update_group(batch_id: str, group_id: str, update: GroupUpdateRequest, user = Depends(get_current_user)):
+    """Update a group (change type or images)"""
+    group = await db.batch_groups.find_one({"id": group_id, "batch_id": batch_id})
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+    
+    update_data = {}
+    if update.image_ids is not None:
+        update_data["image_ids"] = update.image_ids
+    if update.suggested_type is not None:
+        update_data["suggested_type"] = update.suggested_type
+    
+    if update_data:
+        await db.batch_groups.update_one({"id": group_id}, {"$set": update_data})
+    
+    updated = await db.batch_groups.find_one({"id": group_id}, {"_id": 0})
+    return updated
+
+
+@api_router.post("/batches/{batch_id}/groups/{group_id}/split")
+async def split_group(batch_id: str, group_id: str, image_ids: List[str], user = Depends(get_current_user)):
+    """Split images from a group into a new group"""
+    group = await db.batch_groups.find_one({"id": group_id, "batch_id": batch_id})
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+    
+    # Remove images from original group
+    remaining_ids = [img_id for img_id in group["image_ids"] if img_id not in image_ids]
+    
+    if not remaining_ids:
+        raise HTTPException(status_code=400, detail="Cannot remove all images from group")
+    
+    await db.batch_groups.update_one({"id": group_id}, {"$set": {"image_ids": remaining_ids}})
+    
+    # Create new group
+    new_group_id = str(uuid.uuid4())
+    await db.batch_groups.insert_one({
+        "id": new_group_id,
+        "batch_id": batch_id,
+        "image_ids": image_ids,
+        "suggested_type": group["suggested_type"],
+        "confidence": 0.5,
+        "draft_id": None,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    })
+    
+    # Update images
+    await db.batch_images.update_many({"id": {"$in": image_ids}}, {"$set": {"group_id": new_group_id}})
+    
+    # Update batch group count
+    await db.batches.update_one({"id": batch_id}, {"$inc": {"group_count": 1}})
+    
+    return {"new_group_id": new_group_id, "original_group_remaining": len(remaining_ids)}
+
+
+@api_router.post("/batches/{batch_id}/merge_groups")
+async def merge_groups(batch_id: str, request: MergeGroupsRequest, user = Depends(get_current_user)):
+    """Merge multiple groups into one"""
+    if len(request.group_ids) < 2:
+        raise HTTPException(status_code=400, detail="Need at least 2 groups to merge")
+    
+    # Get all groups
+    cursor = db.batch_groups.find({"id": {"$in": request.group_ids}, "batch_id": batch_id}, {"_id": 0})
+    groups = await cursor.to_list(100)
+    
+    if len(groups) != len(request.group_ids):
+        raise HTTPException(status_code=404, detail="Some groups not found")
+    
+    # Merge all images into first group
+    main_group = groups[0]
+    all_image_ids = []
+    for g in groups:
+        all_image_ids.extend(g["image_ids"])
+    
+    await db.batch_groups.update_one(
+        {"id": main_group["id"]},
+        {"$set": {"image_ids": all_image_ids}}
+    )
+    
+    # Delete other groups
+    other_group_ids = request.group_ids[1:]
+    await db.batch_groups.delete_many({"id": {"$in": other_group_ids}})
+    
+    # Update images
+    await db.batch_images.update_many({"id": {"$in": all_image_ids}}, {"$set": {"group_id": main_group["id"]}})
+    
+    # Update batch group count
+    await db.batches.update_one({"id": batch_id}, {"$inc": {"group_count": -(len(other_group_ids))}})
+    
+    return {"merged_group_id": main_group["id"], "total_images": len(all_image_ids)}
+
+
+@api_router.post("/batches/{batch_id}/move_image")
+async def move_image(batch_id: str, request: MoveImageRequest, user = Depends(get_current_user)):
+    """Move an image from one group to another (or create new group)"""
+    # Remove from source group
+    from_group = await db.batch_groups.find_one({"id": request.from_group_id, "batch_id": batch_id})
+    if not from_group:
+        raise HTTPException(status_code=404, detail="Source group not found")
+    
+    if request.image_id not in from_group["image_ids"]:
+        raise HTTPException(status_code=400, detail="Image not in source group")
+    
+    # Update source group
+    new_from_ids = [img_id for img_id in from_group["image_ids"] if img_id != request.image_id]
+    if new_from_ids:
+        await db.batch_groups.update_one({"id": request.from_group_id}, {"$set": {"image_ids": new_from_ids}})
+    else:
+        # Delete empty group
+        await db.batch_groups.delete_one({"id": request.from_group_id})
+        await db.batches.update_one({"id": batch_id}, {"$inc": {"group_count": -1}})
+    
+    # Add to target group or create new
+    if request.to_group_id:
+        to_group = await db.batch_groups.find_one({"id": request.to_group_id, "batch_id": batch_id})
+        if not to_group:
+            raise HTTPException(status_code=404, detail="Target group not found")
+        
+        await db.batch_groups.update_one(
+            {"id": request.to_group_id},
+            {"$push": {"image_ids": request.image_id}}
+        )
+        await db.batch_images.update_one({"id": request.image_id}, {"$set": {"group_id": request.to_group_id}})
+        
+        return {"moved_to": request.to_group_id}
+    else:
+        # Create new group
+        new_group_id = str(uuid.uuid4())
+        await db.batch_groups.insert_one({
+            "id": new_group_id,
+            "batch_id": batch_id,
+            "image_ids": [request.image_id],
+            "suggested_type": from_group["suggested_type"],
+            "confidence": 0.5,
+            "draft_id": None,
+            "created_at": datetime.now(timezone.utc).isoformat()
+        })
+        await db.batch_images.update_one({"id": request.image_id}, {"$set": {"group_id": new_group_id}})
+        await db.batches.update_one({"id": batch_id}, {"$inc": {"group_count": 1}})
+        
+        return {"moved_to": new_group_id, "new_group": True}
+
+
+@api_router.delete("/batches/{batch_id}/groups/{group_id}")
+async def delete_group(batch_id: str, group_id: str, user = Depends(get_current_user)):
+    """Delete a group (images become unassigned)"""
+    group = await db.batch_groups.find_one({"id": group_id, "batch_id": batch_id})
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+    
+    # Unassign images
+    await db.batch_images.update_many({"group_id": group_id}, {"$set": {"group_id": None}})
+    
+    # Delete associated draft if exists
+    if group.get("draft_id"):
+        await db.drafts.delete_one({"id": group["draft_id"]})
+        await db.batches.update_one({"id": batch_id}, {"$inc": {"draft_count": -1}})
+    
+    # Delete group
+    await db.batch_groups.delete_one({"id": group_id})
+    await db.batches.update_one({"id": batch_id}, {"$inc": {"group_count": -1}})
+    
+    return {"message": "Group deleted"}
+
+
+@api_router.delete("/batches/{batch_id}")
+async def delete_batch(batch_id: str, user = Depends(get_current_user)):
+    """Delete entire batch with all images, groups and drafts"""
+    batch = await db.batches.find_one({"id": batch_id})
+    if not batch:
+        raise HTTPException(status_code=404, detail="Batch not found")
+    
+    # Delete drafts
+    await db.drafts.delete_many({"batch_id": batch_id})
+    
+    # Delete groups
+    await db.batch_groups.delete_many({"batch_id": batch_id})
+    
+    # Delete images (files on disk too)
+    cursor = db.batch_images.find({"batch_id": batch_id}, {"_id": 0})
+    images = await cursor.to_list(500)
+    for img in images:
+        filepath = UPLOADS_DIR / img["url"].split("/")[-1]
+        if filepath.exists():
+            filepath.unlink()
+    await db.batch_images.delete_many({"batch_id": batch_id})
+    
+    # Delete batch
+    await db.batches.delete_one({"id": batch_id})
+    
+    return {"message": "Batch deleted"}
+
+
 # ============ SETUP ============
 
 # Include router
