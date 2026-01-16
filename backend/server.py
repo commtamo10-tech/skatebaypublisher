@@ -1026,8 +1026,10 @@ OUTPUT FORMAT (JSON only):
 
 
 @api_router.post("/drafts/{draft_id}/autofill_aspects")
-async def autofill_draft_aspects(draft_id: str, user = Depends(get_current_user)):
-    """Auto-fill item specifics using LLM vision analysis of images"""
+async def autofill_draft_aspects(draft_id: str, force: bool = False, user = Depends(get_current_user)):
+    """Auto-fill item specifics using LLM vision analysis of images.
+    If force=True, re-fills all fields including manually edited ones.
+    """
     draft = await db.drafts.find_one({"id": draft_id}, {"_id": 0})
     if not draft:
         raise HTTPException(status_code=404, detail="Draft not found")
@@ -1036,86 +1038,166 @@ async def autofill_draft_aspects(draft_id: str, user = Depends(get_current_user)
         raise HTTPException(status_code=400, detail="LLM API key not configured")
     
     image_urls = draft.get("image_urls", [])
-    if not image_urls:
-        raise HTTPException(status_code=400, detail="No images available for analysis")
+    existing_title = draft.get("title", "")
+    
+    # If no images, try to extract from title as fallback
+    if not image_urls and not existing_title:
+        raise HTTPException(status_code=400, detail="No images or title available for analysis")
     
     item_type = draft["item_type"]
     backend_url = os.environ.get('REACT_APP_BACKEND_URL', FRONTEND_URL.replace(':3000', ':8001'))
     
-    # Get the prompt for this item type
-    extraction_prompt = get_aspects_prompt_for_type(item_type)
-    
     try:
         from emergentintegrations.llm.chat import LlmChat, UserMessage, ImageContent
         
-        # Prepare image URLs (make them absolute)
-        abs_image_urls = []
-        for url in image_urls[:5]:  # Limit to first 5 images
-            if url.startswith("http"):
-                abs_image_urls.append(url)
-            else:
-                abs_image_urls.append(f"{backend_url}{url}")
+        extracted_aspects = {}
+        source = "photo"
         
-        # Create chat with vision model
-        chat = LlmChat(
-            api_key=EMERGENT_LLM_KEY,
-            session_id=f"autofill-{draft_id}",
-            system_message="You are an expert at identifying vintage skateboard items from photos. Analyze images carefully and extract item specifics. Only provide values you can actually see or read from the images. Never guess or assume values."
-        ).with_model("openai", "gpt-5.2")
+        # Try vision analysis first if images available
+        if image_urls:
+            extraction_prompt = get_aspects_prompt_for_type(item_type)
+            
+            # Prepare image URLs (make them absolute)
+            abs_image_urls = []
+            for url in image_urls[:5]:  # Limit to first 5 images
+                if url.startswith("http"):
+                    abs_image_urls.append(url)
+                else:
+                    abs_image_urls.append(f"{backend_url}{url}")
+            
+            # Create chat with vision model
+            chat = LlmChat(
+                api_key=EMERGENT_LLM_KEY,
+                session_id=f"autofill-{draft_id}",
+                system_message="You are an expert at identifying vintage skateboard items from photos. Analyze images carefully and extract item specifics. Only provide values you can actually see or read from the images. Never guess or assume values. For each field, also provide a confidence score between 0 and 1."
+            ).with_model("openai", "gpt-5.2")
+            
+            # Build the message with images
+            image_contents = [ImageContent(url=url) for url in abs_image_urls]
+            
+            # Enhanced prompt to get confidence scores
+            enhanced_prompt = extraction_prompt + """
+
+ALSO include a "confidence" object with confidence scores (0-1) for each extracted field:
+{
+  "Brand": "...",
+  "Model": "...",
+  ...
+  "confidence": {
+    "Brand": 0.95,
+    "Model": 0.8,
+    ...
+  }
+}"""
+            
+            user_message = UserMessage(
+                text=f"Analyze these images of a vintage skateboard item and extract the item specifics.\n\n{enhanced_prompt}",
+                images=image_contents
+            )
+            
+            response = await chat.send_message(user_message)
+            source = "photo"
+            
+            # Parse JSON from response
+            try:
+                json_start = response.find("{")
+                json_end = response.rfind("}") + 1
+                if json_start >= 0 and json_end > json_start:
+                    json_str = response[json_start:json_end]
+                    extracted_aspects = json.loads(json_str)
+            except (json.JSONDecodeError, ValueError):
+                logger.warning(f"Failed to parse LLM vision response, trying title fallback")
         
-        # Build the message with images
-        image_contents = [ImageContent(url=url) for url in abs_image_urls]
+        # Fallback to title extraction if vision didn't work or no images
+        if not extracted_aspects and existing_title:
+            source = "title"
+            chat = LlmChat(
+                api_key=EMERGENT_LLM_KEY,
+                session_id=f"autofill-title-{draft_id}",
+                system_message="Extract item specifics from this skateboard listing title. Only extract values that are clearly present in the title. Never guess."
+            ).with_model("openai", "gpt-5.2")
+            
+            title_prompt = f"""Extract item specifics from this title: "{existing_title}"
+
+For item type {item_type}, extract: Brand, Model, Size, Color, Era/Decade.
+Only include values clearly present in the title.
+
+OUTPUT FORMAT (JSON):
+{{
+  "Brand": "",
+  "Model": "",
+  "Size": "",
+  "Color": "",
+  "Era": "",
+  "confidence": {{
+    "Brand": 0.0,
+    "Model": 0.0,
+    ...
+  }}
+}}"""
+            
+            response = await chat.send_message(title_prompt)
+            try:
+                json_start = response.find("{")
+                json_end = response.rfind("}") + 1
+                if json_start >= 0 and json_end > json_start:
+                    extracted_aspects = json.loads(response[json_start:json_end])
+            except (json.JSONDecodeError, ValueError):
+                pass
         
-        user_message = UserMessage(
-            text=f"Analyze these images of a vintage skateboard item and extract the item specifics.\n\n{extraction_prompt}",
-            images=image_contents
-        )
+        if not extracted_aspects:
+            raise HTTPException(status_code=500, detail="Could not extract any aspects from images or title")
         
-        response = await chat.send_message(user_message)
-        
-        # Parse JSON from response
-        try:
-            json_start = response.find("{")
-            json_end = response.rfind("}") + 1
-            if json_start >= 0 and json_end > json_start:
-                json_str = response[json_start:json_end]
-                extracted_aspects = json.loads(json_str)
-            else:
-                raise ValueError("No JSON found in response")
-        except (json.JSONDecodeError, ValueError) as e:
-            logger.error(f"Failed to parse LLM response: {response}")
-            raise HTTPException(status_code=500, detail=f"Failed to parse LLM response: {str(e)}")
+        # Extract confidence scores
+        confidence_scores = extracted_aspects.pop("confidence", {})
         
         # Filter out empty values and "Unknown" type values
-        invalid_values = ["unknown", "n/a", "na", "none", "", "assumed", "estimate", "possibly", "maybe", "unclear"]
+        invalid_values = ["unknown", "n/a", "na", "none", "", "assumed", "estimate", "possibly", "maybe", "unclear", "not visible", "cannot determine"]
         clean_aspects = {}
+        aspects_metadata = {}
         auto_filled_keys = []
         
         for key, value in extracted_aspects.items():
+            if key == "confidence":
+                continue
             if value and str(value).strip().lower() not in invalid_values:
                 clean_value = str(value).strip()
+                conf = confidence_scores.get(key, 0.7)  # Default confidence
+                
+                # Skip low confidence values
+                if isinstance(conf, (int, float)) and conf < 0.3:
+                    continue
+                
                 clean_aspects[key] = clean_value
+                aspects_metadata[key] = {
+                    "source": source,
+                    "confidence": conf if isinstance(conf, (int, float)) else 0.7
+                }
                 auto_filled_keys.append(key)
         
-        # Merge with existing aspects (don't overwrite manually edited ones)
+        # Merge with existing aspects
         existing_aspects = draft.get("aspects") or {}
-        existing_auto_filled = draft.get("auto_filled_aspects") or []
+        existing_metadata = draft.get("aspects_metadata") or {}
         
-        # Only update aspects that haven't been manually edited
+        # Only update aspects that haven't been manually edited (unless force=True)
         merged_aspects = existing_aspects.copy()
-        new_auto_filled = list(set(existing_auto_filled))  # Keep track of auto-filled keys
+        merged_metadata = existing_metadata.copy()
         
         for key, value in clean_aspects.items():
-            # If this key was previously auto-filled or doesn't exist, we can update it
-            if key not in existing_aspects or key in existing_auto_filled:
+            # Check if field was manually edited
+            existing_source = existing_metadata.get(key, {}).get("source")
+            if force or existing_source != "manual":
                 merged_aspects[key] = value
-                if key not in new_auto_filled:
-                    new_auto_filled.append(key)
+                merged_metadata[key] = aspects_metadata[key]
+        
+        # Extract core details
+        core_details = extract_core_details(merged_aspects)
         
         # Update draft
         update_data = {
             "aspects": merged_aspects,
-            "auto_filled_aspects": new_auto_filled,
+            "aspects_metadata": merged_metadata,
+            **core_details,
             "updated_at": datetime.now(timezone.utc).isoformat()
         }
         
@@ -1126,10 +1208,16 @@ async def autofill_draft_aspects(draft_id: str, user = Depends(get_current_user)
         )
         result.pop("_id", None)
         
+        # Ensure core details in response
+        if not result.get("brand"):
+            result.update(core_details)
+        
         return {
-            "message": f"Auto-filled {len(auto_filled_keys)} aspects from images",
+            "message": f"Auto-filled {len(auto_filled_keys)} aspects from {source}",
             "extracted_aspects": clean_aspects,
+            "aspects_metadata": aspects_metadata,
             "auto_filled_keys": auto_filled_keys,
+            "source": source,
             "draft": DraftResponse(**result)
         }
         
