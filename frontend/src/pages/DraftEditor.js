@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import api from "../lib/api";
 import { Button } from "../components/ui/button";
@@ -36,7 +36,7 @@ const STATUS_STYLES = {
 };
 
 // ============ TITLE BUILDER ============
-const FILLER_WORDS = ["Unknown", "N/A", "(Unknown)", "undefined", "null", "", "assumed", "Vintage"];
+const FILLER_WORDS = ["Unknown", "N/A", "(Unknown)", "undefined", "null", "", "assumed", "estimate"];
 
 const cleanValue = (val) => {
   if (!val) return null;
@@ -57,6 +57,8 @@ const buildEbayTitle = (itemType, aspects) => {
   const durometer = cleanValue(aspects.Durometer);
   const ogNos = cleanValue(aspects.OG) || cleanValue(aspects.NOS) || cleanValue(aspects["OG/NOS"]);
   const series = cleanValue(aspects.Series);
+  const itemTypeAspect = cleanValue(aspects["Item Type"]);
+  const department = cleanValue(aspects.Department);
   
   let parts = [];
   
@@ -90,6 +92,20 @@ const buildEbayTitle = (itemType, aspects) => {
       parts.push("Skateboard Deck");
       break;
       
+    case "APP": // Apparel
+      if (brand) parts.push(brand);
+      if (itemTypeAspect) parts.push(itemTypeAspect);
+      if (size) parts.push(size);
+      if (era) parts.push(era);
+      if (color) parts.push(color);
+      parts.push("Skateboard");
+      if (itemTypeAspect) {
+        // Don't repeat if already added
+      } else {
+        parts.push("Apparel");
+      }
+      break;
+      
     default:
       if (brand) parts.push(brand);
       if (model) parts.push(model);
@@ -99,21 +115,15 @@ const buildEbayTitle = (itemType, aspects) => {
   
   // Build title and clean up
   let title = parts.join(" ");
-  
-  // Remove multiple spaces
   title = title.replace(/\s+/g, " ").trim();
-  
-  // Remove double commas or weird punctuation
   title = title.replace(/,\s*,/g, ",").replace(/\s+,/g, ",");
   
-  // Truncate to 80 chars if needed, removing less important words first
+  // Truncate to 80 chars if needed
   if (title.length > 80) {
-    // Try removing "Skateboard" first
     let shortened = title.replace(/Skateboard\s*/gi, "");
     if (shortened.length <= 80) {
       title = shortened;
     } else {
-      // Just truncate
       title = title.substring(0, 77) + "...";
     }
   }
@@ -121,8 +131,111 @@ const buildEbayTitle = (itemType, aspects) => {
   return title;
 };
 
-// Key aspects that trigger title rebuild
-const TITLE_TRIGGER_KEYS = ["Brand", "Model", "Size", "Era", "Decade", "Color", "Durometer", "OG", "NOS", "OG/NOS", "Series"];
+// ============ DESCRIPTION BUILDER ============
+const buildEbayDescription = (itemType, title, aspects, condition) => {
+  if (!aspects || Object.keys(aspects).length === 0) return "";
+  
+  const cleanAspects = {};
+  Object.entries(aspects).forEach(([k, v]) => {
+    const clean = cleanValue(v);
+    if (clean) cleanAspects[k] = clean;
+  });
+  
+  if (Object.keys(cleanAspects).length === 0) return "";
+  
+  // Build key details based on item type
+  let keyDetailsOrder = [];
+  
+  switch (itemType) {
+    case "APP":
+      keyDetailsOrder = ["Brand", "Item Type", "Department", "Size", "Measurements", "Color", "Material", "Style", "Fit", "Country", "MPN", "UPC"];
+      break;
+    case "WHL":
+      keyDetailsOrder = ["Brand", "Model", "Size", "Durometer", "Color", "Era", "Quantity"];
+      break;
+    case "TRK":
+      keyDetailsOrder = ["Brand", "Model", "Size", "Era", "Color", "Quantity"];
+      break;
+    case "DCK":
+      keyDetailsOrder = ["Brand", "Model", "Series", "Size", "Era", "Artist", "Type"];
+      break;
+    default:
+      keyDetailsOrder = ["Brand", "Type", "Era", "Size", "Color"];
+  }
+  
+  // Build key details HTML
+  let keyDetailsHtml = "";
+  keyDetailsOrder.forEach(key => {
+    if (cleanAspects[key]) {
+      keyDetailsHtml += `<li><strong>${key}:</strong> ${cleanAspects[key]}</li>\n`;
+    }
+  });
+  
+  // Add any extra aspects not in the order
+  Object.entries(cleanAspects).forEach(([key, value]) => {
+    if (!keyDetailsOrder.includes(key)) {
+      keyDetailsHtml += `<li><strong>${key}:</strong> ${value}</li>\n`;
+    }
+  });
+  
+  // Collector intro based on type
+  let intro = "";
+  const era = cleanAspects.Era || cleanAspects.Decade;
+  
+  switch (itemType) {
+    case "APP":
+      intro = era 
+        ? `<p>Check out this vintage ${era} skateboard apparel piece! A great find for collectors of old school skate streetwear. Please review all photos carefully, including any tags or labels.</p>`
+        : `<p>Vintage skateboard apparel for collectors and enthusiasts. Please review all photos carefully, including any tags or labels.</p>`;
+      break;
+    case "WHL":
+      intro = era
+        ? `<p>Classic ${era} skateboard wheels for the vintage collector. These wheels represent an important era in skateboarding history.</p>`
+        : `<p>Vintage skateboard wheels for collectors and riders who appreciate classic gear.</p>`;
+      break;
+    case "TRK":
+      intro = era
+        ? `<p>Original ${era} skateboard trucks. A must-have for serious vintage skateboard collectors.</p>`
+        : `<p>Vintage skateboard trucks for collectors and enthusiasts.</p>`;
+      break;
+    case "DCK":
+      intro = era
+        ? `<p>Vintage ${era} skateboard deck. A piece of skateboarding history for your collection or wall.</p>`
+        : `<p>Classic skateboard deck for collectors and enthusiasts.</p>`;
+      break;
+    default:
+      intro = `<p>Vintage skateboard item for collectors and enthusiasts.</p>`;
+  }
+  
+  // Condition text
+  const conditionText = condition ? CONDITIONS.find(c => c.value === condition)?.label || condition : "Used";
+  
+  // Build full description
+  const description = `
+${intro}
+
+<p><strong>Summary:</strong> ${title || "Vintage skateboard item"}</p>
+
+<p><strong>Key Details:</strong></p>
+<ul>
+${keyDetailsHtml}</ul>
+
+<p><strong>Condition:</strong> ${conditionText}. Please review all photos carefully as they are part of the description.</p>
+
+<p>Questions? Feel free to message—happy to help.</p>
+
+<p>Ships from Milan, Italy. Combined shipping available—please message before purchase.</p>
+
+<p>International buyers: import duties/taxes are not included and are the buyer's responsibility.</p>
+
+<p>Thanks for looking!</p>
+`.trim();
+  
+  return description;
+};
+
+// Key aspects that trigger title/description rebuild
+const TITLE_TRIGGER_KEYS = ["Brand", "Model", "Size", "Era", "Decade", "Color", "Durometer", "OG", "NOS", "OG/NOS", "Series", "Item Type", "Department"];
 
 export default function DraftEditor() {
   const { id } = useParams();
@@ -136,6 +249,7 @@ export default function DraftEditor() {
   const [title, setTitle] = useState("");
   const [titleManuallyEdited, setTitleManuallyEdited] = useState(false);
   const [description, setDescription] = useState("");
+  const [descriptionManuallyEdited, setDescriptionManuallyEdited] = useState(false);
   const [aspects, setAspects] = useState({});
   const [condition, setCondition] = useState("USED_GOOD");
   const [categoryId, setCategoryId] = useState("");
@@ -160,6 +274,19 @@ export default function DraftEditor() {
     }
   }, [aspects, draft?.item_type, titleManuallyEdited]);
 
+  // Auto-update description when title or aspects change (if not manually edited)
+  useEffect(() => {
+    if (!descriptionManuallyEdited && draft?.item_type && aspects) {
+      const hasRelevantAspects = TITLE_TRIGGER_KEYS.some(key => cleanValue(aspects[key]));
+      if (hasRelevantAspects || title) {
+        const newDescription = buildEbayDescription(draft.item_type, title, aspects, condition);
+        if (newDescription && newDescription !== description) {
+          setDescription(newDescription);
+        }
+      }
+    }
+  }, [aspects, title, condition, draft?.item_type, descriptionManuallyEdited]);
+
   const fetchDraft = async () => {
     try {
       const response = await api.get(`/drafts/${id}`);
@@ -168,6 +295,7 @@ export default function DraftEditor() {
       setTitle(data.title || "");
       setTitleManuallyEdited(data.title_manually_edited || false);
       setDescription(data.description || "");
+      setDescriptionManuallyEdited(data.description_manually_edited || false);
       setAspects(data.aspects || {});
       setCondition(data.condition || "USED_GOOD");
       setCategoryId(data.category_id || "");
@@ -185,12 +313,26 @@ export default function DraftEditor() {
     setTitleManuallyEdited(true);
   };
 
+  const handleDescriptionChange = (e) => {
+    setDescription(e.target.value);
+    setDescriptionManuallyEdited(true);
+  };
+
   const handleRegenerateTitle = () => {
     if (draft?.item_type && aspects) {
       const newTitle = buildEbayTitle(draft.item_type, aspects);
       setTitle(newTitle);
       setTitleManuallyEdited(false);
       toast.success("Titolo rigenerato dagli specifics");
+    }
+  };
+
+  const handleRegenerateDescription = () => {
+    if (draft?.item_type) {
+      const newDescription = buildEbayDescription(draft.item_type, title, aspects, condition);
+      setDescription(newDescription);
+      setDescriptionManuallyEdited(false);
+      toast.success("Description rigenerata");
     }
   };
 
@@ -201,10 +343,11 @@ export default function DraftEditor() {
         title,
         title_manually_edited: titleManuallyEdited,
         description,
+        description_manually_edited: descriptionManuallyEdited,
         aspects,
         condition,
         category_id: categoryId,
-        price: parseFloat(price)
+        price: parseFloat(price) || 0
       });
       toast.success("Draft salvato");
       await fetchDraft();
@@ -248,19 +391,18 @@ export default function DraftEditor() {
   };
 
   const handlePreview = async () => {
-    // Save first, then navigate to preview
     setSaving(true);
     try {
       await api.patch(`/drafts/${id}`, {
         title,
         title_manually_edited: titleManuallyEdited,
         description,
+        description_manually_edited: descriptionManuallyEdited,
         aspects,
         condition,
         category_id: categoryId,
-        price: parseFloat(price)
+        price: parseFloat(price) || 0
       });
-      // Navigate to preview after successful save
       navigate(`/draft/${id}/preview`);
     } catch (error) {
       toast.error("Errore nel salvataggio prima della preview");
@@ -321,6 +463,22 @@ export default function DraftEditor() {
   const titleLength = title.length;
   const isTitleValid = titleLength <= 80;
 
+  // Get suggested aspects based on item type
+  const getSuggestedAspects = () => {
+    switch (draft.item_type) {
+      case "APP":
+        return ["Brand", "Item Type", "Department", "Size", "Measurements", "Color", "Material", "Style", "Fit", "Era"];
+      case "WHL":
+        return ["Brand", "Model", "Size", "Durometer", "Color", "Era", "Quantity"];
+      case "TRK":
+        return ["Brand", "Model", "Size", "Era", "Color", "Quantity"];
+      case "DCK":
+        return ["Brand", "Model", "Series", "Size", "Era", "Artist", "Type"];
+      default:
+        return ["Brand", "Type", "Era", "Size", "Color"];
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -336,6 +494,9 @@ export default function DraftEditor() {
               <Badge className={`${statusStyle.bg} ${statusStyle.text} border-2 border-border uppercase text-[10px] font-bold`}>
                 <StatusIcon className="w-3 h-3 mr-1" />
                 {draft.status}
+              </Badge>
+              <Badge variant="outline" className="border-2 border-border uppercase text-[10px] font-bold">
+                {draft.item_type}
               </Badge>
             </div>
             
@@ -533,31 +694,56 @@ export default function DraftEditor() {
               {!isTitleValid && (
                 <p className="text-destructive text-xs font-mono mt-1">Title exceeds 80 character limit</p>
               )}
-              <p className="text-xs text-muted-foreground mt-2 font-mono">
-                💡 Il titolo si aggiorna automaticamente quando modifichi Brand, Model, Size, Era negli Item Specifics.
-              </p>
             </div>
 
             {/* Description */}
             <div className="bg-card border-2 border-border p-4 shadow-hard">
-              <Label className="text-xs font-bold uppercase tracking-widest mb-2 block">Description</Label>
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <Label className="text-xs font-bold uppercase tracking-widest">Description</Label>
+                  {descriptionManuallyEdited && (
+                    <Badge variant="outline" className="text-[9px] border-amber-400 text-amber-600">
+                      Manual
+                    </Badge>
+                  )}
+                </div>
+                <button
+                  onClick={handleRegenerateDescription}
+                  disabled={isPublished}
+                  className="text-xs text-primary hover:underline flex items-center gap-1 disabled:opacity-50"
+                  data-testid="regenerate-description-btn"
+                >
+                  <Wand2 className="w-3 h-3" />
+                  Regenerate description
+                </button>
+              </div>
               <Textarea
                 value={description}
-                onChange={(e) => setDescription(e.target.value)}
+                onChange={handleDescriptionChange}
                 disabled={isPublished}
                 rows={12}
                 className="border-2 border-border font-mono text-sm"
                 placeholder="Product description (HTML supported)"
                 data-testid="edit-description-input"
               />
+              <p className="text-xs text-muted-foreground mt-2 font-mono">
+                💡 La description si aggiorna automaticamente quando modifichi Title o Item Specifics.
+              </p>
             </div>
 
             {/* Aspects */}
             <div className="bg-card border-2 border-border p-4 shadow-hard">
-              <Label className="text-xs font-bold uppercase tracking-widest mb-4 block">
-                Item Specifics
-                <span className="text-muted-foreground font-normal ml-2">(modificali per aggiornare il titolo)</span>
-              </Label>
+              <div className="flex items-center justify-between mb-4">
+                <Label className="text-xs font-bold uppercase tracking-widest">
+                  Item Specifics
+                  <span className="text-muted-foreground font-normal ml-2">({draft.item_type})</span>
+                </Label>
+              </div>
+              
+              {/* Suggested aspects hint */}
+              <div className="mb-4 p-2 bg-muted border border-border text-xs font-mono text-muted-foreground">
+                <strong>Campi suggeriti per {draft.item_type}:</strong> {getSuggestedAspects().join(", ")}
+              </div>
               
               <div className="space-y-2 mb-4">
                 {Object.entries(aspects).map(([key, value]) => {
