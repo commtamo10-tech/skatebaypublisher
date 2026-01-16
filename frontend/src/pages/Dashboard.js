@@ -259,16 +259,22 @@ export default function Dashboard() {
                     </div>
                     
                     {/* Actions */}
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={(e) => handleDelete(draft.id, e)}
-                        className="text-destructive hover:bg-destructive/10"
+                    <div 
+                      className="flex items-center gap-2"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          e.preventDefault();
+                          handleDelete(draft.id, e);
+                        }}
+                        className="p-2 text-destructive hover:bg-destructive/10 rounded transition-colors"
                         data-testid={`delete-draft-${draft.id}`}
                       >
                         <Trash2 className="w-4 h-4" />
-                      </Button>
+                      </button>
                     </div>
                   </div>
                   
