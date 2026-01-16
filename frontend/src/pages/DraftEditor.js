@@ -38,6 +38,9 @@ const STATUS_STYLES = {
 // ============ TITLE BUILDER ============
 const FILLER_WORDS = ["Unknown", "N/A", "(Unknown)", "undefined", "null", "", "assumed", "estimate"];
 
+// Keyword fillers in priority order
+const KEYWORD_FILLERS = ["Old School", "Vintage"];
+
 const cleanValue = (val) => {
   if (!val) return null;
   const trimmed = String(val).trim();
@@ -55,10 +58,30 @@ const buildEbayTitle = (itemType, aspects) => {
   const size = cleanValue(aspects.Size);
   const color = cleanValue(aspects.Color);
   const durometer = cleanValue(aspects.Durometer);
-  const ogNos = cleanValue(aspects.OG) || cleanValue(aspects.NOS) || cleanValue(aspects["OG/NOS"]);
   const series = cleanValue(aspects.Series);
   const itemTypeAspect = cleanValue(aspects["Item Type"]);
   const department = cleanValue(aspects.Department);
+  
+  // Handle OG/NOS - mutually exclusive
+  const ogValue = cleanValue(aspects.OG);
+  const nosValue = cleanValue(aspects.NOS);
+  const ogNosValue = cleanValue(aspects["OG/NOS"]);
+  
+  let ogNos = null;
+  let hasOG = false;
+  let hasNOS = false;
+  
+  if (nosValue && (nosValue.toLowerCase() === "true" || nosValue.toLowerCase() === "yes" || nosValue === "NOS")) {
+    ogNos = "NOS";
+    hasNOS = true;
+  } else if (ogValue && (ogValue.toLowerCase() === "true" || ogValue.toLowerCase() === "yes" || ogValue === "OG")) {
+    ogNos = "OG";
+    hasOG = true;
+  } else if (ogNosValue) {
+    ogNos = ogNosValue;
+    if (ogNosValue.toUpperCase().includes("NOS")) hasNOS = true;
+    if (ogNosValue.toUpperCase().includes("OG")) hasOG = true;
+  }
   
   let parts = [];
   
@@ -99,9 +122,7 @@ const buildEbayTitle = (itemType, aspects) => {
       if (era) parts.push(era);
       if (color) parts.push(color);
       parts.push("Skateboard");
-      if (itemTypeAspect) {
-        // Don't repeat if already added
-      } else {
+      if (!itemTypeAspect) {
         parts.push("Apparel");
       }
       break;
@@ -113,11 +134,49 @@ const buildEbayTitle = (itemType, aspects) => {
       parts.push("Skateboard Part");
   }
   
-  // Build title and clean up
+  // Build base title and clean up
   let title = parts.join(" ");
   title = title.replace(/\s+/g, " ").trim();
   title = title.replace(/,\s*,/g, ",").replace(/\s+,/g, ",");
   
+  // Check what specs are missing for keyword filler decision
+  const missingImportantSpecs = !size || !durometer || !model;
+  
+  // Add keyword fillers if title < 70 chars and missing important specs
+  if (title.length < 70 && missingImportantSpecs) {
+    const titleLower = title.toLowerCase();
+    
+    // Try adding keyword fillers in priority order
+    for (const keyword of KEYWORD_FILLERS) {
+      // Don't add if already present in title
+      if (titleLower.includes(keyword.toLowerCase())) continue;
+      
+      // Check if adding would exceed 80
+      const potentialTitle = `${keyword} ${title}`;
+      if (potentialTitle.length <= 80) {
+        title = potentialTitle;
+        // Check if we've reached target range (70-80)
+        if (title.length >= 70) break;
+      }
+    }
+    
+    // Try adding OG or NOS if applicable and not already present
+    if (title.length < 70) {
+      if (hasNOS && !titleLower.includes("nos")) {
+        const potentialTitle = title.replace("Skateboard", "NOS Skateboard");
+        if (potentialTitle.length <= 80 && !title.includes("NOS")) {
+          title = potentialTitle;
+        }
+      } else if (hasOG && !titleLower.includes(" og ") && !titleLower.includes("og ")) {
+        const potentialTitle = title.replace("Skateboard", "OG Skateboard");
+        if (potentialTitle.length <= 80 && !title.includes("OG")) {
+          title = potentialTitle;
+        }
+      }
+    }
+  }
+  
+  // Hard limit: truncate to 80 chars
   // Truncate to 80 chars if needed
   if (title.length > 80) {
     let shortened = title.replace(/Skateboard\s*/gi, "");
