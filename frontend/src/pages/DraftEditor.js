@@ -774,16 +774,29 @@ export default function DraftEditor() {
                     <Label className="text-xs font-bold uppercase tracking-widest">Era / Decade</Label>
                     {getSourceBadge("Era")}
                   </div>
-                  <Select value={coreDetails.era} onValueChange={(v) => handleCoreDetailChange("era", v)} disabled={isPublished}>
-                    <SelectTrigger className="border-2 border-border h-9" data-testid="core-era">
-                      <SelectValue placeholder="Select era..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {ERA_OPTIONS.map(opt => (
-                        <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  {coreDetails.era ? (
+                    <Select value={coreDetails.era} onValueChange={(v) => handleCoreDetailChange("era", v)} disabled={isPublished}>
+                      <SelectTrigger className="border-2 border-border h-9" data-testid="core-era">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {ERA_OPTIONS.map(opt => (
+                          <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <Select value={undefined} onValueChange={(v) => handleCoreDetailChange("era", v)} disabled={isPublished}>
+                      <SelectTrigger className="border-2 border-border h-9" data-testid="core-era">
+                        <SelectValue placeholder="Select era..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {ERA_OPTIONS.map(opt => (
+                          <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
                 </div>
               </div>
             </div>
