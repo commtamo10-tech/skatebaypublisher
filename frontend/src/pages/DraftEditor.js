@@ -16,7 +16,7 @@ import {
 import { toast } from "sonner";
 import { 
   ArrowLeft, Save, CheckCircle, Send, RefreshCw,
-  AlertCircle, Clock, Circle, Plus, X, Lock
+  AlertCircle, Clock, Circle, Plus, X, Lock, Eye
 } from "lucide-react";
 
 const CONDITIONS = [
