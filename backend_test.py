@@ -265,6 +265,48 @@ class SkateBAYAPITester:
         
         return False
 
+    def test_draft_preview(self, draft_id):
+        """Test draft preview endpoint with HTML sanitization"""
+        print("\n👁️ Testing Draft Preview...")
+        
+        if not self.token or not draft_id:
+            self.log_result("GET /drafts/{id}/preview", False, "No token or draft_id available")
+            return False
+            
+        try:
+            response = self.session.get(f"{self.base_url}/api/drafts/{draft_id}/preview")
+            
+            if response.status_code == 200:
+                data = response.json()
+                required_fields = ["id", "sku", "title", "price", "categoryId", "condition", 
+                                 "images", "aspects", "descriptionHtml", "descriptionRaw", "status", "itemType"]
+                
+                if all(field in data for field in required_fields):
+                    # Test HTML sanitization - check that dangerous tags are removed
+                    html_content = data.get("descriptionHtml", "")
+                    raw_content = data.get("descriptionRaw", "")
+                    
+                    # Check that script, iframe, style tags are not in sanitized HTML
+                    dangerous_tags = ["<script", "<iframe", "<style", "javascript:", "onclick="]
+                    has_dangerous_content = any(tag.lower() in html_content.lower() for tag in dangerous_tags)
+                    
+                    if has_dangerous_content:
+                        self.log_result("GET /drafts/{id}/preview", False, "HTML sanitization failed - dangerous tags found")
+                        return False
+                    
+                    self.log_result("GET /drafts/{id}/preview", True)
+                    return True
+                else:
+                    missing_fields = [field for field in required_fields if field not in data]
+                    self.log_result("GET /drafts/{id}/preview", False, f"Missing fields: {missing_fields}")
+            else:
+                self.log_result("GET /drafts/{id}/preview", False, f"Status {response.status_code}: {response.text}")
+                
+        except Exception as e:
+            self.log_result("GET /drafts/{id}/preview", False, f"Exception: {str(e)}")
+        
+        return False
+
     def run_all_tests(self):
         """Run all API tests"""
         print("🚀 Starting SkateBay API Tests...")
