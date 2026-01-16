@@ -788,6 +788,269 @@ Generate a professional listing. Remember:
         raise HTTPException(status_code=500, detail=f"Generation failed: {str(e)}")
 
 
+# ============ AUTO-FILL SPECIFICS (VISION LLM) ============
+
+def get_aspects_prompt_for_type(item_type: str) -> str:
+    """Get the extraction prompt based on item type"""
+    base_rules = """
+CRITICAL RULES:
+- Extract ONLY values you can see or read from the image
+- NEVER invent or guess values
+- If uncertain, leave the field empty (do NOT write "Unknown", "N/A", "assumed", etc.)
+- For Era/Decade, only specify if you can see date indicators (copyright year, design style, etc.)
+- Normalize values: Size with units (e.g., "63mm", "8.5in"), Era as "1980s", "1990s", or "1980s-1990s"
+"""
+    
+    if item_type == "WHL":
+        return base_rules + """
+Extract these aspects for SKATEBOARD WHEELS:
+- Brand: Look for brand name on wheel sidewall, graphics, or labels
+- Model: Look for model name on wheel
+- Size: Diameter in mm (e.g., "63mm", "60mm")
+- Durometer: Hardness rating (e.g., "95A", "97A")
+- Color: Main wheel color (e.g., "White", "Yellow", "Clear")
+- Era: Decade if identifiable from copyright, design, or known vintage models (e.g., "1980s", "1990s")
+- Core: Core type if visible (e.g., "Conical", "Standard")
+- Material: If identifiable (e.g., "Urethane")
+- MPN: Manufacturer part number if visible
+- Country: Country of manufacture if visible on label
+
+OUTPUT FORMAT (JSON only, empty string for unknown values):
+{
+  "Brand": "",
+  "Model": "",
+  "Size": "",
+  "Durometer": "",
+  "Color": "",
+  "Era": "",
+  "Core": "",
+  "Material": "",
+  "MPN": "",
+  "Country": ""
+}"""
+    
+    elif item_type == "TRK":
+        return base_rules + """
+Extract these aspects for SKATEBOARD TRUCKS:
+- Brand: Look for brand name on hanger, baseplate, or pivot cup
+- Model: Look for model name
+- Size: Hanger width (e.g., "149mm", "8.0")
+- Color: Main color/finish (e.g., "Silver", "Black", "Gold")
+- Era: Decade if identifiable
+- Material: If identifiable (e.g., "Aluminum", "Magnesium")
+- MPN: Manufacturer part number if visible
+- Country: Country of manufacture if visible
+
+OUTPUT FORMAT (JSON only):
+{
+  "Brand": "",
+  "Model": "",
+  "Size": "",
+  "Color": "",
+  "Era": "",
+  "Material": "",
+  "MPN": "",
+  "Country": ""
+}"""
+    
+    elif item_type == "DCK":
+        return base_rules + """
+Extract these aspects for SKATEBOARD DECKS:
+- Brand: Look for brand name/logo on deck
+- Model: Model or series name
+- Series: Series name if different from model
+- Width: Deck width in inches (e.g., "8.5", "10")
+- Length: Deck length if visible
+- Era: Decade if identifiable from graphics, shape, or copyright
+- Artist: Artist name if signed or credited
+- Type: OG (original) or Reissue if identifiable
+- Material: Construction type if known (e.g., "7-ply Maple")
+- MPN: If visible
+- Country: Country of manufacture if visible
+
+OUTPUT FORMAT (JSON only):
+{
+  "Brand": "",
+  "Model": "",
+  "Series": "",
+  "Width": "",
+  "Length": "",
+  "Era": "",
+  "Artist": "",
+  "Type": "",
+  "Material": "",
+  "MPN": "",
+  "Country": ""
+}"""
+    
+    elif item_type == "APP":
+        return base_rules + """
+Extract these aspects for SKATEBOARD APPAREL:
+- Brand: Look for brand name on tags, labels, prints
+- Item Type: Type of garment (T-shirt, Hoodie, Jacket, Pants, Cap, etc.)
+- Department: Men, Women, or Unisex
+- Size: Tag size (S, M, L, XL, etc.)
+- Measurements: If visible on tag (e.g., "Chest: 22in")
+- Color: Main color(s)
+- Material: Fabric composition if on tag (e.g., "100% Cotton")
+- Style: Fit style if identifiable (Regular, Oversized, Slim)
+- Era: Decade if identifiable from tags, design, or copyright
+- Country: Country of manufacture if on tag
+- MPN: Style number if on tag
+- UPC: Barcode if visible
+
+OUTPUT FORMAT (JSON only):
+{
+  "Brand": "",
+  "Item Type": "",
+  "Department": "",
+  "Size": "",
+  "Measurements": "",
+  "Color": "",
+  "Material": "",
+  "Style": "",
+  "Era": "",
+  "Country": "",
+  "MPN": "",
+  "UPC": ""
+}"""
+    
+    else:  # MISC
+        return base_rules + """
+Extract these aspects for this SKATEBOARD ITEM:
+- Brand: Look for brand name
+- Item Type: What type of item is this
+- Era: Decade if identifiable
+- Color: Main color(s)
+- Material: Material if identifiable
+- Notes: Any other relevant details visible
+
+OUTPUT FORMAT (JSON only):
+{
+  "Brand": "",
+  "Item Type": "",
+  "Era": "",
+  "Color": "",
+  "Material": "",
+  "Notes": ""
+}"""
+
+
+@api_router.post("/drafts/{draft_id}/autofill_aspects")
+async def autofill_draft_aspects(draft_id: str, user = Depends(get_current_user)):
+    """Auto-fill item specifics using LLM vision analysis of images"""
+    draft = await db.drafts.find_one({"id": draft_id}, {"_id": 0})
+    if not draft:
+        raise HTTPException(status_code=404, detail="Draft not found")
+    
+    if not EMERGENT_LLM_KEY:
+        raise HTTPException(status_code=400, detail="LLM API key not configured")
+    
+    image_urls = draft.get("image_urls", [])
+    if not image_urls:
+        raise HTTPException(status_code=400, detail="No images available for analysis")
+    
+    item_type = draft["item_type"]
+    backend_url = os.environ.get('REACT_APP_BACKEND_URL', FRONTEND_URL.replace(':3000', ':8001'))
+    
+    # Get the prompt for this item type
+    extraction_prompt = get_aspects_prompt_for_type(item_type)
+    
+    try:
+        from emergentintegrations.llm.chat import LlmChat, UserMessage, ImageContent
+        
+        # Prepare image URLs (make them absolute)
+        abs_image_urls = []
+        for url in image_urls[:5]:  # Limit to first 5 images
+            if url.startswith("http"):
+                abs_image_urls.append(url)
+            else:
+                abs_image_urls.append(f"{backend_url}{url}")
+        
+        # Create chat with vision model
+        chat = LlmChat(
+            api_key=EMERGENT_LLM_KEY,
+            session_id=f"autofill-{draft_id}",
+            system_message="You are an expert at identifying vintage skateboard items from photos. Analyze images carefully and extract item specifics. Only provide values you can actually see or read from the images. Never guess or assume values."
+        ).with_model("openai", "gpt-5.2")
+        
+        # Build the message with images
+        image_contents = [ImageContent(url=url) for url in abs_image_urls]
+        
+        user_message = UserMessage(
+            text=f"Analyze these images of a vintage skateboard item and extract the item specifics.\n\n{extraction_prompt}",
+            images=image_contents
+        )
+        
+        response = await chat.send_message(user_message)
+        
+        # Parse JSON from response
+        try:
+            json_start = response.find("{")
+            json_end = response.rfind("}") + 1
+            if json_start >= 0 and json_end > json_start:
+                json_str = response[json_start:json_end]
+                extracted_aspects = json.loads(json_str)
+            else:
+                raise ValueError("No JSON found in response")
+        except (json.JSONDecodeError, ValueError) as e:
+            logger.error(f"Failed to parse LLM response: {response}")
+            raise HTTPException(status_code=500, detail=f"Failed to parse LLM response: {str(e)}")
+        
+        # Filter out empty values and "Unknown" type values
+        invalid_values = ["unknown", "n/a", "na", "none", "", "assumed", "estimate", "possibly", "maybe", "unclear"]
+        clean_aspects = {}
+        auto_filled_keys = []
+        
+        for key, value in extracted_aspects.items():
+            if value and str(value).strip().lower() not in invalid_values:
+                clean_value = str(value).strip()
+                clean_aspects[key] = clean_value
+                auto_filled_keys.append(key)
+        
+        # Merge with existing aspects (don't overwrite manually edited ones)
+        existing_aspects = draft.get("aspects") or {}
+        existing_auto_filled = draft.get("auto_filled_aspects") or []
+        
+        # Only update aspects that haven't been manually edited
+        merged_aspects = existing_aspects.copy()
+        new_auto_filled = list(set(existing_auto_filled))  # Keep track of auto-filled keys
+        
+        for key, value in clean_aspects.items():
+            # If this key was previously auto-filled or doesn't exist, we can update it
+            if key not in existing_aspects or key in existing_auto_filled:
+                merged_aspects[key] = value
+                if key not in new_auto_filled:
+                    new_auto_filled.append(key)
+        
+        # Update draft
+        update_data = {
+            "aspects": merged_aspects,
+            "auto_filled_aspects": new_auto_filled,
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }
+        
+        result = await db.drafts.find_one_and_update(
+            {"id": draft_id},
+            {"$set": update_data},
+            return_document=True
+        )
+        result.pop("_id", None)
+        
+        return {
+            "message": f"Auto-filled {len(auto_filled_keys)} aspects from images",
+            "extracted_aspects": clean_aspects,
+            "auto_filled_keys": auto_filled_keys,
+            "draft": DraftResponse(**result)
+        }
+        
+    except ImportError:
+        raise HTTPException(status_code=500, detail="emergentintegrations library not available")
+    except Exception as e:
+        logger.error(f"Auto-fill aspects error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Auto-fill failed: {str(e)}")
+
+
 # ============ EBAY INVENTORY API ============
 
 @api_router.post("/drafts/{draft_id}/publish")
