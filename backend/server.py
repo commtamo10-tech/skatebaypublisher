@@ -1106,7 +1106,7 @@ ALSO include a "confidence" object with confidence scores (0-1) for each extract
                     json_str = response[json_start:json_end]
                     extracted_aspects = json.loads(json_str)
             except (json.JSONDecodeError, ValueError):
-                logger.warning(f"Failed to parse LLM vision response, trying title fallback")
+                logger.warning("Failed to parse LLM vision response, trying title fallback")
         
         # Fallback to title extraction if vision didn't work or no images
         if not extracted_aspects and existing_title:
