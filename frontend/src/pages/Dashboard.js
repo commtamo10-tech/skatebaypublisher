@@ -145,6 +145,15 @@ export default function Dashboard() {
             <Plus className="w-4 h-4 mr-2" />
             New Draft
           </Button>
+          <Button
+            onClick={() => navigate("/batch/new")}
+            variant="outline"
+            className="border-2 border-border shadow-hard hover:translate-y-[2px] hover:shadow-hard-sm active:translate-y-[4px] active:shadow-none transition-all uppercase font-bold tracking-wider"
+            data-testid="batch-upload-btn"
+          >
+            <Upload className="w-4 h-4 mr-2" />
+            Batch Upload
+          </Button>
           
           <div className="flex-1 flex gap-2">
             <div className="relative flex-1 max-w-sm">
