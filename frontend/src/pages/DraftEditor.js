@@ -231,7 +231,7 @@ const build90sDescription = (itemType, coreDetails, aspects, condition) => {
   if (coreDetails.era) merged.Era = coreDetails.era;
   
   // Fields to exclude from description
-  const excludedFields = ["Model", "Color", "Type", "Item Type", "Material", "Notes"];
+  const excludedFields = ["Model", "Color", "Type", "Item Type", "Material", "Notes", "Decade"];
   
   // Filter out empty values and excluded fields
   const cleanAspects = {};
