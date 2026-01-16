@@ -53,7 +53,16 @@ export default function DraftPreview() {
 
   const fetchPreview = async () => {
     try {
-      const response = await api.get(`/drafts/${id}/preview`);
+      // Fetch with cache disabled to always get latest data
+      const response = await api.get(`/drafts/${id}/preview`, {
+        headers: {
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
+        },
+        params: {
+          _t: Date.now() // Cache buster
+        }
+      });
       setPreview(response.data);
     } catch (error) {
       navigate(`/draft/${id}`);
