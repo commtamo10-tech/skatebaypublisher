@@ -447,6 +447,42 @@ class SkateBAYAPITester:
         
         return False
 
+    def test_patch_description_manually_edited(self, draft_id):
+        """Test PATCH /api/drafts/{id} updates description_manually_edited field"""
+        print("\n📝 Testing PATCH description_manually_edited...")
+        
+        if not self.token or not draft_id:
+            self.log_result("PATCH description_manually_edited", False, "No token or draft_id available")
+            return False
+            
+        try:
+            # Test updating description_manually_edited to True
+            update_data = {
+                "description_manually_edited": True,
+                "description": "Manual Test Description"
+            }
+            
+            response = self.session.patch(
+                f"{self.base_url}/api/drafts/{draft_id}",
+                json=update_data,
+                headers={"Content-Type": "application/json"}
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                if data.get("description_manually_edited") == True and data.get("description") == "Manual Test Description":
+                    self.log_result("PATCH description_manually_edited", True)
+                    return True
+                else:
+                    self.log_result("PATCH description_manually_edited", False, f"Update failed: {data}")
+            else:
+                self.log_result("PATCH description_manually_edited", False, f"Status {response.status_code}: {response.text}")
+                
+        except Exception as e:
+            self.log_result("PATCH description_manually_edited", False, f"Exception: {str(e)}")
+        
+        return False
+
     def test_title_no_unknown_values(self, draft_id):
         """Test that title never contains 'Unknown' or 'N/A'"""
         print("\n🚫 Testing Title Excludes Unknown Values...")
