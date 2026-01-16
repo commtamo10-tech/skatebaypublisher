@@ -554,6 +554,7 @@ async def create_draft(draft: DraftCreate, user = Depends(get_current_user)):
         "title": None,
         "title_manually_edited": False,
         "description": None,
+        "description_manually_edited": False,
         "aspects": None,
         "offer_id": None,
         "listing_id": None,
