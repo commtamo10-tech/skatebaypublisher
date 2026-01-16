@@ -502,6 +502,14 @@ class SkateBAYAPITester:
         draft_id = self.test_create_draft()
         if draft_id:
             self.test_get_draft(draft_id)
+            
+            # Title generation tests
+            self.test_title_manually_edited_field(draft_id)
+            self.test_patch_title_manually_edited(draft_id)
+            self.test_title_no_unknown_values(draft_id)
+            self.test_preview_cache_busting(draft_id)
+            
+            # LLM and preview tests
             self.test_llm_generation(draft_id)
             self.test_draft_preview(draft_id)
         
