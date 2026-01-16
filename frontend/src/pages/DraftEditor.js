@@ -397,9 +397,18 @@ export default function DraftEditor() {
 
   const handleSave = async () => {
     setSaving(true);
+    
+    // Auto-truncate title if over 80 chars
+    let titleToSave = title;
+    if (title.length > 80) {
+      titleToSave = title.substring(0, 77) + "...";
+      setTitle(titleToSave);
+      toast.warning("Titolo troncato a 80 caratteri");
+    }
+    
     try {
       await api.patch(`/drafts/${id}`, {
-        title,
+        title: titleToSave,
         title_manually_edited: titleManuallyEdited,
         description,
         description_manually_edited: descriptionManuallyEdited,
