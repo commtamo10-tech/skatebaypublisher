@@ -95,12 +95,14 @@ class DraftUpdate(BaseModel):
     status: Optional[str] = None
     category_id: Optional[str] = None
     price: Optional[float] = None
+    title_manually_edited: Optional[bool] = None
 
 class DraftResponse(BaseModel):
     id: str
     sku: str
     item_type: str
     title: Optional[str] = None
+    title_manually_edited: bool = False
     description: Optional[str] = None
     aspects: Optional[Dict[str, str]] = None
     condition: str = "USED_GOOD"
