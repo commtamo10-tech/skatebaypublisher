@@ -22,8 +22,14 @@ from datetime import datetime, timezone, timedelta
 import jwt
 
 # HTML Sanitization config for eBay descriptions
-ALLOWED_TAGS = ['p', 'br', 'ul', 'ol', 'li', 'strong', 'em', 'b', 'i', 'h2', 'h3', 'h4', 'blockquote', 'hr']
-ALLOWED_ATTRIBUTES = {}  # No attributes allowed
+# Allow div with inline styles for 90s sticker label design
+ALLOWED_TAGS = ['p', 'br', 'ul', 'ol', 'li', 'strong', 'em', 'b', 'i', 'h2', 'h3', 'h4', 'blockquote', 'hr', 'div', 'span']
+ALLOWED_ATTRIBUTES = {
+    'div': ['style'],
+    'span': ['style'],
+    'p': ['style'],
+    'h2': ['style'],
+}
 
 def sanitize_html(html_content: str) -> str:
     """Sanitize HTML content to prevent XSS attacks"""
@@ -83,21 +89,24 @@ class LoginResponse(BaseModel):
     message: str
 
 class DraftCreate(BaseModel):
-    item_type: str  # WHL, TRK, DCK
+    item_type: str  # WHL, TRK, DCK, APP, MISC
     category_id: str
     price: float
     image_urls: List[str] = []
+    condition: str = "NEW"  # Default condition is NEW
 
 class DraftUpdate(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
     aspects: Optional[Dict[str, str]] = None
+    auto_filled_aspects: Optional[List[str]] = None  # Track which aspects were auto-filled
     condition: Optional[str] = None
     status: Optional[str] = None
     category_id: Optional[str] = None
     price: Optional[float] = None
     title_manually_edited: Optional[bool] = None
     description_manually_edited: Optional[bool] = None
+    item_type: Optional[str] = None
 
 class DraftResponse(BaseModel):
     id: str
@@ -108,7 +117,8 @@ class DraftResponse(BaseModel):
     description: Optional[str] = None
     description_manually_edited: bool = False
     aspects: Optional[Dict[str, str]] = None
-    condition: str = "USED_GOOD"
+    auto_filled_aspects: List[str] = []  # Track which aspects were auto-filled
+    condition: str = "NEW"  # Default to NEW
     category_id: str
     price: float
     image_urls: List[str] = []
