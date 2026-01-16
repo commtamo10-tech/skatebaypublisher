@@ -14,6 +14,8 @@ const ITEM_TYPES = [
   { code: "WHL", label: "Wheels", icon: "🛞", desc: "Skateboard wheels of all sizes" },
   { code: "TRK", label: "Trucks", icon: "🔧", desc: "Trucks and hardware" },
   { code: "DCK", label: "Decks", icon: "🛹", desc: "Skateboard decks" },
+  { code: "APP", label: "Apparel", icon: "👕", desc: "T-shirts, hoodies, caps, pants" },
+  { code: "MISC", label: "Misc", icon: "📦", desc: "Other skateboard items" },
 ];
 
 const STEPS = [
