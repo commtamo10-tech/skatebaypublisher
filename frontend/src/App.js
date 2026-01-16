@@ -3,6 +3,8 @@ import { Toaster } from "./components/ui/sonner";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import NewDraft from "./pages/NewDraft";
+import NewBatch from "./pages/NewBatch";
+import BatchReview from "./pages/BatchReview";
 import DraftEditor from "./pages/DraftEditor";
 import DraftPreview from "./pages/DraftPreview";
 import Settings from "./pages/Settings";
