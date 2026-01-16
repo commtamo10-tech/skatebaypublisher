@@ -35,6 +35,7 @@ Full-stack web app (React frontend + FastAPI backend + MongoDB) per creare inser
 - [x] Stats endpoint for dashboard
 - [x] API logging for eBay calls
 - [x] SKU generation with counter
+- [x] **Preview endpoint with HTML sanitization (bleach)**
 
 ### Frontend Pages
 - [x] Login page with brutalist design
@@ -42,6 +43,7 @@ Full-stack web app (React frontend + FastAPI backend + MongoDB) per creare inser
 - [x] New Draft Wizard (4 steps: type, photos, details, generate)
 - [x] Draft Editor with full editing capabilities
 - [x] Settings page with eBay connection
+- [x] **Draft Preview page with Desktop/Mobile tabs and Rendered/HTML toggle**
 
 ### API Endpoints
 - POST /api/auth/login
