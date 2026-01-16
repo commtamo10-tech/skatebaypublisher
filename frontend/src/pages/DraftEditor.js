@@ -46,7 +46,10 @@ const STATUS_STYLES = {
 
 // ============ TITLE BUILDER ============
 const FILLER_WORDS = ["Unknown", "N/A", "(Unknown)", "undefined", "null", "", "assumed", "estimate"];
-const KEYWORD_FILLERS = ["Old School", "Vintage"];
+
+// Keyword fillers in priority order for reaching 70-80 char target
+const KEYWORD_FILLERS_PREFIX = ["Vintage", "Old School", "Classic", "Rare", "Original"];
+const KEYWORD_FILLERS_SUFFIX = ["Set", "Pair", "- Great Condition", "- Collector Item"];
 
 const cleanValue = (val) => {
   if (!val) return null;
@@ -136,23 +139,83 @@ const buildEbayTitle = (itemType, coreDetails, aspects) => {
   
   let title = parts.join(" ").replace(/\s+/g, " ").trim();
   
-  // Keyword filler if title < 70 chars
+  // STEP 1: Add prefix keywords to reach 70 chars (if under)
   if (title.length < 70) {
     const titleLower = title.toLowerCase();
-    for (const keyword of KEYWORD_FILLERS) {
-      if (!titleLower.includes(keyword.toLowerCase())) {
-        const potentialTitle = `${keyword} ${title}`;
-        if (potentialTitle.length <= 80) {
-          title = potentialTitle;
-          if (title.length >= 70) break;
-        }
+    for (const keyword of KEYWORD_FILLERS_PREFIX) {
+      if (titleLower.includes(keyword.toLowerCase())) continue;
+      const potentialTitle = `${keyword} ${title}`;
+      if (potentialTitle.length <= 80) {
+        title = potentialTitle;
+        if (title.length >= 70) break;
       }
     }
   }
   
-  // Hard limit
+  // STEP 2: Add OG/NOS if applicable and still under 70
+  if (title.length < 70) {
+    const titleLower = title.toLowerCase();
+    if (hasNOS && !titleLower.includes("nos")) {
+      const potentialTitle = title.replace("Skateboard", "NOS Skateboard");
+      if (potentialTitle.length <= 80) title = potentialTitle;
+    } else if (hasOG && !titleLower.includes(" og ")) {
+      const potentialTitle = title.replace("Skateboard", "OG Skateboard");
+      if (potentialTitle.length <= 80) title = potentialTitle;
+    }
+  }
+  
+  // STEP 3: Add suffix keywords if still under 70
+  if (title.length < 70) {
+    for (const suffix of KEYWORD_FILLERS_SUFFIX) {
+      const potentialTitle = `${title} ${suffix}`;
+      if (potentialTitle.length >= 70 && potentialTitle.length <= 80) {
+        title = potentialTitle;
+        break;
+      } else if (potentialTitle.length < 70) {
+        title = potentialTitle;
+      }
+    }
+  }
+  
+  // STEP 4: If still under 70, pad with descriptive text
+  if (title.length < 70) {
+    const padding = [
+      "- Vintage Skateboarding",
+      "- Skate History",
+      "- 80s 90s Style",
+      "- Retro Skate"
+    ];
+    for (const pad of padding) {
+      const potentialTitle = `${title} ${pad}`;
+      if (potentialTitle.length >= 70 && potentialTitle.length <= 80) {
+        title = potentialTitle;
+        break;
+      }
+    }
+  }
+  
+  // STEP 5: Final padding if still under 70 (rare case)
+  if (title.length < 70) {
+    const needed = 70 - title.length;
+    const fillers = ["Authentic", "Genuine", "USA", "Pro", "Team"];
+    for (const filler of fillers) {
+      if (title.length + filler.length + 1 <= 80) {
+        title = `${filler} ${title}`;
+        if (title.length >= 70) break;
+      }
+    }
+  }
+  
+  // Hard limit: truncate to 80 chars if over
   if (title.length > 80) {
-    title = title.substring(0, 77) + "...";
+    // Try removing "Skateboard" word to save space
+    let shortened = title.replace(/Skateboard\s*/gi, "").trim();
+    if (shortened.length >= 70 && shortened.length <= 80) {
+      title = shortened;
+    } else {
+      // Truncate with ellipsis
+      title = title.substring(0, 77) + "...";
+    }
   }
   
   return title;
