@@ -642,7 +642,16 @@ async def list_drafts(
     
     cursor = db.drafts.find(query, {"_id": 0}).sort("created_at", -1)
     drafts = await cursor.to_list(1000)
-    return [DraftResponse(**d) for d in drafts]
+    
+    # Ensure core details are extracted for each draft
+    result = []
+    for d in drafts:
+        # Extract core details from aspects if not present at top level
+        if not d.get("brand") and d.get("aspects"):
+            core = extract_core_details(d.get("aspects", {}))
+            d.update(core)
+        result.append(DraftResponse(**d))
+    return result
 
 @api_router.get("/drafts/{draft_id}/preview")
 async def get_draft_preview(draft_id: str, user = Depends(get_current_user)):
