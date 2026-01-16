@@ -677,6 +677,10 @@ async def get_draft_preview(draft_id: str, user = Depends(get_current_user)):
     raw_description = draft.get("description", "")
     sanitized_description = sanitize_html(raw_description)
     
+    # Filter out unwanted aspects (Model, Color, Type, Item Type, Material, Notes)
+    excluded_aspects = ["Model", "Color", "Type", "Item Type", "Material", "Notes"]
+    filtered_aspects = {k: v for k, v in (draft.get("aspects") or {}).items() if k not in excluded_aspects}
+    
     return {
         "id": draft["id"],
         "sku": draft["sku"],
@@ -685,7 +689,7 @@ async def get_draft_preview(draft_id: str, user = Depends(get_current_user)):
         "categoryId": draft.get("category_id", ""),
         "condition": draft.get("condition", "USED_GOOD"),
         "images": images,
-        "aspects": draft.get("aspects") or {},
+        "aspects": filtered_aspects,
         "descriptionHtml": sanitized_description,
         "descriptionRaw": raw_description,
         "status": draft.get("status", "DRAFT"),
