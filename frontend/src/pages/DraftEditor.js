@@ -198,6 +198,16 @@ export default function DraftEditor() {
               <Button
                 variant="outline"
                 size="sm"
+                onClick={() => navigate(`/draft/${id}/preview`)}
+                className="border-2 border-border shadow-hard-sm hover:translate-y-[1px] hover:shadow-none transition-all uppercase font-bold text-xs tracking-wider"
+                data-testid="preview-btn"
+              >
+                <Eye className="w-4 h-4 mr-2" />
+                Preview
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={handleRegenerate}
                 disabled={regenerating || isPublished}
                 className="border-2 border-border shadow-hard-sm hover:translate-y-[1px] hover:shadow-none transition-all uppercase font-bold text-xs tracking-wider"
