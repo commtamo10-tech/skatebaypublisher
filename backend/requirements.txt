@@ -7,6 +7,7 @@ anyio==4.12.0
 attrs==25.4.0
 bcrypt==4.1.3
 black==25.12.0
+bleach==6.3.0
 boto3==1.42.21
 botocore==1.42.21
 certifi==2026.1.4
@@ -120,6 +121,7 @@ uritemplate==4.2.0
 urllib3==2.6.2
 uvicorn==0.25.0
 watchfiles==1.1.1
+webencodings==0.5.1
 websockets==15.0.1
 yarl==1.22.0
 zipp==3.23.0
