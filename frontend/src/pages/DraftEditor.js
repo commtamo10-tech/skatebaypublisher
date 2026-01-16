@@ -704,21 +704,21 @@ export default function DraftEditor() {
   const titleLength = title.length;
 
   // Core fields that are always shown first in Item Specifics
-  const CORE_ASPECT_KEYS = ["Brand", "Model", "Size", "Color", "Era"];
+  const CORE_ASPECT_KEYS = ["Brand", "Size", "Era"];
   
   // Get all aspects for the item type (core + additional)
   const getAllAspectsForType = () => {
     switch (draft.item_type) {
       case "WHL":
-        return ["Brand", "Model", "Size", "Durometer", "Color", "Era", "Core", "Material", "Quantity", "MPN"];
+        return ["Brand", "Size", "Durometer", "Era", "Quantity", "MPN"];
       case "TRK":
-        return ["Brand", "Model", "Size", "Color", "Era", "Material", "Quantity", "MPN"];
+        return ["Brand", "Size", "Era", "Quantity", "MPN"];
       case "DCK":
-        return ["Brand", "Model", "Series", "Size", "Width", "Length", "Color", "Era", "Artist", "Type", "Material"];
+        return ["Brand", "Series", "Size", "Width", "Length", "Era", "Artist"];
       case "APP":
-        return ["Brand", "Model", "Item Type", "Department", "Size", "Color", "Era", "Measurements", "Material", "Style", "Fit"];
+        return ["Brand", "Department", "Size", "Era", "Measurements", "Style", "Fit"];
       default:
-        return ["Brand", "Model", "Item Type", "Size", "Color", "Era", "Material", "Notes"];
+        return ["Brand", "Size", "Era"];
     }
   };
 
