@@ -42,6 +42,16 @@ function AppRoutes() {
           <NewDraft />
         </ProtectedRoute>
       } />
+      <Route path="/batch/new" element={
+        <ProtectedRoute>
+          <NewBatch />
+        </ProtectedRoute>
+      } />
+      <Route path="/batch/:batchId" element={
+        <ProtectedRoute>
+          <BatchReview />
+        </ProtectedRoute>
+      } />
       <Route path="/draft/:id" element={
         <ProtectedRoute>
           <DraftEditor />
