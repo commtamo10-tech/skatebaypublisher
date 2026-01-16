@@ -770,6 +770,22 @@ class SkateBAYAPITester:
             self.test_llm_generation(draft_id)
             self.test_draft_preview(draft_id)
         
+        # Batch Upload Tests
+        print("\n" + "="*50)
+        print("🔥 TESTING BATCH UPLOAD FEATURE")
+        print("="*50)
+        
+        if self.test_create_batch():
+            self.test_upload_batch_images()
+            self.test_list_batches()
+            self.test_get_batch_details()
+            self.test_get_batch_images()
+            
+            # Auto-grouping workflow
+            if self.test_auto_group_batch():
+                self.test_job_progress()
+                self.test_get_batch_groups()
+        
         # Settings tests
         self.test_settings()
         self.test_ebay_status()
