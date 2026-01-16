@@ -97,6 +97,7 @@ class DraftUpdate(BaseModel):
     category_id: Optional[str] = None
     price: Optional[float] = None
     title_manually_edited: Optional[bool] = None
+    description_manually_edited: Optional[bool] = None
 
 class DraftResponse(BaseModel):
     id: str
@@ -105,6 +106,7 @@ class DraftResponse(BaseModel):
     title: Optional[str] = None
     title_manually_edited: bool = False
     description: Optional[str] = None
+    description_manually_edited: bool = False
     aspects: Optional[Dict[str, str]] = None
     condition: str = "USED_GOOD"
     category_id: str
