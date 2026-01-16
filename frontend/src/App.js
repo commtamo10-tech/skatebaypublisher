@@ -45,6 +45,11 @@ function AppRoutes() {
           <DraftEditor />
         </ProtectedRoute>
       } />
+      <Route path="/draft/:id/preview" element={
+        <ProtectedRoute>
+          <DraftPreview />
+        </ProtectedRoute>
+      } />
       <Route path="/settings" element={
         <ProtectedRoute>
           <Settings />
