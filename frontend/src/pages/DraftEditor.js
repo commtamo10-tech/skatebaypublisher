@@ -629,6 +629,21 @@ export default function DraftEditor() {
       ...prev,
       [key]: { source: "manual", confidence: 1 }
     }));
+    
+    // Sync core fields: if changing Brand/Model/Size/Color/Era in aspects, update coreDetails too
+    const coreMapping = {
+      "Brand": "brand",
+      "Model": "model", 
+      "Size": "size",
+      "Color": "color",
+      "Era": "era",
+      "Decade": "era",
+      "Width": "size"
+    };
+    
+    if (coreMapping[key]) {
+      setCoreDetails(prev => ({ ...prev, [coreMapping[key]]: value }));
+    }
   };
 
   const addAspect = () => {
