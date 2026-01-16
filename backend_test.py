@@ -3,8 +3,12 @@
 import requests
 import sys
 import json
+import time
 from datetime import datetime
 from pathlib import Path
+import tempfile
+from PIL import Image
+import io
 
 class SkateBAYAPITester:
     def __init__(self, base_url="https://skatebay-manager.preview.emergentagent.com"):
@@ -14,6 +18,9 @@ class SkateBAYAPITester:
         self.tests_passed = 0
         self.failed_tests = []
         self.session = requests.Session()
+        self.batch_id = None
+        self.job_id = None
+        self.group_ids = []
 
     def log_result(self, test_name, success, details=""):
         """Log test result"""
