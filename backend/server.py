@@ -131,6 +131,56 @@ class SettingsResponse(BaseModel):
     ebay_connected: bool = False
 
 
+# ============ BATCH MODELS ============
+
+class BatchCreate(BaseModel):
+    name: Optional[str] = None
+
+class BatchImageResponse(BaseModel):
+    id: str
+    url: str
+    filename: str
+
+class BatchGroupResponse(BaseModel):
+    id: str
+    image_ids: List[str]
+    suggested_type: str
+    confidence: float
+    draft_id: Optional[str] = None
+
+class BatchResponse(BaseModel):
+    id: str
+    name: Optional[str] = None
+    status: str  # CREATED, UPLOADING, GROUPING, GENERATING, READY, ERROR
+    image_count: int = 0
+    group_count: int = 0
+    draft_count: int = 0
+    created_at: str
+    updated_at: str
+
+class JobResponse(BaseModel):
+    id: str
+    type: str  # auto_group, generate_drafts
+    batch_id: str
+    status: str  # PENDING, RUNNING, COMPLETED, ERROR
+    progress: int = 0
+    message: Optional[str] = None
+    error: Optional[str] = None
+    created_at: str
+
+class GroupUpdateRequest(BaseModel):
+    image_ids: Optional[List[str]] = None
+    suggested_type: Optional[str] = None
+
+class MergeGroupsRequest(BaseModel):
+    group_ids: List[str]
+
+class MoveImageRequest(BaseModel):
+    image_id: str
+    from_group_id: str
+    to_group_id: Optional[str] = None  # None = create new group
+
+
 # ============ AUTH HELPERS ============
 
 def create_jwt_token(data: dict, expires_delta: timedelta = timedelta(hours=24)):
