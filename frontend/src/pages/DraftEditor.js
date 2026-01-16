@@ -736,7 +736,7 @@ export default function DraftEditor() {
                     </Badge>
                   )}
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-3">
                   <button
                     onClick={handleRegenerateTitle}
                     disabled={isPublished}
@@ -744,23 +744,48 @@ export default function DraftEditor() {
                     data-testid="regenerate-title-btn"
                   >
                     <Wand2 className="w-3 h-3" />
-                    Regenerate title
+                    Regenerate
                   </button>
-                  <span className={`font-mono text-xs ${isTitleValid ? 'text-muted-foreground' : 'text-destructive font-bold'}`}>
-                    {titleLength}/80
-                  </span>
+                  <div className="flex items-center gap-1">
+                    <span className={`font-mono text-xs font-bold ${
+                      titleLength > 80 
+                        ? 'text-destructive' 
+                        : titleLength >= 70 
+                          ? 'text-green-600' 
+                          : 'text-muted-foreground'
+                    }`}>
+                      {titleLength}
+                    </span>
+                    <span className="font-mono text-xs text-muted-foreground">/80</span>
+                    {titleLength >= 70 && titleLength <= 80 && (
+                      <span className="text-[9px] text-green-600 font-bold ml-1">✓</span>
+                    )}
+                  </div>
                 </div>
               </div>
               <Input
                 value={title}
                 onChange={handleTitleChange}
                 disabled={isPublished}
-                className={`border-2 font-mono ${isTitleValid ? 'border-border' : 'border-destructive'}`}
+                className={`border-2 font-mono ${
+                  titleLength > 80 
+                    ? 'border-destructive bg-red-50' 
+                    : titleLength >= 70 
+                      ? 'border-green-500' 
+                      : 'border-border'
+                }`}
                 placeholder="eBay listing title (max 80 chars)"
                 data-testid="edit-title-input"
               />
-              {!isTitleValid && (
-                <p className="text-destructive text-xs font-mono mt-1">Title exceeds 80 character limit</p>
+              {titleLength > 80 && (
+                <p className="text-destructive text-xs font-mono mt-1">
+                  ⚠️ Titolo supera 80 caratteri - verrà troncato automaticamente al salvataggio
+                </p>
+              )}
+              {titleLength < 70 && titleLength > 0 && (
+                <p className="text-muted-foreground text-xs font-mono mt-1">
+                  💡 Target: 70-80 caratteri per migliore visibilità eBay
+                </p>
               )}
             </div>
 
