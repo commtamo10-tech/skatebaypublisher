@@ -48,13 +48,15 @@ Full-stack web app (React frontend + FastAPI backend + MongoDB) per creare inser
 - [x] **Manual override flag - title stops auto-updating when manually edited**
 - [x] **Regenerate title button to rebuild from aspects**
 - [x] **Preview auto-saves before opening**
+- [x] **NEW: Batch Upload page (/batch/new) with drag&drop for 20-200 images**
+- [x] **NEW: Batch Review page (/batch/:id) with group management (split, merge, delete)**
 
 ### API Endpoints
 - POST /api/auth/login
 - GET /api/auth/me
 - GET /api/drafts, POST /api/drafts
 - GET/PATCH/DELETE /api/drafts/{id}
-- **GET /api/drafts/{id}/preview** ← NEW: returns sanitized HTML preview data
+- **GET /api/drafts/{id}/preview** - returns sanitized HTML preview data
 - POST /api/drafts/{id}/generate
 - POST /api/drafts/{id}/publish
 - POST /api/upload
@@ -64,6 +66,21 @@ Full-stack web app (React frontend + FastAPI backend + MongoDB) per creare inser
 - GET /api/ebay/status
 - GET /api/ebay/policies
 - GET /api/stats
+- **NEW: POST /api/batches** - create batch
+- **NEW: GET /api/batches** - list batches
+- **NEW: GET /api/batches/{id}** - get batch details
+- **NEW: POST /api/batches/{id}/upload** - upload multiple images
+- **NEW: GET /api/batches/{id}/images** - get batch images
+- **NEW: GET /api/batches/{id}/groups** - get batch groups
+- **NEW: POST /api/batches/{id}/auto_group** - start auto-grouping (background)
+- **NEW: POST /api/batches/{id}/generate_drafts** - generate drafts (background)
+- **NEW: GET /api/jobs/{id}** - get job progress
+- **NEW: PATCH /api/batches/{id}/groups/{gid}** - update group
+- **NEW: POST /api/batches/{id}/groups/{gid}/split** - split group
+- **NEW: POST /api/batches/{id}/merge_groups** - merge groups
+- **NEW: POST /api/batches/{id}/move_image** - move image between groups
+- **NEW: DELETE /api/batches/{id}/groups/{gid}** - delete group
+- **NEW: DELETE /api/batches/{id}** - delete batch
 
 ## Environment Variables Required
 ```
