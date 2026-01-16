@@ -558,6 +558,34 @@ async def upload_files(files: List[UploadFile] = File(...), user = Depends(get_c
 
 # ============ DRAFT ROUTES ============
 
+def extract_core_details(aspects: dict) -> dict:
+    """Extract core details from aspects dict"""
+    if not aspects:
+        return {"brand": None, "model": None, "size": None, "color": None, "era": None}
+    return {
+        "brand": aspects.get("Brand"),
+        "model": aspects.get("Model"),
+        "size": aspects.get("Size") or aspects.get("Width"),
+        "color": aspects.get("Color"),
+        "era": aspects.get("Era") or aspects.get("Decade")
+    }
+
+def merge_core_to_aspects(aspects: dict, brand: str, model: str, size: str, color: str, era: str) -> dict:
+    """Merge core details back into aspects dict"""
+    if aspects is None:
+        aspects = {}
+    if brand:
+        aspects["Brand"] = brand
+    if model:
+        aspects["Model"] = model
+    if size:
+        aspects["Size"] = size
+    if color:
+        aspects["Color"] = color
+    if era:
+        aspects["Era"] = era
+    return aspects
+
 @api_router.post("/drafts", response_model=DraftResponse)
 async def create_draft(draft: DraftCreate, user = Depends(get_current_user)):
     """Create new draft"""
@@ -577,8 +605,14 @@ async def create_draft(draft: DraftCreate, user = Depends(get_current_user)):
         "title_manually_edited": False,
         "description": None,
         "description_manually_edited": False,
-        "aspects": None,
-        "auto_filled_aspects": [],
+        "aspects": {},  # Initialize as empty dict, not None
+        "aspects_metadata": {},  # {field: {source, confidence}}
+        # Core details (always present)
+        "brand": None,
+        "model": None,
+        "size": None,
+        "color": None,
+        "era": None,
         "offer_id": None,
         "listing_id": None,
         "error_message": None,
