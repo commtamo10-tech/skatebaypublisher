@@ -724,18 +724,25 @@ async def update_draft(draft_id: str, update: DraftUpdate, user = Depends(get_cu
     if not existing:
         raise HTTPException(status_code=404, detail="Draft not found")
     
+    # Handle aspects merge properly
+    # If aspects are provided in the update, use them as base (they include custom fields)
+    # Otherwise, use existing aspects
+    if "aspects" in update_dict and update_dict["aspects"] is not None:
+        merged_aspects = update_dict["aspects"]
+    else:
+        merged_aspects = existing.get("aspects") or {}
+    
     # Merge core fields into aspects
     if core_updates:
-        existing_aspects = existing.get("aspects") or {}
         for field, value in core_updates.items():
             if value is not None:
                 # Map field name to aspect key
                 aspect_key = field.capitalize() if field != "era" else "Era"
-                existing_aspects[aspect_key] = value
+                merged_aspects[aspect_key] = value
                 # Also update top-level core field
                 update_dict[field] = value
-        update_dict["aspects"] = existing_aspects
     
+    update_dict["aspects"] = merged_aspects
     update_dict["updated_at"] = datetime.now(timezone.utc).isoformat()
     
     result = await db.drafts.find_one_and_update(
