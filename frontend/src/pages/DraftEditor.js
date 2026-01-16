@@ -223,17 +223,20 @@ const buildEbayTitle = (itemType, coreDetails, aspects) => {
 
 // ============ 90s STICKER LABEL DESCRIPTION BUILDER ============
 const build90sDescription = (itemType, coreDetails, aspects, condition) => {
-  // Merge core details with aspects
+  // Merge core details with aspects (excluding Model and Color)
   const merged = { ...aspects };
   if (coreDetails.brand) merged.Brand = coreDetails.brand;
-  if (coreDetails.model) merged.Model = coreDetails.model;
+  // Model and Color are excluded from description
   if (coreDetails.size) merged.Size = coreDetails.size;
-  if (coreDetails.color) merged.Color = coreDetails.color;
   if (coreDetails.era) merged.Era = coreDetails.era;
   
-  // Filter out empty values
+  // Fields to exclude from description
+  const excludedFields = ["Model", "Color", "Type", "Item Type", "Material", "Notes"];
+  
+  // Filter out empty values and excluded fields
   const cleanAspects = {};
   Object.entries(merged).forEach(([k, v]) => {
+    if (excludedFields.includes(k)) return;
     const clean = cleanValue(v);
     if (clean) cleanAspects[k] = clean;
   });
@@ -243,23 +246,23 @@ const build90sDescription = (itemType, coreDetails, aspects, condition) => {
   const era = cleanAspects.Era || cleanAspects.Decade || "";
   const eraTag = era ? ` • ${era}` : "";
   
-  // Key details order by type
+  // Key details order by type (Model and Color removed)
   let keyDetailsOrder = [];
   switch (itemType) {
     case "APP":
-      keyDetailsOrder = ["Brand", "Item Type", "Department", "Size", "Measurements", "Color", "Material", "Style", "Fit"];
+      keyDetailsOrder = ["Brand", "Department", "Size", "Measurements", "Style", "Fit"];
       break;
     case "WHL":
-      keyDetailsOrder = ["Brand", "Model", "Size", "Durometer", "Color", "Era", "Core", "Material", "Quantity"];
+      keyDetailsOrder = ["Brand", "Size", "Durometer", "Era", "Quantity"];
       break;
     case "TRK":
-      keyDetailsOrder = ["Brand", "Model", "Size", "Era", "Color", "Material", "Quantity"];
+      keyDetailsOrder = ["Brand", "Size", "Era", "Quantity"];
       break;
     case "DCK":
-      keyDetailsOrder = ["Brand", "Model", "Series", "Width", "Length", "Era", "Artist", "Type", "Material"];
+      keyDetailsOrder = ["Brand", "Series", "Width", "Length", "Era", "Artist"];
       break;
     default:
-      keyDetailsOrder = ["Brand", "Item Type", "Era", "Size", "Color", "Material"];
+      keyDetailsOrder = ["Brand", "Era", "Size"];
   }
   
   // Build key details HTML
@@ -270,7 +273,7 @@ const build90sDescription = (itemType, coreDetails, aspects, condition) => {
     }
   });
   
-  // Add extra aspects
+  // Add extra aspects (excluding already shown and excluded fields)
   Object.entries(cleanAspects).forEach(([key, value]) => {
     if (!keyDetailsOrder.includes(key) && key !== "Era" && key !== "Decade") {
       keyDetailsHtml += `  <li><strong>${key}:</strong> ${value}</li>\n`;
