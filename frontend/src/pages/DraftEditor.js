@@ -16,7 +16,7 @@ import {
 import { toast } from "sonner";
 import { 
   ArrowLeft, Save, CheckCircle, Send, RefreshCw,
-  AlertCircle, Clock, Circle, Plus, X, Lock, Eye, Wand2
+  AlertCircle, Clock, Circle, Plus, X, Lock, Eye, Wand2, Sparkles
 } from "lucide-react";
 
 const CONDITIONS = [
@@ -38,7 +38,7 @@ const STATUS_STYLES = {
 // ============ TITLE BUILDER ============
 const FILLER_WORDS = ["Unknown", "N/A", "(Unknown)", "undefined", "null", "", "assumed", "estimate"];
 
-// Keyword fillers in priority order
+// Keyword fillers in priority order (OG/NOS handled separately based on aspects)
 const KEYWORD_FILLERS = ["Old School", "Vintage"];
 
 const cleanValue = (val) => {
@@ -55,7 +55,7 @@ const buildEbayTitle = (itemType, aspects) => {
   const brand = cleanValue(aspects.Brand);
   const model = cleanValue(aspects.Model);
   const era = cleanValue(aspects.Era) || cleanValue(aspects.Decade);
-  const size = cleanValue(aspects.Size);
+  const size = cleanValue(aspects.Size) || cleanValue(aspects.Width);
   const color = cleanValue(aspects.Color);
   const durometer = cleanValue(aspects.Durometer);
   const series = cleanValue(aspects.Series);
@@ -66,21 +66,36 @@ const buildEbayTitle = (itemType, aspects) => {
   const ogValue = cleanValue(aspects.OG);
   const nosValue = cleanValue(aspects.NOS);
   const ogNosValue = cleanValue(aspects["OG/NOS"]);
+  const typeValue = cleanValue(aspects.Type);
   
   let ogNos = null;
   let hasOG = false;
   let hasNOS = false;
   
-  if (nosValue && (nosValue.toLowerCase() === "true" || nosValue.toLowerCase() === "yes" || nosValue === "NOS")) {
-    ogNos = "NOS";
-    hasNOS = true;
-  } else if (ogValue && (ogValue.toLowerCase() === "true" || ogValue.toLowerCase() === "yes" || ogValue === "OG")) {
-    ogNos = "OG";
-    hasOG = true;
-  } else if (ogNosValue) {
-    ogNos = ogNosValue;
-    if (ogNosValue.toUpperCase().includes("NOS")) hasNOS = true;
-    if (ogNosValue.toUpperCase().includes("OG")) hasOG = true;
+  // Check Type field for OG/NOS
+  if (typeValue) {
+    if (typeValue.toUpperCase() === "NOS" || typeValue.toUpperCase().includes("NOS")) {
+      hasNOS = true;
+      ogNos = "NOS";
+    } else if (typeValue.toUpperCase() === "OG" || typeValue.toUpperCase().includes("OG")) {
+      hasOG = true;
+      ogNos = "OG";
+    }
+  }
+  
+  // Also check dedicated OG/NOS fields
+  if (!hasNOS && !hasOG) {
+    if (nosValue && (nosValue.toLowerCase() === "true" || nosValue.toLowerCase() === "yes" || nosValue === "NOS")) {
+      ogNos = "NOS";
+      hasNOS = true;
+    } else if (ogValue && (ogValue.toLowerCase() === "true" || ogValue.toLowerCase() === "yes" || ogValue === "OG")) {
+      ogNos = "OG";
+      hasOG = true;
+    } else if (ogNosValue) {
+      ogNos = ogNosValue;
+      if (ogNosValue.toUpperCase().includes("NOS")) hasNOS = true;
+      if (ogNosValue.toUpperCase().includes("OG")) hasOG = true;
+    }
   }
   
   let parts = [];
@@ -127,9 +142,9 @@ const buildEbayTitle = (itemType, aspects) => {
       }
       break;
       
-    default:
+    default: // MISC
       if (brand) parts.push(brand);
-      if (model) parts.push(model);
+      if (model || itemTypeAspect) parts.push(model || itemTypeAspect);
       if (era) parts.push(era);
       parts.push("Skateboard Part");
   }
@@ -177,7 +192,6 @@ const buildEbayTitle = (itemType, aspects) => {
   }
   
   // Hard limit: truncate to 80 chars
-  // Truncate to 80 chars if needed
   if (title.length > 80) {
     let shortened = title.replace(/Skateboard\s*/gi, "");
     if (shortened.length <= 80) {
@@ -190,8 +204,8 @@ const buildEbayTitle = (itemType, aspects) => {
   return title;
 };
 
-// ============ DESCRIPTION BUILDER ============
-const buildEbayDescription = (itemType, title, aspects, condition) => {
+// ============ 90s STICKER LABEL DESCRIPTION BUILDER ============
+const build90sDescription = (itemType, title, aspects, condition) => {
   if (!aspects || Object.keys(aspects).length === 0) return "";
   
   const cleanAspects = {};
@@ -202,6 +216,10 @@ const buildEbayDescription = (itemType, title, aspects, condition) => {
   
   if (Object.keys(cleanAspects).length === 0) return "";
   
+  // Get era for sticker header
+  const era = cleanAspects.Era || cleanAspects.Decade || "";
+  const eraTag = era ? ` • ${era}` : "";
+  
   // Build key details based on item type
   let keyDetailsOrder = [];
   
@@ -210,91 +228,99 @@ const buildEbayDescription = (itemType, title, aspects, condition) => {
       keyDetailsOrder = ["Brand", "Item Type", "Department", "Size", "Measurements", "Color", "Material", "Style", "Fit", "Country", "MPN", "UPC"];
       break;
     case "WHL":
-      keyDetailsOrder = ["Brand", "Model", "Size", "Durometer", "Color", "Era", "Quantity"];
+      keyDetailsOrder = ["Brand", "Model", "Size", "Durometer", "Color", "Era", "Core", "Material", "Quantity", "MPN"];
       break;
     case "TRK":
-      keyDetailsOrder = ["Brand", "Model", "Size", "Era", "Color", "Quantity"];
+      keyDetailsOrder = ["Brand", "Model", "Size", "Era", "Color", "Material", "Quantity", "MPN"];
       break;
     case "DCK":
-      keyDetailsOrder = ["Brand", "Model", "Series", "Size", "Era", "Artist", "Type"];
+      keyDetailsOrder = ["Brand", "Model", "Series", "Width", "Length", "Era", "Artist", "Type", "Material", "MPN"];
       break;
     default:
-      keyDetailsOrder = ["Brand", "Type", "Era", "Size", "Color"];
+      keyDetailsOrder = ["Brand", "Item Type", "Era", "Size", "Color", "Material", "Notes"];
   }
   
   // Build key details HTML
   let keyDetailsHtml = "";
   keyDetailsOrder.forEach(key => {
     if (cleanAspects[key]) {
-      keyDetailsHtml += `<li><strong>${key}:</strong> ${cleanAspects[key]}</li>\n`;
+      keyDetailsHtml += `  <li><strong>${key}:</strong> ${cleanAspects[key]}</li>\n`;
     }
   });
   
   // Add any extra aspects not in the order
   Object.entries(cleanAspects).forEach(([key, value]) => {
-    if (!keyDetailsOrder.includes(key)) {
-      keyDetailsHtml += `<li><strong>${key}:</strong> ${value}</li>\n`;
+    if (!keyDetailsOrder.includes(key) && key !== "Era" && key !== "Decade") {
+      keyDetailsHtml += `  <li><strong>${key}:</strong> ${value}</li>\n`;
     }
   });
   
   // Collector intro based on type
   let intro = "";
-  const era = cleanAspects.Era || cleanAspects.Decade;
   
   switch (itemType) {
     case "APP":
       intro = era 
-        ? `<p>Check out this vintage ${era} skateboard apparel piece! A great find for collectors of old school skate streetwear. Please review all photos carefully, including any tags or labels.</p>`
-        : `<p>Vintage skateboard apparel for collectors and enthusiasts. Please review all photos carefully, including any tags or labels.</p>`;
+        ? `A rare find for collectors of ${era} skateboard streetwear. Perfect for vintage enthusiasts or period-correct setups. Please check the photos and tags carefully.`
+        : `Vintage skateboard apparel for collectors and enthusiasts. Please check the photos and tags carefully.`;
       break;
     case "WHL":
       intro = era
-        ? `<p>Classic ${era} skateboard wheels for the vintage collector. These wheels represent an important era in skateboarding history.</p>`
-        : `<p>Vintage skateboard wheels for collectors and riders who appreciate classic gear.</p>`;
+        ? `Classic ${era} skateboard wheels for the serious collector. Ideal for vintage builds, restorations, or period-correct setups. See photos for details.`
+        : `Vintage skateboard wheels for collectors and riders who appreciate classic gear. See photos for details.`;
       break;
     case "TRK":
       intro = era
-        ? `<p>Original ${era} skateboard trucks. A must-have for serious vintage skateboard collectors.</p>`
-        : `<p>Vintage skateboard trucks for collectors and enthusiasts.</p>`;
+        ? `Original ${era} skateboard trucks. A must-have for vintage skateboard collectors and restoration projects.`
+        : `Vintage skateboard trucks for collectors and enthusiasts. Great for restorations or display.`;
       break;
     case "DCK":
       intro = era
-        ? `<p>Vintage ${era} skateboard deck. A piece of skateboarding history for your collection or wall.</p>`
-        : `<p>Classic skateboard deck for collectors and enthusiasts.</p>`;
+        ? `Vintage ${era} skateboard deck. A piece of skateboarding history perfect for collectors or wall display.`
+        : `Classic skateboard deck for collectors and enthusiasts. Check all photos for condition details.`;
       break;
     default:
-      intro = `<p>Vintage skateboard item for collectors and enthusiasts.</p>`;
+      intro = `Vintage skateboard item for collectors and enthusiasts. See photos for full details.`;
   }
   
   // Condition text
-  const conditionText = condition ? CONDITIONS.find(c => c.value === condition)?.label || condition : "Used";
+  const conditionLabel = condition ? CONDITIONS.find(c => c.value === condition)?.label || condition : "New";
+  let conditionSection = `<strong>${conditionLabel}.</strong> Please review all photos carefully as they are part of the description.`;
   
-  // Build full description
-  const description = `
-${intro}
+  // Add NOS note if applicable and condition is NEW
+  if (condition === "NEW" && (cleanAspects.Type === "NOS" || cleanAspects.NOS === "true" || cleanAspects.NOS === "Yes")) {
+    conditionSection += ` May show light storage/shelf wear.`;
+  }
+  
+  // Build 90s sticker label HTML
+  const description = `<div style="font-family: Arial, Helvetica, sans-serif; font-size: 14px; line-height: 1.45; color: #111; max-width: 800px;">
 
-<p><strong>Summary:</strong> ${title || "Vintage skateboard item"}</p>
+<div style="display: inline-block; border: 1px solid #111; padding: 6px 10px; font-family: 'Courier New', Courier, monospace; letter-spacing: 1px; margin-bottom: 16px;">
+[ OLD SCHOOL SKATE ]${eraTag}
+</div>
 
-<p><strong>Key Details:</strong></p>
-<ul>
+<p style="margin: 12px 0;">${intro}</p>
+
+<h2 style="font-size: 12px; letter-spacing: 1px; margin: 18px 0 6px; text-transform: uppercase; border-bottom: 1px solid #111; padding-bottom: 4px;">KEY DETAILS</h2>
+<ul style="margin: 0; padding-left: 20px;">
 ${keyDetailsHtml}</ul>
 
-<p><strong>Condition:</strong> ${conditionText}. Please review all photos carefully as they are part of the description.</p>
+<h2 style="font-size: 12px; letter-spacing: 1px; margin: 18px 0 6px; text-transform: uppercase; border-bottom: 1px solid #111; padding-bottom: 4px;">CONDITION</h2>
+<p style="margin: 8px 0;">${conditionSection}</p>
 
-<p>Questions? Feel free to message—happy to help.</p>
+<h2 style="font-size: 12px; letter-spacing: 1px; margin: 18px 0 6px; text-transform: uppercase; border-bottom: 1px solid #111; padding-bottom: 4px;">INFO</h2>
+<p style="margin: 8px 0;">Questions? Feel free to message—happy to help.</p>
+<p style="margin: 8px 0;">Ships from Milan, Italy. Combined shipping available—please message before purchase.</p>
+<p style="margin: 8px 0;">International buyers: import duties/taxes are not included and are the buyer's responsibility.</p>
+<p style="margin: 8px 0;"><strong>Thanks for looking!</strong></p>
 
-<p>Ships from Milan, Italy. Combined shipping available—please message before purchase.</p>
-
-<p>International buyers: import duties/taxes are not included and are the buyer's responsibility.</p>
-
-<p>Thanks for looking!</p>
-`.trim();
+</div>`;
   
-  return description;
+  return description.trim();
 };
 
 // Key aspects that trigger title/description rebuild
-const TITLE_TRIGGER_KEYS = ["Brand", "Model", "Size", "Era", "Decade", "Color", "Durometer", "OG", "NOS", "OG/NOS", "Series", "Item Type", "Department"];
+const TITLE_TRIGGER_KEYS = ["Brand", "Model", "Size", "Width", "Era", "Decade", "Color", "Durometer", "OG", "NOS", "OG/NOS", "Type", "Series", "Item Type", "Department"];
 
 export default function DraftEditor() {
   const { id } = useParams();
@@ -303,6 +329,7 @@ export default function DraftEditor() {
   const [saving, setSaving] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
+  const [autoFilling, setAutoFilling] = useState(false);
   
   const [draft, setDraft] = useState(null);
   const [title, setTitle] = useState("");
@@ -310,7 +337,8 @@ export default function DraftEditor() {
   const [description, setDescription] = useState("");
   const [descriptionManuallyEdited, setDescriptionManuallyEdited] = useState(false);
   const [aspects, setAspects] = useState({});
-  const [condition, setCondition] = useState("USED_GOOD");
+  const [autoFilledAspects, setAutoFilledAspects] = useState([]);
+  const [condition, setCondition] = useState("NEW");
   const [categoryId, setCategoryId] = useState("");
   const [price, setPrice] = useState("");
   const [newAspectKey, setNewAspectKey] = useState("");
@@ -338,7 +366,7 @@ export default function DraftEditor() {
     if (!descriptionManuallyEdited && draft?.item_type && aspects) {
       const hasRelevantAspects = TITLE_TRIGGER_KEYS.some(key => cleanValue(aspects[key]));
       if (hasRelevantAspects || title) {
-        const newDescription = buildEbayDescription(draft.item_type, title, aspects, condition);
+        const newDescription = build90sDescription(draft.item_type, title, aspects, condition);
         if (newDescription && newDescription !== description) {
           setDescription(newDescription);
         }
@@ -356,7 +384,8 @@ export default function DraftEditor() {
       setDescription(data.description || "");
       setDescriptionManuallyEdited(data.description_manually_edited || false);
       setAspects(data.aspects || {});
-      setCondition(data.condition || "USED_GOOD");
+      setAutoFilledAspects(data.auto_filled_aspects || []);
+      setCondition(data.condition || "NEW");
       setCategoryId(data.category_id || "");
       setPrice(data.price?.toString() || "");
     } catch (error) {
@@ -388,10 +417,38 @@ export default function DraftEditor() {
 
   const handleRegenerateDescription = () => {
     if (draft?.item_type) {
-      const newDescription = buildEbayDescription(draft.item_type, title, aspects, condition);
+      const newDescription = build90sDescription(draft.item_type, title, aspects, condition);
       setDescription(newDescription);
       setDescriptionManuallyEdited(false);
       toast.success("Description rigenerata");
+    }
+  };
+
+  const handleAutoFillAspects = async () => {
+    setAutoFilling(true);
+    try {
+      toast.loading("Analyzing images...");
+      const response = await api.post(`/drafts/${id}/autofill_aspects`);
+      toast.dismiss();
+      
+      const { extracted_aspects, auto_filled_keys } = response.data;
+      
+      // Update local state
+      setAspects(response.data.draft.aspects || {});
+      setAutoFilledAspects(response.data.draft.auto_filled_aspects || []);
+      
+      if (auto_filled_keys.length > 0) {
+        toast.success(`Auto-filled ${auto_filled_keys.length} aspects: ${auto_filled_keys.join(", ")}`);
+      } else {
+        toast.info("No new aspects could be extracted from images");
+      }
+      
+      await fetchDraft();
+    } catch (error) {
+      toast.dismiss();
+      toast.error(error.response?.data?.detail || "Auto-fill failed");
+    } finally {
+      setAutoFilling(false);
     }
   };
 
@@ -413,6 +470,7 @@ export default function DraftEditor() {
         description,
         description_manually_edited: descriptionManuallyEdited,
         aspects,
+        auto_filled_aspects: autoFilledAspects,
         condition,
         category_id: categoryId,
         price: parseFloat(price) || 0
@@ -467,6 +525,7 @@ export default function DraftEditor() {
         description,
         description_manually_edited: descriptionManuallyEdited,
         aspects,
+        auto_filled_aspects: autoFilledAspects,
         condition,
         category_id: categoryId,
         price: parseFloat(price) || 0
@@ -497,6 +556,10 @@ export default function DraftEditor() {
 
   const handleAspectChange = (key, value) => {
     setAspects(prev => ({ ...prev, [key]: value }));
+    // Remove from auto-filled list when manually edited
+    if (autoFilledAspects.includes(key)) {
+      setAutoFilledAspects(prev => prev.filter(k => k !== key));
+    }
   };
 
   const addAspect = () => {
@@ -513,6 +576,8 @@ export default function DraftEditor() {
       delete newAspects[key];
       return newAspects;
     });
+    // Also remove from auto-filled list
+    setAutoFilledAspects(prev => prev.filter(k => k !== key));
   };
 
   if (loading) {
@@ -537,13 +602,13 @@ export default function DraftEditor() {
       case "APP":
         return ["Brand", "Item Type", "Department", "Size", "Measurements", "Color", "Material", "Style", "Fit", "Era"];
       case "WHL":
-        return ["Brand", "Model", "Size", "Durometer", "Color", "Era", "Quantity"];
+        return ["Brand", "Model", "Size", "Durometer", "Color", "Era", "Core", "Material", "Quantity"];
       case "TRK":
-        return ["Brand", "Model", "Size", "Era", "Color", "Quantity"];
+        return ["Brand", "Model", "Size", "Era", "Color", "Material", "Quantity"];
       case "DCK":
-        return ["Brand", "Model", "Series", "Size", "Era", "Artist", "Type"];
+        return ["Brand", "Model", "Series", "Width", "Length", "Era", "Artist", "Type"];
       default:
-        return ["Brand", "Type", "Era", "Size", "Color"];
+        return ["Brand", "Item Type", "Era", "Size", "Color", "Material"];
     }
   };
 
@@ -820,7 +885,7 @@ export default function DraftEditor() {
                 data-testid="edit-description-input"
               />
               <p className="text-xs text-muted-foreground mt-2 font-mono">
-                💡 La description si aggiorna automaticamente quando modifichi Title o Item Specifics.
+                💡 La description si aggiorna automaticamente quando modifichi Title o Item Specifics (formato 90s sticker label).
               </p>
             </div>
 
@@ -831,6 +896,19 @@ export default function DraftEditor() {
                   Item Specifics
                   <span className="text-muted-foreground font-normal ml-2">({draft.item_type})</span>
                 </Label>
+                {!isPublished && draft.image_urls?.length > 0 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleAutoFillAspects}
+                    disabled={autoFilling}
+                    className="border-2 border-border shadow-hard-sm hover:translate-y-[1px] hover:shadow-none transition-all text-xs"
+                    data-testid="autofill-aspects-btn"
+                  >
+                    <Sparkles className={`w-3 h-3 mr-1 ${autoFilling ? 'animate-pulse' : ''}`} />
+                    {autoFilling ? "Analyzing..." : "Auto-fill specifics"}
+                  </Button>
+                )}
               </div>
               
               {/* Suggested aspects hint */}
@@ -841,12 +919,20 @@ export default function DraftEditor() {
               <div className="space-y-2 mb-4">
                 {Object.entries(aspects).map(([key, value]) => {
                   const isKeyAspect = TITLE_TRIGGER_KEYS.includes(key);
+                  const isAutoFilled = autoFilledAspects.includes(key);
                   return (
                     <div key={key} className={`flex items-center gap-2 p-2 border-2 border-border ${isKeyAspect ? 'bg-primary/5' : 'bg-muted'}`}>
-                      <span className={`font-bold text-sm uppercase tracking-wider w-32 ${isKeyAspect ? 'text-primary' : ''}`}>
-                        {key}
-                        {isKeyAspect && <span className="text-[9px] ml-1">★</span>}
-                      </span>
+                      <div className="w-32 flex items-center gap-1">
+                        <span className={`font-bold text-sm uppercase tracking-wider ${isKeyAspect ? 'text-primary' : ''}`}>
+                          {key}
+                        </span>
+                        {isKeyAspect && <span className="text-[9px]">★</span>}
+                        {isAutoFilled && (
+                          <Badge variant="outline" className="text-[8px] border-cyan-400 text-cyan-600 px-1 py-0">
+                            auto
+                          </Badge>
+                        )}
+                      </div>
                       <Input
                         value={value}
                         onChange={(e) => handleAspectChange(key, e.target.value)}
