@@ -48,6 +48,10 @@ Full-stack web app (React frontend + FastAPI backend + MongoDB) per creare inser
 - [x] **Manual override flag - title stops auto-updating when manually edited**
 - [x] **Regenerate title button to rebuild from aspects**
 - [x] **Preview auto-saves before opening**
+- [x] **NEW: APPAREL (APP) item type with apparel-specific aspects**
+- [x] **NEW: Auto-sync description from Title + Aspects (descriptionManuallyEdited flag)**
+- [x] **NEW: Regenerate description button**
+- [x] **NEW: NO "Unknown" values in title/description templates**
 - [x] **NEW: Batch Upload page (/batch/new) with drag&drop for 20-200 images**
 - [x] **NEW: Batch Review page (/batch/:id) with group management (split, merge, delete)**
 
