@@ -1586,7 +1586,6 @@ async def run_generate_drafts(batch_id: str, job_id: str):
         
         await db.jobs.update_one({"id": job_id}, {"$set": {"progress": 15, "message": f"Generating {len(groups)} drafts..."}})
         
-        backend_url = os.environ.get('REACT_APP_BACKEND_URL', FRONTEND_URL.replace(':3000', ':8001'))
         draft_count = 0
         
         for idx, group in enumerate(groups):
