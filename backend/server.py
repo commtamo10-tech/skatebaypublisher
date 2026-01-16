@@ -1417,6 +1417,7 @@ Generate a professional listing template. Do NOT include Unknown values."""
                 "title": title,
                 "title_manually_edited": False,
                 "description": description,
+                "description_manually_edited": False,
                 "aspects": aspects,
                 "offer_id": None,
                 "listing_id": None,
