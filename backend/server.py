@@ -396,6 +396,45 @@ async def list_drafts(
     drafts = await cursor.to_list(1000)
     return [DraftResponse(**d) for d in drafts]
 
+@api_router.get("/drafts/{draft_id}/preview")
+async def get_draft_preview(draft_id: str, user = Depends(get_current_user)):
+    """Get draft preview data with sanitized HTML"""
+    draft = await db.drafts.find_one({"id": draft_id}, {"_id": 0})
+    if not draft:
+        raise HTTPException(status_code=404, detail="Draft not found")
+    
+    # Get backend URL for image URLs
+    backend_url = os.environ.get('REACT_APP_BACKEND_URL', FRONTEND_URL.replace(':3000', ':8001'))
+    
+    # Convert relative URLs to absolute
+    images = []
+    for url in draft.get("image_urls", []):
+        if url.startswith("/api/"):
+            images.append(f"{backend_url}{url}")
+        elif url.startswith("http"):
+            images.append(url)
+        else:
+            images.append(f"{backend_url}/api/uploads/{url}")
+    
+    # Sanitize HTML description server-side
+    raw_description = draft.get("description", "")
+    sanitized_description = sanitize_html(raw_description)
+    
+    return {
+        "id": draft["id"],
+        "sku": draft["sku"],
+        "title": draft.get("title") or "Untitled Draft",
+        "price": draft.get("price", 0),
+        "categoryId": draft.get("category_id", ""),
+        "condition": draft.get("condition", "USED_GOOD"),
+        "images": images,
+        "aspects": draft.get("aspects") or {},
+        "descriptionHtml": sanitized_description,
+        "descriptionRaw": raw_description,
+        "status": draft.get("status", "DRAFT"),
+        "itemType": draft.get("item_type", "")
+    }
+
 @api_router.get("/drafts/{draft_id}", response_model=DraftResponse)
 async def get_draft(draft_id: str, user = Depends(get_current_user)):
     """Get single draft"""
