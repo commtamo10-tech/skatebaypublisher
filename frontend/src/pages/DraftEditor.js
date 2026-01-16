@@ -518,6 +518,12 @@ export default function DraftEditor() {
     setSaving(true);
     
     let titleToSave = title;
+    
+    // Validate title length
+    if (title.length < 70) {
+      toast.warning("Title is under 70 characters - consider adding more details");
+    }
+    
     if (title.length > 80) {
       titleToSave = title.substring(0, 77) + "...";
       setTitle(titleToSave);
