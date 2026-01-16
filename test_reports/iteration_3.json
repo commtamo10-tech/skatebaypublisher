@@ -1,0 +1,46 @@
+{
+  "summary": "Completed comprehensive testing of auto-title generation feature. All core functionality working correctly including title auto-updates from aspects, manual editing flag, regenerate button, and preview functionality.",
+  
+  "backend_issues": {
+    "critical_bugs": [],
+    "flaky_endpoints": []
+  },
+  
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  
+  "passed_tests": [
+    "Draft loads with title_manually_edited field (defaults to false)",
+    "PATCH /api/drafts/{id} updates title_manually_edited field correctly",
+    "Title excludes Unknown/N/A values from auto-generation",
+    "Preview fetches fresh data with cache-busting",
+    "Manual title editing sets titleManuallyEdited flag and shows Manual badge",
+    "Regenerate title button resets title and clears manual flag",
+    "Changing Brand aspect auto-updates title when not manually edited",
+    "Preview button saves draft before navigating",
+    "Preview page displays updated title correctly",
+    "Desktop/Mobile preview tabs work correctly",
+    "HTML source toggle works in preview",
+    "All backend API endpoints (14/14) passing",
+    "Authentication and authorization working",
+    "LLM content generation working",
+    "HTML sanitization working in preview"
+  ],
+  
+  "test_report_links": ["/app/backend_test.py"],
+  
+  "success_percentage": {
+    "backend": "100% (14/14 tests passed)",
+    "frontend": "95% (minor DOM attachment issue on HTML toggle, but functionality works)"
+  },
+  
+  "updated_files": ["/app/backend_test.py"],
+  
+  "action_item_for_main_agent": "",
+  
+  "should_call_test_agent_after_fix": "false",
+  "should_main_agent_test_itself": "true"
+}
