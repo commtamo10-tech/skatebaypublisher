@@ -698,17 +698,45 @@ async def get_draft(draft_id: str, user = Depends(get_current_user)):
     draft = await db.drafts.find_one({"id": draft_id}, {"_id": 0})
     if not draft:
         raise HTTPException(status_code=404, detail="Draft not found")
+    
+    # Extract core details from aspects if not present at top level
+    if not draft.get("brand") and draft.get("aspects"):
+        core = extract_core_details(draft.get("aspects", {}))
+        draft.update(core)
+    
     return DraftResponse(**draft)
 
 @api_router.patch("/drafts/{draft_id}", response_model=DraftResponse)
 async def update_draft(draft_id: str, update: DraftUpdate, user = Depends(get_current_user)):
-    """Update draft"""
-    update_data = {k: v for k, v in update.model_dump().items() if v is not None}
-    update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+    """Update draft with partial update support"""
+    update_dict = update.model_dump(exclude_unset=True)
+    
+    # Handle core details -> merge into aspects
+    core_fields = ["brand", "model", "size", "color", "era"]
+    core_updates = {k: update_dict.pop(k) for k in core_fields if k in update_dict}
+    
+    # Get existing draft to merge aspects
+    existing = await db.drafts.find_one({"id": draft_id}, {"_id": 0})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Draft not found")
+    
+    # Merge core fields into aspects
+    if core_updates:
+        existing_aspects = existing.get("aspects") or {}
+        for field, value in core_updates.items():
+            if value is not None:
+                # Map field name to aspect key
+                aspect_key = field.capitalize() if field != "era" else "Era"
+                existing_aspects[aspect_key] = value
+                # Also update top-level core field
+                update_dict[field] = value
+        update_dict["aspects"] = existing_aspects
+    
+    update_dict["updated_at"] = datetime.now(timezone.utc).isoformat()
     
     result = await db.drafts.find_one_and_update(
         {"id": draft_id},
-        {"$set": update_data},
+        {"$set": update_dict},
         return_document=True
     )
     
@@ -716,6 +744,12 @@ async def update_draft(draft_id: str, update: DraftUpdate, user = Depends(get_cu
         raise HTTPException(status_code=404, detail="Draft not found")
     
     result.pop("_id", None)
+    
+    # Extract core details for response
+    if not result.get("brand") and result.get("aspects"):
+        core = extract_core_details(result.get("aspects", {}))
+        result.update(core)
+    
     return DraftResponse(**result)
 
 @api_router.delete("/drafts/{draft_id}")
