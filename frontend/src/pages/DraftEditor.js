@@ -703,20 +703,22 @@ export default function DraftEditor() {
   const isPublished = draft.status === "PUBLISHED";
   const titleLength = title.length;
 
-  // Get suggested additional aspects based on item type
-  const getAdditionalAspects = () => {
-    const core = ["Brand", "Model", "Size", "Color", "Era"];
+  // Core fields that are always shown first in Item Specifics
+  const CORE_ASPECT_KEYS = ["Brand", "Model", "Size", "Color", "Era"];
+  
+  // Get all aspects for the item type (core + additional)
+  const getAllAspectsForType = () => {
     switch (draft.item_type) {
       case "WHL":
-        return ["Durometer", "Core", "Material", "Quantity", "MPN"];
+        return ["Brand", "Model", "Size", "Durometer", "Color", "Era", "Core", "Material", "Quantity", "MPN"];
       case "TRK":
-        return ["Material", "Quantity", "MPN"];
+        return ["Brand", "Model", "Size", "Color", "Era", "Material", "Quantity", "MPN"];
       case "DCK":
-        return ["Series", "Width", "Length", "Artist", "Type", "Material"];
+        return ["Brand", "Model", "Series", "Size", "Width", "Length", "Color", "Era", "Artist", "Type", "Material"];
       case "APP":
-        return ["Item Type", "Department", "Measurements", "Material", "Style", "Fit"];
+        return ["Brand", "Model", "Item Type", "Department", "Size", "Color", "Era", "Measurements", "Material", "Style", "Fit"];
       default:
-        return ["Item Type", "Material", "Notes"];
+        return ["Brand", "Model", "Item Type", "Size", "Color", "Era", "Material", "Notes"];
     }
   };
 
