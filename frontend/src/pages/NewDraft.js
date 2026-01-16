@@ -79,12 +79,13 @@ export default function NewDraft() {
       // Upload images first
       const uploadedUrls = await uploadImages();
       
-      // Create draft
+      // Create draft with condition = NEW (default)
       const response = await api.post("/drafts", {
         item_type: itemType,
         category_id: categoryId,
         price: parseFloat(price),
-        image_urls: uploadedUrls
+        image_urls: uploadedUrls,
+        condition: "NEW"  // Default to NEW
       });
       
       const draftId = response.data.id;
