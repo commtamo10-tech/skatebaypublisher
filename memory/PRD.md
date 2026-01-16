@@ -50,6 +50,7 @@ Full-stack web app (React frontend + FastAPI backend + MongoDB) per creare inser
 - GET /api/auth/me
 - GET /api/drafts, POST /api/drafts
 - GET/PATCH/DELETE /api/drafts/{id}
+- **GET /api/drafts/{id}/preview** ← NEW: returns sanitized HTML preview data
 - POST /api/drafts/{id}/generate
 - POST /api/drafts/{id}/publish
 - POST /api/upload
