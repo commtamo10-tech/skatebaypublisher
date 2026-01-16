@@ -172,6 +172,43 @@ class SkateBAYAPITester:
         
         return None
 
+    def test_create_app_draft(self):
+        """Test creating a new APP (Apparel) draft"""
+        print("\n👕 Testing APP Item Type Creation...")
+        
+        if not self.token:
+            self.log_result("POST /drafts (APP type)", False, "No token available")
+            return None
+            
+        try:
+            draft_data = {
+                "item_type": "APP",
+                "category_id": "155184",  # Skateboard apparel category
+                "price": 45.99,
+                "image_urls": []
+            }
+            
+            response = self.session.post(
+                f"{self.base_url}/api/drafts",
+                json=draft_data,
+                headers={"Content-Type": "application/json"}
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                if "id" in data and "sku" in data and data.get("item_type") == "APP":
+                    self.log_result("POST /drafts (APP type)", True)
+                    return data["id"]
+                else:
+                    self.log_result("POST /drafts (APP type)", False, f"Missing fields or wrong type: {data}")
+            else:
+                self.log_result("POST /drafts (APP type)", False, f"Status {response.status_code}: {response.text}")
+                
+        except Exception as e:
+            self.log_result("POST /drafts (APP type)", False, f"Exception: {str(e)}")
+        
+        return None
+
     def test_get_draft(self, draft_id):
         """Test getting a specific draft"""
         if not self.token or not draft_id:
