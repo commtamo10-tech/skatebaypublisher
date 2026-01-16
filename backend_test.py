@@ -328,6 +328,7 @@ class SkateBAYAPITester:
         if draft_id:
             self.test_get_draft(draft_id)
             self.test_llm_generation(draft_id)
+            self.test_draft_preview(draft_id)
         
         # Settings tests
         self.test_settings()
