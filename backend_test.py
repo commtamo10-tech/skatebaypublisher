@@ -483,6 +483,56 @@ class SkateBAYAPITester:
         
         return False
 
+    def test_title_no_unknown_values(self, draft_id):
+        """Test that title never contains 'Unknown' or 'N/A'"""
+        print("\n🚫 Testing Title Excludes Unknown Values...")
+        
+        if not self.token or not draft_id:
+            self.log_result("Title excludes Unknown/N/A", False, "No token or draft_id available")
+            return False
+            
+        try:
+            # Update draft with aspects containing Unknown values
+            aspects_with_unknown = {
+                "Brand": "Powell Peralta",
+                "Model": "Unknown",
+                "Size": "N/A",
+                "Era": "1980s",
+                "Color": "Red"
+            }
+            
+            update_data = {
+                "aspects": aspects_with_unknown,
+                "title_manually_edited": False  # Allow auto-generation
+            }
+            
+            response = self.session.patch(
+                f"{self.base_url}/api/drafts/{draft_id}",
+                json=update_data,
+                headers={"Content-Type": "application/json"}
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                title = data.get("title", "")
+                
+                # Check that title doesn't contain Unknown or N/A
+                forbidden_words = ["Unknown", "N/A", "(Unknown)", "undefined", "null"]
+                has_forbidden = any(word.lower() in title.lower() for word in forbidden_words)
+                
+                if not has_forbidden:
+                    self.log_result("Title excludes Unknown/N/A", True)
+                    return True
+                else:
+                    self.log_result("Title excludes Unknown/N/A", False, f"Title contains forbidden words: {title}")
+            else:
+                self.log_result("Title excludes Unknown/N/A", False, f"Status {response.status_code}: {response.text}")
+                
+        except Exception as e:
+            self.log_result("Title excludes Unknown/N/A", False, f"Exception: {str(e)}")
+        
+        return False
+
     def test_description_no_unknown_values(self, draft_id):
         """Test that description never contains 'Unknown' or 'N/A'"""
         print("\n🚫 Testing Description Excludes Unknown Values...")
