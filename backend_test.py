@@ -912,6 +912,22 @@ class SkateBAYAPITester:
             self.test_llm_generation(draft_id)
             self.test_draft_preview(draft_id)
         
+        # Test APP item type functionality
+        print("\n" + "="*50)
+        print("👕 TESTING APP ITEM TYPE FEATURE")
+        print("="*50)
+        
+        app_draft_id = self.test_create_app_draft()
+        if app_draft_id:
+            self.test_description_manually_edited_field(app_draft_id)
+            self.test_patch_description_manually_edited(app_draft_id)
+            self.test_description_no_unknown_values(app_draft_id)
+            self.test_app_suggested_aspects(app_draft_id)
+            
+            # Test LLM generation for APP type
+            self.test_llm_generation(app_draft_id)
+            self.test_draft_preview(app_draft_id)
+        
         # Batch Upload Tests
         print("\n" + "="*50)
         print("🔥 TESTING BATCH UPLOAD FEATURE")
