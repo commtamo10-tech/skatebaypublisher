@@ -262,6 +262,7 @@ class DraftUpdate(BaseModel):
     title_manually_edited: Optional[bool] = None
     description_manually_edited: Optional[bool] = None
     item_type: Optional[str] = None
+    listing_id: Optional[str] = None
     # Core Details fields (always present)
     brand: Optional[str] = None
     model: Optional[str] = None
