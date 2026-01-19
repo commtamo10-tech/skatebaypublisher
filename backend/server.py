@@ -3555,15 +3555,28 @@ async def publish_draft_multi_marketplace(
             
             # Create or Update offer
             if existing_offer_id:
-                # Update existing offer
-                offer_response = await http_client.put(
+                # Delete existing offer first to ensure clean state
+                logger.info(f"Deleting existing offer {existing_offer_id}...")
+                delete_resp = await http_client.delete(
                     f"{api_url}/sell/inventory/v1/offer/{existing_offer_id}",
-                    headers=headers,
-                    json=offer_payload
+                    headers=headers
                 )
-                logger.info(f"updateOffer: status={offer_response.status_code}")
-                offer_id = existing_offer_id
-            else:
+                logger.info(f"Delete offer response: {delete_resp.status_code}")
+                if delete_resp.status_code in [200, 204]:
+                    logger.info("Offer deleted successfully")
+                    existing_offer_id = None  # Force create new offer
+                else:
+                    # Try update instead
+                    logger.info(f"Delete failed ({delete_resp.status_code}), trying update...")
+                    offer_response = await http_client.put(
+                        f"{api_url}/sell/inventory/v1/offer/{existing_offer_id}",
+                        headers=headers,
+                        json=offer_payload
+                    )
+                    logger.info(f"updateOffer: status={offer_response.status_code}")
+                    offer_id = existing_offer_id
+            
+            if not existing_offer_id:
                 # Create new offer
                 offer_response = await http_client.post(
                     f"{api_url}/sell/inventory/v1/offer",
