@@ -287,6 +287,21 @@ export default function Dashboard() {
                       {draft.error_message}
                     </div>
                   )}
+                  
+                  {draft.status === "PUBLISHED" && draft.listing_id && (
+                    <div className="mt-3 flex items-center gap-2">
+                      <a
+                        href={`https://www.sandbox.ebay.com/itm/${draft.listing_id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="inline-flex items-center gap-1 px-3 py-1 bg-green-100 text-green-700 text-xs font-mono border-2 border-green-300 hover:bg-green-200 transition-colors"
+                      >
+                        <ExternalLink className="w-3 h-3" />
+                        View on eBay #{draft.listing_id}
+                      </a>
+                    </div>
+                  )}
                 </div>
               );
             })}
