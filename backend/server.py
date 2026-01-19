@@ -2108,7 +2108,7 @@ async def bootstrap_marketplaces(
                 # For sandbox, use simpler payload
                 if use_sandbox:
                     fulfillment_payload = {
-                        "name": f"Flat Rate Shipping {country_code} - Sandbox",
+                        "name": f"Flat Rate Shipping {country_code} - Sandbox - {secrets.token_hex(4)}",
                         "marketplaceId": marketplace_id,
                         "categoryTypes": [{"name": "ALL_EXCLUDING_MOTORS_VEHICLES"}],
                         "handlingTime": {
@@ -2134,34 +2134,38 @@ async def bootstrap_marketplaces(
                         ]
                     }
                 
-                fulfillment_resp = await http_client.post(
+                # First try to get existing policies for this marketplace
+                existing_resp = await http_client.get(
                     f"{api_url}/sell/account/v1/fulfillment_policy",
                     headers={**headers, "X-EBAY-C-MARKETPLACE-ID": marketplace_id},
-                    json=fulfillment_payload
+                    params={"marketplace_id": marketplace_id}
                 )
-                logger.info(f"  Create fulfillment: status={fulfillment_resp.status_code}")
                 
-                if fulfillment_resp.status_code == 201:
-                    fulfillment_data = fulfillment_resp.json()
-                    result.fulfillment_policy_id = fulfillment_data.get("fulfillmentPolicyId")
-                    logger.info(f"  Fulfillment ID: {result.fulfillment_policy_id}")
-                elif fulfillment_resp.status_code == 400:
-                    # Policy might already exist
-                    err_text = fulfillment_resp.text
-                    logger.warning(f"  Fulfillment creation failed: {err_text[:300]}")
-                    
-                    # Try to get existing policies
-                    existing_resp = await http_client.get(
-                        f"{api_url}/sell/account/v1/fulfillment_policy?marketplace_id={marketplace_id}",
-                        headers=headers
+                if existing_resp.status_code == 200:
+                    existing_policies = existing_resp.json().get("fulfillmentPolicies", [])
+                    if existing_policies:
+                        result.fulfillment_policy_id = existing_policies[0].get("fulfillmentPolicyId")
+                        logger.info(f"  Using existing fulfillment: {result.fulfillment_policy_id}")
+                
+                # Create new if none exists
+                if not result.fulfillment_policy_id:
+                    fulfillment_resp = await http_client.post(
+                        f"{api_url}/sell/account/v1/fulfillment_policy",
+                        headers={**headers, "X-EBAY-C-MARKETPLACE-ID": marketplace_id},
+                        json=fulfillment_payload
                     )
-                    if existing_resp.status_code == 200:
-                        existing_policies = existing_resp.json().get("fulfillmentPolicies", [])
-                        if existing_policies:
-                            result.fulfillment_policy_id = existing_policies[0].get("fulfillmentPolicyId")
-                            logger.info(f"  Using existing: {result.fulfillment_policy_id}")
-                else:
-                    logger.error(f"  Fulfillment error: {fulfillment_resp.text[:300]}")
+                    logger.info(f"  Create fulfillment: status={fulfillment_resp.status_code}")
+                    logger.info(f"  Response: {fulfillment_resp.text[:300]}")
+                    
+                    if fulfillment_resp.status_code == 201:
+                        fulfillment_data = fulfillment_resp.json()
+                        result.fulfillment_policy_id = fulfillment_data.get("fulfillmentPolicyId")
+                        logger.info(f"  Fulfillment ID: {result.fulfillment_policy_id}")
+                    elif fulfillment_resp.status_code == 400:
+                        err_text = fulfillment_resp.text
+                        logger.warning(f"  Fulfillment creation failed: {err_text[:300]}")
+                    else:
+                        logger.error(f"  Fulfillment error: {fulfillment_resp.text[:300]}")
                 
                 # ========== STEP 4: Create Payment Policy ==========
                 logger.info(f"Step 4: Creating payment policy for {marketplace_id}...")
