@@ -1868,6 +1868,461 @@ async def update_settings(update: SettingsUpdate, user = Depends(get_current_use
     
     return SettingsResponse(**settings)
 
+
+# ============ BOOTSTRAP MULTI-MARKETPLACE ============
+
+class BootstrapResult(BaseModel):
+    marketplace_id: str
+    success: bool
+    location_key: Optional[str] = None
+    fulfillment_policy_id: Optional[str] = None
+    payment_policy_id: Optional[str] = None
+    return_policy_id: Optional[str] = None
+    shipping_service_code: Optional[str] = None
+    error: Optional[str] = None
+
+
+@api_router.post("/settings/ebay/bootstrap-marketplaces")
+async def bootstrap_marketplaces(
+    marketplaces: List[str] = None,
+    user = Depends(get_current_user)
+):
+    """
+    Bootstrap eBay configuration for multiple marketplaces.
+    For each marketplace:
+    1. Creates inventory location
+    2. Fetches valid shipping service codes via Metadata API
+    3. Creates fulfillment policy (with dynamic shipping service)
+    4. Creates payment policy
+    5. Creates return policy (30 days, seller pays, domestic only)
+    6. Saves all IDs to database
+    """
+    logger.info("=" * 60)
+    logger.info("BOOTSTRAP MULTI-MARKETPLACE STARTED")
+    logger.info("=" * 60)
+    
+    # Default to all supported marketplaces if none specified
+    if not marketplaces:
+        marketplaces = get_all_marketplaces()
+    
+    logger.info(f"Marketplaces to bootstrap: {marketplaces}")
+    
+    # Get eBay access token
+    try:
+        access_token = await get_ebay_access_token()
+    except HTTPException as e:
+        raise HTTPException(status_code=401, detail=f"eBay not connected: {e.detail}")
+    
+    environment = await get_ebay_environment()
+    use_sandbox = environment == "sandbox"
+    api_url = "https://api.sandbox.ebay.com" if use_sandbox else "https://api.ebay.com"
+    
+    logger.info(f"Environment: {environment}, API URL: {api_url}")
+    
+    results = []
+    settings_update = {"marketplaces": {}}
+    
+    # Load existing settings
+    existing_settings = await db.settings.find_one({"_id": "app_settings"}) or {}
+    existing_marketplaces = existing_settings.get("marketplaces", {})
+    
+    async with httpx.AsyncClient(timeout=60.0) as http_client:
+        headers = {
+            "Authorization": f"Bearer {access_token}",
+            "Content-Type": "application/json"
+        }
+        
+        # First, opt-in to Business Policies
+        logger.info("Step 0: Opting in to Business Policies...")
+        opt_in_resp = await http_client.post(
+            f"{api_url}/sell/account/v1/program/opt_in",
+            headers=headers,
+            json={"programType": "SELLING_POLICY_MANAGEMENT"}
+        )
+        logger.info(f"Opt-in response: {opt_in_resp.status_code}")
+        await asyncio.sleep(1)
+        
+        for marketplace_id in marketplaces:
+            logger.info(f"\n{'='*40}")
+            logger.info(f"Processing {marketplace_id}")
+            logger.info(f"{'='*40}")
+            
+            result = BootstrapResult(marketplace_id=marketplace_id, success=False)
+            mp_settings = {}
+            
+            # Get marketplace defaults
+            mp_config = get_default_marketplace_config(marketplace_id)
+            if not mp_config:
+                result.error = f"Unknown marketplace: {marketplace_id}"
+                results.append(result)
+                continue
+            
+            country_code = mp_config["country_code"]
+            currency = mp_config["currency"]
+            site_id = mp_config["site_id"]
+            
+            try:
+                # ========== STEP 1: Create Inventory Location ==========
+                location_key = f"warehouse_{country_code.lower()}"
+                logger.info(f"Step 1: Creating location '{location_key}'...")
+                
+                # Check if exists first
+                loc_check = await http_client.get(
+                    f"{api_url}/sell/inventory/v1/location/{location_key}",
+                    headers=headers
+                )
+                
+                if loc_check.status_code == 200:
+                    logger.info(f"  Location '{location_key}' already exists")
+                else:
+                    # Create location (ship from Italy for all)
+                    loc_payload = {
+                        "location": {
+                            "address": {
+                                "addressLine1": "Via Roma 1",
+                                "city": "Milan",
+                                "stateOrProvince": "MI",
+                                "postalCode": "20100",
+                                "country": "IT"
+                            }
+                        },
+                        "locationTypes": ["WAREHOUSE"],
+                        "name": f"Warehouse {country_code}",
+                        "merchantLocationStatus": "ENABLED"
+                    }
+                    loc_create = await http_client.post(
+                        f"{api_url}/sell/inventory/v1/location/{location_key}",
+                        headers=headers,
+                        json=loc_payload
+                    )
+                    logger.info(f"  Create location: status={loc_create.status_code}")
+                    if loc_create.status_code not in [200, 201, 204, 409]:
+                        logger.warning(f"  Location creation issue: {loc_create.text[:200]}")
+                
+                result.location_key = location_key
+                mp_settings["merchant_location_key"] = location_key
+                
+                # ========== STEP 2: Get Shipping Services via Metadata API ==========
+                logger.info(f"Step 2: Fetching shipping services for {marketplace_id}...")
+                
+                shipping_service_code = None
+                
+                # Call Metadata API getShippingServices
+                meta_headers = {
+                    "Authorization": f"Bearer {access_token}",
+                    "Content-Type": "application/json",
+                    "X-EBAY-C-MARKETPLACE-ID": marketplace_id
+                }
+                
+                shipping_resp = await http_client.get(
+                    f"{api_url}/sell/metadata/v1/marketplace/{marketplace_id}/get_shipping_services",
+                    headers=meta_headers
+                )
+                
+                if shipping_resp.status_code == 200:
+                    shipping_data = shipping_resp.json()
+                    services = shipping_data.get("shippingServices", [])
+                    logger.info(f"  Found {len(services)} shipping services")
+                    
+                    # Find international shipping service that supports Italy -> target country
+                    # Look for:
+                    # 1. International services from Italy
+                    # 2. Standard/Economy services (not Express)
+                    for svc in services:
+                        svc_code = svc.get("shippingServiceCode", "")
+                        carrier = svc.get("shippingCarrierCode", "")
+                        intl = svc.get("internationalShipping", False)
+                        
+                        # For sandbox, just pick first available
+                        if use_sandbox:
+                            shipping_service_code = svc_code
+                            logger.info(f"  Selected (sandbox): {svc_code}")
+                            break
+                        
+                        # For production, prefer international services
+                        if intl and "standard" in svc_code.lower():
+                            shipping_service_code = svc_code
+                            logger.info(f"  Selected international: {svc_code}")
+                            break
+                    
+                    # Fallback to first service if none matched
+                    if not shipping_service_code and services:
+                        shipping_service_code = services[0].get("shippingServiceCode")
+                        logger.info(f"  Fallback to first: {shipping_service_code}")
+                else:
+                    logger.warning(f"  Metadata API failed: {shipping_resp.status_code}")
+                    logger.warning(f"  Response: {shipping_resp.text[:300]}")
+                
+                # Use fallback if API didn't return anything
+                if not shipping_service_code:
+                    shipping_service_code = FALLBACK_SHIPPING_SERVICES.get(marketplace_id, "OtherInternational")
+                    logger.info(f"  Using fallback: {shipping_service_code}")
+                
+                result.shipping_service_code = shipping_service_code
+                
+                # ========== STEP 3: Create Fulfillment Policy ==========
+                logger.info(f"Step 3: Creating fulfillment policy for {marketplace_id}...")
+                
+                shipping_cost = mp_config["shipping_standard"]["cost"]["value"]
+                
+                fulfillment_payload = {
+                    "name": f"International Shipping to {country_code} - {environment}",
+                    "description": f"Ships from Italy to {mp_config['name']}",
+                    "marketplaceId": marketplace_id,
+                    "categoryTypes": [{"name": "ALL_EXCLUDING_MOTORS_VEHICLES"}],
+                    "handlingTime": {
+                        "value": DEFAULT_HANDLING_TIME,
+                        "unit": "DAY"
+                    },
+                    "shippingOptions": [
+                        {
+                            "optionType": "DOMESTIC" if country_code == "IT" else "INTERNATIONAL",
+                            "costType": "FLAT_RATE",
+                            "shippingServices": [
+                                {
+                                    "sortOrder": 1,
+                                    "shippingCarrierCode": "Other",
+                                    "shippingServiceCode": shipping_service_code,
+                                    "shippingCost": {
+                                        "value": str(shipping_cost),
+                                        "currency": currency
+                                    },
+                                    "additionalShippingCost": {
+                                        "value": "0",
+                                        "currency": currency
+                                    },
+                                    "freeShipping": False,
+                                    "shipToLocations": {
+                                        "regionIncluded": [
+                                            {"regionName": "Worldwide"}
+                                        ]
+                                    }
+                                }
+                            ]
+                        }
+                    ],
+                    "globalShipping": False
+                }
+                
+                # For sandbox, use simpler payload
+                if use_sandbox:
+                    fulfillment_payload = {
+                        "name": f"Flat Rate Shipping {country_code} - Sandbox",
+                        "marketplaceId": marketplace_id,
+                        "categoryTypes": [{"name": "ALL_EXCLUDING_MOTORS_VEHICLES"}],
+                        "handlingTime": {
+                            "value": DEFAULT_HANDLING_TIME,
+                            "unit": "DAY"
+                        },
+                        "shippingOptions": [
+                            {
+                                "optionType": "DOMESTIC",
+                                "costType": "FLAT_RATE",
+                                "shippingServices": [
+                                    {
+                                        "sortOrder": 1,
+                                        "shippingServiceCode": shipping_service_code,
+                                        "shippingCost": {
+                                            "value": str(shipping_cost),
+                                            "currency": currency
+                                        },
+                                        "freeShipping": False
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                
+                fulfillment_resp = await http_client.post(
+                    f"{api_url}/sell/account/v1/fulfillment_policy",
+                    headers={**headers, "X-EBAY-C-MARKETPLACE-ID": marketplace_id},
+                    json=fulfillment_payload
+                )
+                logger.info(f"  Create fulfillment: status={fulfillment_resp.status_code}")
+                
+                if fulfillment_resp.status_code == 201:
+                    fulfillment_data = fulfillment_resp.json()
+                    result.fulfillment_policy_id = fulfillment_data.get("fulfillmentPolicyId")
+                    logger.info(f"  Fulfillment ID: {result.fulfillment_policy_id}")
+                elif fulfillment_resp.status_code == 400:
+                    # Policy might already exist
+                    err_text = fulfillment_resp.text
+                    logger.warning(f"  Fulfillment creation failed: {err_text[:300]}")
+                    
+                    # Try to get existing policies
+                    existing_resp = await http_client.get(
+                        f"{api_url}/sell/account/v1/fulfillment_policy?marketplace_id={marketplace_id}",
+                        headers=headers
+                    )
+                    if existing_resp.status_code == 200:
+                        existing_policies = existing_resp.json().get("fulfillmentPolicies", [])
+                        if existing_policies:
+                            result.fulfillment_policy_id = existing_policies[0].get("fulfillmentPolicyId")
+                            logger.info(f"  Using existing: {result.fulfillment_policy_id}")
+                else:
+                    logger.error(f"  Fulfillment error: {fulfillment_resp.text[:300]}")
+                
+                # ========== STEP 4: Create Payment Policy ==========
+                logger.info(f"Step 4: Creating payment policy for {marketplace_id}...")
+                
+                payment_payload = {
+                    "name": f"PayPal Payment {country_code} - {environment}",
+                    "description": f"PayPal payment for {mp_config['name']}",
+                    "marketplaceId": marketplace_id,
+                    "categoryTypes": [{"name": "ALL_EXCLUDING_MOTORS_VEHICLES"}],
+                    "paymentMethods": [
+                        {
+                            "paymentMethodType": "PERSONAL_CHECK",
+                            "brands": []
+                        }
+                    ],
+                    "immediatePay": False
+                }
+                
+                # For production, use PAYPAL
+                if not use_sandbox:
+                    payment_payload["paymentMethods"] = [
+                        {"paymentMethodType": "PAYPAL"}
+                    ]
+                
+                payment_resp = await http_client.post(
+                    f"{api_url}/sell/account/v1/payment_policy",
+                    headers={**headers, "X-EBAY-C-MARKETPLACE-ID": marketplace_id},
+                    json=payment_payload
+                )
+                logger.info(f"  Create payment: status={payment_resp.status_code}")
+                
+                if payment_resp.status_code == 201:
+                    payment_data = payment_resp.json()
+                    result.payment_policy_id = payment_data.get("paymentPolicyId")
+                    logger.info(f"  Payment ID: {result.payment_policy_id}")
+                elif payment_resp.status_code == 400:
+                    logger.warning(f"  Payment creation failed: {payment_resp.text[:300]}")
+                    # Try to get existing
+                    existing_resp = await http_client.get(
+                        f"{api_url}/sell/account/v1/payment_policy?marketplace_id={marketplace_id}",
+                        headers=headers
+                    )
+                    if existing_resp.status_code == 200:
+                        existing_policies = existing_resp.json().get("paymentPolicies", [])
+                        if existing_policies:
+                            result.payment_policy_id = existing_policies[0].get("paymentPolicyId")
+                            logger.info(f"  Using existing: {result.payment_policy_id}")
+                else:
+                    logger.error(f"  Payment error: {payment_resp.text[:300]}")
+                
+                # ========== STEP 5: Create Return Policy ==========
+                # 30 days, seller pays return shipping, domestic only
+                logger.info(f"Step 5: Creating return policy for {marketplace_id}...")
+                
+                return_payload = {
+                    "name": f"30 Day Returns {country_code} - {environment}",
+                    "description": f"30 day returns, seller pays shipping, domestic only",
+                    "marketplaceId": marketplace_id,
+                    "categoryTypes": [{"name": "ALL_EXCLUDING_MOTORS_VEHICLES"}],
+                    "returnsAccepted": True,
+                    "returnPeriod": {
+                        "value": 30,
+                        "unit": "DAY"
+                    },
+                    "returnShippingCostPayer": "SELLER",
+                    "internationalOverride": {
+                        "returnsAccepted": False
+                    }
+                }
+                
+                return_resp = await http_client.post(
+                    f"{api_url}/sell/account/v1/return_policy",
+                    headers={**headers, "X-EBAY-C-MARKETPLACE-ID": marketplace_id},
+                    json=return_payload
+                )
+                logger.info(f"  Create return: status={return_resp.status_code}")
+                
+                if return_resp.status_code == 201:
+                    return_data = return_resp.json()
+                    result.return_policy_id = return_data.get("returnPolicyId")
+                    logger.info(f"  Return ID: {result.return_policy_id}")
+                elif return_resp.status_code == 400:
+                    logger.warning(f"  Return creation failed: {return_resp.text[:300]}")
+                    # Try to get existing
+                    existing_resp = await http_client.get(
+                        f"{api_url}/sell/account/v1/return_policy?marketplace_id={marketplace_id}",
+                        headers=headers
+                    )
+                    if existing_resp.status_code == 200:
+                        existing_policies = existing_resp.json().get("returnPolicies", [])
+                        if existing_policies:
+                            result.return_policy_id = existing_policies[0].get("returnPolicyId")
+                            logger.info(f"  Using existing: {result.return_policy_id}")
+                else:
+                    logger.error(f"  Return error: {return_resp.text[:300]}")
+                
+                # ========== STEP 6: Save to settings ==========
+                mp_settings["policies"] = {
+                    "fulfillment_policy_id": result.fulfillment_policy_id,
+                    "payment_policy_id": result.payment_policy_id,
+                    "return_policy_id": result.return_policy_id
+                }
+                mp_settings["shipping_service_code"] = shipping_service_code
+                
+                # Check if all required fields are present
+                if all([result.location_key, result.fulfillment_policy_id, result.payment_policy_id, result.return_policy_id]):
+                    result.success = True
+                    logger.info(f"SUCCESS: {marketplace_id} fully configured!")
+                else:
+                    missing = []
+                    if not result.location_key:
+                        missing.append("location")
+                    if not result.fulfillment_policy_id:
+                        missing.append("fulfillment_policy")
+                    if not result.payment_policy_id:
+                        missing.append("payment_policy")
+                    if not result.return_policy_id:
+                        missing.append("return_policy")
+                    result.error = f"Missing: {', '.join(missing)}"
+                    logger.warning(f"PARTIAL: {marketplace_id} - {result.error}")
+                
+                settings_update["marketplaces"][marketplace_id] = mp_settings
+                
+            except Exception as e:
+                logger.error(f"Error processing {marketplace_id}: {str(e)}")
+                result.error = str(e)
+            
+            results.append(result)
+    
+    # Save all settings to database
+    logger.info("\nSaving settings to database...")
+    
+    # Merge with existing marketplaces settings
+    merged_marketplaces = {**existing_marketplaces, **settings_update["marketplaces"]}
+    
+    await db.settings.update_one(
+        {"_id": "app_settings"},
+        {"$set": {"marketplaces": merged_marketplaces}},
+        upsert=True
+    )
+    
+    # Calculate summary
+    success_count = sum(1 for r in results if r.success)
+    partial_count = sum(1 for r in results if not r.success and r.location_key)
+    failed_count = sum(1 for r in results if not r.success and not r.location_key)
+    
+    logger.info("=" * 60)
+    logger.info(f"BOOTSTRAP COMPLETE: {success_count} success, {partial_count} partial, {failed_count} failed")
+    logger.info("=" * 60)
+    
+    return {
+        "message": f"Bootstrap complete: {success_count}/{len(results)} marketplaces configured",
+        "results": [r.model_dump() for r in results],
+        "summary": {
+            "total": len(results),
+            "success": success_count,
+            "partial": partial_count,
+            "failed": failed_count
+        }
+    }
+
+
 @api_router.get("/ebay/policies")
 async def get_ebay_policies(user = Depends(get_current_user)):
     """Fetch business policies from eBay, create defaults if none exist"""
