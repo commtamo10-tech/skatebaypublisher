@@ -2323,6 +2323,51 @@ async def bootstrap_marketplaces(
     }
 
 
+@api_router.get("/marketplaces")
+async def get_marketplaces(user = Depends(get_current_user)):
+    """
+    Get list of supported marketplaces with their current configuration status.
+    Shows which marketplaces have policies configured.
+    """
+    # Get saved settings
+    settings = await db.settings.find_one({"_id": "app_settings"}) or {}
+    saved_marketplaces = settings.get("marketplaces", {})
+    
+    # Get all supported marketplaces
+    all_mp_ids = get_all_marketplaces()
+    
+    result = []
+    for mp_id in all_mp_ids:
+        mp_config = get_marketplace_config(mp_id, settings)
+        if not mp_config:
+            continue
+        
+        # Check if fully configured
+        saved = saved_marketplaces.get(mp_id, {})
+        policies = saved.get("policies", {})
+        
+        is_configured = all([
+            saved.get("merchant_location_key"),
+            policies.get("fulfillment_policy_id"),
+            policies.get("payment_policy_id"),
+            policies.get("return_policy_id")
+        ])
+        
+        result.append({
+            "id": mp_id,
+            "name": mp_config["name"],
+            "currency": mp_config["currency"],
+            "country_code": mp_config["country_code"],
+            "is_configured": is_configured,
+            "merchant_location_key": saved.get("merchant_location_key"),
+            "policies": policies,
+            "default_price": mp_config["price"]["value"],
+            "default_shipping": mp_config["shipping_standard"]["cost"]["value"]
+        })
+    
+    return {"marketplaces": result}
+
+
 @api_router.get("/ebay/policies")
 async def get_ebay_policies(user = Depends(get_current_user)):
     """Fetch business policies from eBay, create defaults if none exist"""
