@@ -210,6 +210,8 @@ class SettingsUpdate(BaseModel):
     payment_policy_id: Optional[str] = None
     merchant_location_key: Optional[str] = None
     ebay_environment: Optional[str] = None  # "sandbox" or "production"
+    # Per-marketplace settings (nested dict)
+    marketplaces: Optional[Dict[str, Dict[str, Any]]] = None
 
 class SettingsResponse(BaseModel):
     fulfillment_policy_id: Optional[str] = None
@@ -218,6 +220,7 @@ class SettingsResponse(BaseModel):
     merchant_location_key: Optional[str] = None
     ebay_connected: bool = False
     ebay_environment: str = "sandbox"
+    marketplaces: Optional[Dict[str, Dict[str, Any]]] = None
 
 
 # ============ BATCH MODELS ============
