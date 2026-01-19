@@ -6,12 +6,21 @@ from typing import Dict, Any, Optional, List
 # Default handling time (days)
 DEFAULT_HANDLING_TIME = 3
 
+# Shipping rates (from Italy to destinations)
+SHIPPING_RATES = {
+    "EUROPE": {"value": "10.00", "currency": "USD"},      # Europe incl. UK, CH
+    "USA_CANADA": {"value": "25.00", "currency": "USD"},  # USA + Canada
+    "REST_OF_WORLD": {"value": "45.00", "currency": "USD"} # Rest of World
+}
+
 # Fallback shipping service codes per marketplace (used if Metadata API fails)
 FALLBACK_SHIPPING_SERVICES = {
     "EBAY_US": "USPSPriority",
     "EBAY_DE": "DE_DeutschePostBrief",
     "EBAY_ES": "ES_CorreosDeEspanaPaqueteAzul",
     "EBAY_AU": "AU_StandardDelivery",
+    "EBAY_IT": "IT_PosteItalianeRaccomandata",
+    "EBAY_UK": "UK_RoyalMailFirstClassStandard",
 }
 
 # Default marketplace configurations
@@ -22,11 +31,12 @@ MARKETPLACE_CONFIG = {
         "currency": "USD",
         "country_code": "US",
         "language": "en-US",
-        "price": {"value": 25.00, "currency": "USD"},
+        "price": {"value": 50.00, "currency": "USD"},
+        "shipping_rate": SHIPPING_RATES["USA_CANADA"],
         "shipping_standard": {
-            "cost": {"value": 25.00, "currency": "USD"},
+            "cost": SHIPPING_RATES["USA_CANADA"],
             "handling_time_days": DEFAULT_HANDLING_TIME,
-            "shipping_service_code": None  # Will be fetched from Metadata API
+            "shipping_service_code": None
         },
         "policies": {
             "fulfillment_policy_id": None,
@@ -41,9 +51,10 @@ MARKETPLACE_CONFIG = {
         "currency": "EUR",
         "country_code": "DE",
         "language": "de-DE",
-        "price": {"value": 12.00, "currency": "EUR"},
+        "price": {"value": 45.00, "currency": "EUR"},
+        "shipping_rate": SHIPPING_RATES["EUROPE"],
         "shipping_standard": {
-            "cost": {"value": 12.00, "currency": "EUR"},
+            "cost": SHIPPING_RATES["EUROPE"],
             "handling_time_days": DEFAULT_HANDLING_TIME,
             "shipping_service_code": None
         },
@@ -60,9 +71,10 @@ MARKETPLACE_CONFIG = {
         "currency": "EUR",
         "country_code": "ES",
         "language": "es-ES",
-        "price": {"value": 12.00, "currency": "EUR"},
+        "price": {"value": 45.00, "currency": "EUR"},
+        "shipping_rate": SHIPPING_RATES["EUROPE"],
         "shipping_standard": {
-            "cost": {"value": 12.00, "currency": "EUR"},
+            "cost": SHIPPING_RATES["EUROPE"],
             "handling_time_days": DEFAULT_HANDLING_TIME,
             "shipping_service_code": None
         },
@@ -79,9 +91,10 @@ MARKETPLACE_CONFIG = {
         "currency": "AUD",
         "country_code": "AU",
         "language": "en-AU",
-        "price": {"value": 100.00, "currency": "AUD"},
+        "price": {"value": 80.00, "currency": "AUD"},
+        "shipping_rate": SHIPPING_RATES["REST_OF_WORLD"],
         "shipping_standard": {
-            "cost": {"value": 100.00, "currency": "AUD"},
+            "cost": SHIPPING_RATES["REST_OF_WORLD"],
             "handling_time_days": DEFAULT_HANDLING_TIME,
             "shipping_service_code": None
         },
@@ -104,7 +117,7 @@ DEFAULT_MARKETPLACE_SETTINGS = MARKETPLACE_CONFIG
 # 36642 = Skateboarding > Clothing & Accessories
 # 16265 = Skateboarding > Other
 CATEGORY_BY_ITEM_TYPE = {
-    "WHL": {"EBAY_US": "117034", "EBAY_DE": "117034", "EBAY_ES": "117034", "EBAY_AU": "117034"},
+    "WHL": {"EBAY_US": "36632", "EBAY_DE": "36632", "EBAY_ES": "36632", "EBAY_AU": "36632"},
     "TRK": {"EBAY_US": "36631", "EBAY_DE": "36631", "EBAY_ES": "36631", "EBAY_AU": "36631"},
     "DCK": {"EBAY_US": "16263", "EBAY_DE": "16263", "EBAY_ES": "16263", "EBAY_AU": "16263"},
     "APP": {"EBAY_US": "36642", "EBAY_DE": "36642", "EBAY_ES": "36642", "EBAY_AU": "36642"},
@@ -204,3 +217,8 @@ def get_marketplace_display_info() -> list:
             "default_shipping": config["shipping_standard"]["cost"]["value"]
         })
     return result
+
+
+def get_shipping_rate_for_region(region: str) -> dict:
+    """Get shipping rate for a specific region"""
+    return SHIPPING_RATES.get(region, SHIPPING_RATES["REST_OF_WORLD"])
