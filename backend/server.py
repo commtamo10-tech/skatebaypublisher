@@ -647,6 +647,7 @@ async def ebay_debug_status(user = Depends(get_current_user)):
     
     return {
         "connected": bool(tokens.get("access_token")) and not is_expired,
+        "environment": environment,
         "has_access_token": bool(tokens.get("access_token")),
         "has_refresh_token": bool(tokens.get("refresh_token")),
         "token_expires_at": expiry_str,
@@ -659,22 +660,26 @@ async def ebay_debug_status(user = Depends(get_current_user)):
 @api_router.get("/ebay/status")
 async def ebay_status(user = Depends(get_current_user)):
     """Check eBay connection status"""
-    tokens = await db.ebay_tokens.find_one({"_id": "ebay_tokens"}, {"_id": 0})
+    environment = await get_ebay_environment()
+    token_collection_id = f"ebay_tokens_{environment}"
+    tokens = await db.ebay_tokens.find_one({"_id": token_collection_id}, {"_id": 0})
     if not tokens:
-        return {"connected": False}
+        return {"connected": False, "environment": environment}
     
     expiry = datetime.fromisoformat(tokens.get("token_expiry", "2000-01-01T00:00:00+00:00").replace("Z", "+00:00"))
     if expiry < datetime.now(timezone.utc):
-        return {"connected": False, "expired": True}
+        return {"connected": False, "expired": True, "environment": environment}
     
-    return {"connected": True, "expires_at": tokens.get("token_expiry")}
+    return {"connected": True, "expires_at": tokens.get("token_expiry"), "environment": environment}
 
 
 async def get_ebay_access_token() -> str:
     """Get valid eBay access token, refresh if needed"""
-    tokens = await db.ebay_tokens.find_one({"_id": "ebay_tokens"})
+    environment = await get_ebay_environment()
+    token_collection_id = f"ebay_tokens_{environment}"
+    tokens = await db.ebay_tokens.find_one({"_id": token_collection_id})
     if not tokens:
-        raise HTTPException(status_code=401, detail="eBay not connected. Please authorize first.")
+        raise HTTPException(status_code=401, detail=f"eBay not connected ({environment}). Please authorize first.")
     
     expiry = datetime.fromisoformat(tokens.get("token_expiry", "2000-01-01T00:00:00+00:00").replace("Z", "+00:00"))
     
