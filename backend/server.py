@@ -2041,9 +2041,12 @@ async def create_merchant_location(user = Depends(get_current_user)):
     """Create a merchant location for eBay (required for publishing)"""
     try:
         access_token = await get_ebay_access_token()
+        environment = await get_ebay_environment()
+        config = get_ebay_config(environment)
+        api_url = config["api_url"]
         location_key = "default_location"
         
-        logger.info("Creating merchant location...")
+        logger.info(f"Creating merchant location ({environment})...")
         
         async with httpx.AsyncClient(timeout=30.0) as http_client:
             # First check if location exists
@@ -2060,7 +2063,7 @@ async def create_merchant_location(user = Depends(get_current_user)):
                     {"$set": {"merchant_location_key": location_key}},
                     upsert=True
                 )
-                return {"message": "Location already exists", "location_key": location_key}
+                return {"message": "Location already exists", "location_key": location_key, "environment": environment}
             
             # Create new location
             location_payload = {
@@ -2097,7 +2100,7 @@ async def create_merchant_location(user = Depends(get_current_user)):
                     {"$set": {"merchant_location_key": location_key}},
                     upsert=True
                 )
-                return {"message": "Location created", "location_key": location_key}
+                return {"message": "Location created", "location_key": location_key, "environment": environment}
             else:
                 raise Exception(f"Failed to create location: {create_resp.text}")
                 
