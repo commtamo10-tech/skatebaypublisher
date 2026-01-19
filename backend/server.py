@@ -1581,34 +1581,89 @@ async def publish_draft(draft_id: str, user = Depends(get_current_user)):
             if settings.get("merchant_location_key"):
                 offer_payload["merchantLocationKey"] = settings["merchant_location_key"]
             
-            logger.info(f"Offer payload: {offer_payload}")
+            logger.info(f"Offer payload: {str(offer_payload)[:300]}...")
             
-            offer_response = await http_client.post(
-                f"{EBAY_SANDBOX_API_URL}/sell/inventory/v1/offer",
-                headers={
-                    "Authorization": f"Bearer {access_token}",
-                    "Content-Type": "application/json",
-                    "Content-Language": "en-US"
-                },
-                json=offer_payload
-            )
+            # First, check if an offer already exists for this SKU
+            offer_id = draft.get("offer_id")
             
-            logger.info(f"createOffer: status={offer_response.status_code}")
-            logger.info(f"  Response: {offer_response.text[:500] if offer_response.text else 'empty'}")
+            if not offer_id:
+                # Try to get existing offers for this SKU
+                logger.info(f"Checking for existing offers for SKU {draft['sku']}...")
+                get_offers_resp = await http_client.get(
+                    f"{EBAY_SANDBOX_API_URL}/sell/inventory/v1/offer",
+                    headers={"Authorization": f"Bearer {access_token}"},
+                    params={"sku": draft["sku"]}
+                )
+                
+                if get_offers_resp.status_code == 200:
+                    offers_data = get_offers_resp.json()
+                    existing_offers = offers_data.get("offers", [])
+                    if existing_offers:
+                        offer_id = existing_offers[0].get("offerId")
+                        logger.info(f"Found existing offer: {offer_id}")
             
-            await db.api_logs.insert_one({
-                "endpoint": "createOffer",
-                "sku": draft["sku"],
-                "status_code": offer_response.status_code,
-                "response": offer_response.text[:1000] if offer_response.text else None,
-                "created_at": datetime.now(timezone.utc).isoformat()
-            })
-            
-            if offer_response.status_code != 201:
-                raise Exception(f"Offer creation failed: {offer_response.text}")
-            
-            offer_data = offer_response.json()
-            offer_id = offer_data["offerId"]
+            if offer_id:
+                # Update existing offer
+                logger.info(f"Updating existing offer {offer_id}...")
+                offer_response = await http_client.put(
+                    f"{EBAY_SANDBOX_API_URL}/sell/inventory/v1/offer/{offer_id}",
+                    headers={
+                        "Authorization": f"Bearer {access_token}",
+                        "Content-Type": "application/json",
+                        "Content-Language": "en-US"
+                    },
+                    json=offer_payload
+                )
+                
+                logger.info(f"updateOffer: status={offer_response.status_code}")
+                logger.info(f"  Response: {offer_response.text[:500] if offer_response.text else 'empty'}")
+                
+                if offer_response.status_code not in [200, 204]:
+                    # If update fails, try to publish anyway
+                    logger.warning(f"Update offer failed, trying to publish existing offer...")
+            else:
+                # Create new offer
+                offer_response = await http_client.post(
+                    f"{EBAY_SANDBOX_API_URL}/sell/inventory/v1/offer",
+                    headers={
+                        "Authorization": f"Bearer {access_token}",
+                        "Content-Type": "application/json",
+                        "Content-Language": "en-US"
+                    },
+                    json=offer_payload
+                )
+                
+                logger.info(f"createOffer: status={offer_response.status_code}")
+                logger.info(f"  Response: {offer_response.text[:500] if offer_response.text else 'empty'}")
+                
+                await db.api_logs.insert_one({
+                    "endpoint": "createOffer",
+                    "sku": draft["sku"],
+                    "status_code": offer_response.status_code,
+                    "response": offer_response.text[:1000] if offer_response.text else None,
+                    "created_at": datetime.now(timezone.utc).isoformat()
+                })
+                
+                if offer_response.status_code == 201:
+                    offer_data = offer_response.json()
+                    offer_id = offer_data["offerId"]
+                elif offer_response.status_code == 400:
+                    # Check if "already exists" error
+                    try:
+                        err_data = offer_response.json()
+                        for err in err_data.get("errors", []):
+                            if "already exists" in err.get("message", "").lower():
+                                # Extract offerId from parameters
+                                for param in err.get("parameters", []):
+                                    if param.get("name") == "offerId":
+                                        offer_id = param.get("value")
+                                        logger.info(f"Offer already exists, using: {offer_id}")
+                                        break
+                    except:
+                        pass
+                
+                if not offer_id:
+                    raise Exception(f"Offer creation failed: {offer_response.text}")
             
             logger.info(f"Step 3: Publishing offer {offer_id}...")
             
