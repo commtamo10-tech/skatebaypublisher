@@ -20,50 +20,62 @@ Full-stack web app (React frontend + FastAPI backend + MongoDB) per creare inser
 
 ## What's Been Implemented (January 2025)
 
-### 🆕 LATEST - Multi-Marketplace Bootstrap (Jan 19, 2025)
+### ✅ END-TO-END TEST PASSED (Jan 19, 2025)
+
+**Pubblicazione su EBAY_US testata con successo!**
+
+```
+📦 OFFER PAYLOAD FOR EBAY_US
+{
+  "sku": "OSS-WHL-000049",
+  "marketplaceId": "EBAY_US",
+  "format": "FIXED_PRICE",
+  "price": { "value": "55.0", "currency": "USD" },
+  "categoryId": "117034",
+  "merchantLocationKey": "warehouse_us",
+  "listingPolicies": {
+    "fulfillmentPolicyId": "6214096000",
+    "paymentPolicyId": "6214098000",
+    "returnPolicyId": "6214097000"
+  }
+}
+
+🚀 PUBLISHING OFFER 10596028010 to EBAY_US
+📬 PUBLISH RESPONSE: Status 200
+{ "listingId": "110588679629" }
+
+✅ Listing URL: https://www.sandbox.ebay.com/itm/110588679629
+```
+
+### Multi-Marketplace Bootstrap (Jan 19, 2025)
 
 #### Bootstrap Automatico Multi-Marketplace
 - [x] Nuovo endpoint `POST /api/settings/ebay/bootstrap-marketplaces`
-- [x] Creazione automatica inventory location per ogni marketplace (`warehouse_us`, `warehouse_de`, etc.)
-- [x] Recupero dinamico shipping services via eBay Metadata API (con fallback statico)
-- [x] Creazione automatica fulfillment policy per marketplace
-- [x] Creazione automatica payment policy per marketplace  
-- [x] Creazione automatica return policy (30 giorni, seller pays, domestic only)
+- [x] Creazione automatica inventory location per ogni marketplace
+- [x] Recupero dinamico shipping services via eBay Metadata API (con fallback)
+- [x] Creazione automatica policy (fulfillment, payment, return)
+- [x] Return policy: 30 giorni, seller pays, domestic only
 - [x] Salvataggio policy IDs nel database per-marketplace
 
-#### API Marketplaces
+#### API Marketplaces  
 - [x] `GET /api/marketplaces` - Lista marketplace con stato configurazione
 - [x] Ogni marketplace mostra: name, currency, country_code, is_configured, policies, location
 
-#### UI Settings - Sezione Multi-Marketplace
+#### Clear Logging
+- [x] `📦 OFFER PAYLOAD` - JSON formattato con tutti i campi dell'offer
+- [x] `🚀 PUBLISHING OFFER` - Indica inizio pubblicazione
+- [x] `📬 PUBLISH RESPONSE` - Status code + response JSON (listingId o errors)
+
+#### UI Settings
 - [x] Pulsante "Bootstrap Marketplaces" con loading state
 - [x] Griglia 4 marketplace con badge Ready/Not Configured
 - [x] Visualizzazione policy IDs e location keys
-- [x] Risultati bootstrap con dettaglio successi/errori
 
-#### UI Draft Editor - Selettore Marketplace
-- [x] Marketplace configurati sono cliccabili (sfondo blu quando selezionati)
-- [x] Marketplace non configurati sono disabilitati (sfondo grigio)
-- [x] Badge verde ✓ per configurati, giallo ! per non configurati
-- [x] Messaggio "Not configured - run Bootstrap" per marketplace mancanti
-- [x] Warning globale se alcuni marketplace non sono configurati
-
-#### Publish Multi-Marketplace Aggiornato
-- [x] `POST /api/drafts/{id}/publish-multi` usa policy per-marketplace dal DB
-- [x] Validazione pre-pubblicazione: verifica che tutte le policy esistano
-- [x] Supporto prezzi custom per marketplace
-
-### Previous Implementation
-- [x] Core Details section (Brand, Model, Size, Color, Era)
-- [x] Auto-fill aspects with vision LLM + confidence scores
-- [x] 90s sticker label description template
-- [x] JWT Authentication
-- [x] eBay OAuth flow (Sandbox + Production)
-- [x] Environment toggle (Sandbox/Production)
-- [x] Draft CRUD with PATCH updates
-- [x] LLM content generation
-- [x] Single-marketplace publish flow
-- [x] Batch upload with auto-grouping
+#### UI Draft Editor
+- [x] Marketplace configurati selezionabili (sfondo blu)
+- [x] Marketplace non configurati disabilitati (sfondo grigio)
+- [x] Badge verde ✓ / giallo ! per stato
+- [x] Warning se marketplace non configurati
 
 ---
 
@@ -75,14 +87,6 @@ Full-stack web app (React frontend + FastAPI backend + MongoDB) per creare inser
   "_id": "app_settings",
   "ebay_environment": "sandbox",
   "ebay_connected": true,
-  
-  // Legacy (single marketplace)
-  "fulfillment_policy_id": "6214096000",
-  "return_policy_id": "6214097000",
-  "payment_policy_id": "6214098000",
-  "merchant_location_key": "default_location",
-  
-  // Multi-Marketplace (new)
   "marketplaces": {
     "EBAY_US": {
       "merchant_location_key": "warehouse_us",
@@ -93,9 +97,7 @@ Full-stack web app (React frontend + FastAPI backend + MongoDB) per creare inser
       },
       "shipping_service_code": "USPSPriority"
     },
-    "EBAY_DE": { ... },
-    "EBAY_ES": { ... },
-    "EBAY_AU": { ... }
+    // DE, ES, AU: parzialmente configurati (sandbox limitation)
   }
 }
 ```
@@ -109,23 +111,32 @@ Full-stack web app (React frontend + FastAPI backend + MongoDB) per creare inser
 - `GET /api/marketplaces` - Get marketplace list with config status
 - `POST /api/drafts/{id}/publish-multi` - Publish to multiple marketplaces
 
-### eBay Integration
-- `GET /api/ebay/auth/start` - Start OAuth flow
-- `GET /api/ebay/auth/callback` - OAuth callback
-- `GET /api/ebay/status` - Connection status
-- `GET /api/ebay/debug` - Debug info
-- `GET /api/ebay/policies` - Fetch existing policies
+### eBay Category IDs (verified working)
+- **117034**: Skateboard Wheels ✅ (testato)
+- **36631**: Skateboard Trucks
+- **16263**: Skateboard Decks  
+- **36642**: Skateboard Clothing
+- **16265**: Other Skateboarding
 
-### Settings
-- `GET /api/settings` - Get settings
-- `PATCH /api/settings` - Update settings
+---
 
-### Drafts
-- `GET/POST /api/drafts` - List/Create
-- `GET/PATCH/DELETE /api/drafts/{id}` - CRUD
-- `POST /api/drafts/{id}/generate` - LLM generation
-- `POST /api/drafts/{id}/autofill_aspects` - Vision auto-fill
-- `POST /api/drafts/{id}/publish` - Single marketplace publish
+## Sandbox Limitations (DE/ES/AU)
+
+Il Sandbox eBay ha limitazioni per i marketplace non-US:
+
+| Marketplace | Location | Fulfillment | Payment | Return | Status |
+|-------------|----------|-------------|---------|--------|--------|
+| EBAY_US | ✅ | ✅ | ✅ | ✅ | **READY** |
+| EBAY_DE | ✅ | ✅ | ❌ | ✅ | Partial |
+| EBAY_ES | ✅ | ❌ | ❌ | ✅ | Partial |
+| EBAY_AU | ✅ | ✅ | ❌ | ✅ | Partial |
+
+**Causa**: 
+- Payment policy: `PERSONAL_CHECK` non supportato (solo Production)
+- Fulfillment ES: shipping service code non valido per Sandbox
+- Metadata API: restituisce 404 per DE/ES/AU
+
+**Workaround**: Testare in Production per DE/ES/AU
 
 ---
 
@@ -133,48 +144,33 @@ Full-stack web app (React frontend + FastAPI backend + MongoDB) per creare inser
 
 ### P0 (Completed ✅)
 - [x] Multi-marketplace bootstrap automatico
-- [x] UI per gestione marketplace
-- [x] Validazione pre-publish per marketplace
+- [x] Publish end-to-end su EBAY_US
+- [x] Clear logging (payload + response)
 
-### P1 (High Priority - Next)
-- [ ] **Fix payment policies per DE/ES/AU** - Il Sandbox eBay non supporta PERSONAL_CHECK per questi marketplace. Richiede test con credenziali Production.
-- [ ] **End-to-end test publish su EBAY_US** - Verificare che il flusso completo funzioni con le policy bootstrap
+### P1 (Next)
+- [ ] Test publish su DE/ES/AU con credenziali Production
 
 ### P2 (Medium Priority)
-- [ ] Migrazione a Supabase (Postgres) - In pausa su richiesta utente
-- [ ] Refactoring server.py (3000+ righe) in router separati
+- [ ] Migrazione a Supabase (Postgres) - in pausa
+- [ ] Refactoring server.py in router separati
 - [ ] Refactoring DraftEditor.js in componenti
 
 ### P3 (Future)
-- [ ] Visual clustering per batch auto-grouping (CLIP embeddings)
+- [ ] Visual clustering per batch auto-grouping
 - [ ] Background job queue (Celery)
-- [ ] S3/Supabase storage per immagini
-
----
-
-## Known Limitations
-
-### eBay Sandbox
-- La Metadata API (`getShippingServices`) restituisce 404 per DE, ES, AU
-- La creazione di Payment Policy fallisce per DE, ES, AU (PERSONAL_CHECK non supportato)
-- La creazione di Fulfillment Policy fallisce per ES (shipping service non valido)
-- **Solo EBAY_US è completamente configurabile in Sandbox**
-
-### Workaround
-- Il sistema usa fallback hardcoded per shipping services
-- Per testing completo di DE/ES/AU, usare credenziali Production
+- [ ] S3 storage per immagini
 
 ---
 
 ## Credentials for Testing
 - **Password**: admin123
 - **API**: https://vintage-lister.preview.emergentagent.com
-- **eBay Environment**: Sandbox (configurabile in Settings)
+- **eBay Environment**: Sandbox
 
 ---
 
 ## Files of Reference
-- `/app/backend/server.py` - Main backend (3000+ lines)
+- `/app/backend/server.py` - Main backend
 - `/app/backend/ebay_config.py` - Marketplace configuration
-- `/app/frontend/src/pages/Settings.js` - Settings page with Bootstrap
-- `/app/frontend/src/pages/DraftEditor.js` - Draft editor with marketplace selector
+- `/app/frontend/src/pages/Settings.js` - Settings page
+- `/app/frontend/src/pages/DraftEditor.js` - Draft editor
