@@ -1525,7 +1525,9 @@ async def publish_draft(draft_id: str, user = Depends(get_current_user)):
                     "fulfillmentPolicyId": settings["fulfillment_policy_id"],
                     "returnPolicyId": settings["return_policy_id"],
                     "paymentPolicyId": settings["payment_policy_id"]
-                }
+                },
+                "countryCode": "US",
+                "listingDescription": draft.get("description", "")
             }
             
             if settings.get("merchant_location_key"):
