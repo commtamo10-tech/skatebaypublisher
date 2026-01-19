@@ -1507,39 +1507,155 @@ async def update_settings(update: SettingsUpdate, user = Depends(get_current_use
 
 @api_router.get("/ebay/policies")
 async def get_ebay_policies(user = Depends(get_current_user)):
-    """Fetch business policies from eBay"""
+    """Fetch business policies from eBay, create defaults if none exist"""
     try:
         access_token = await get_ebay_access_token()
+        marketplace_id = "EBAY_US"
+        
+        logger.info("=" * 60)
+        logger.info(f"FETCHING EBAY POLICIES for marketplace: {marketplace_id}")
         
         async with httpx.AsyncClient() as http_client:
+            headers = {
+                "Authorization": f"Bearer {access_token}",
+                "Content-Type": "application/json",
+                "Content-Language": "en-US"
+            }
+            
+            # 1. Fetch Fulfillment Policies
             fulfillment_resp = await http_client.get(
                 f"{EBAY_SANDBOX_API_URL}/sell/account/v1/fulfillment_policy",
-                headers={"Authorization": f"Bearer {access_token}"},
-                params={"marketplace_id": "EBAY_US"}
+                headers=headers,
+                params={"marketplace_id": marketplace_id}
             )
+            logger.info(f"GET fulfillment_policy: status={fulfillment_resp.status_code}")
+            logger.info(f"  Response body: {fulfillment_resp.text[:500]}")
             
+            # 2. Fetch Payment Policies
             payment_resp = await http_client.get(
                 f"{EBAY_SANDBOX_API_URL}/sell/account/v1/payment_policy",
-                headers={"Authorization": f"Bearer {access_token}"},
-                params={"marketplace_id": "EBAY_US"}
+                headers=headers,
+                params={"marketplace_id": marketplace_id}
             )
+            logger.info(f"GET payment_policy: status={payment_resp.status_code}")
+            logger.info(f"  Response body: {payment_resp.text[:500]}")
             
+            # 3. Fetch Return Policies
             return_resp = await http_client.get(
                 f"{EBAY_SANDBOX_API_URL}/sell/account/v1/return_policy",
-                headers={"Authorization": f"Bearer {access_token}"},
-                params={"marketplace_id": "EBAY_US"}
+                headers=headers,
+                params={"marketplace_id": marketplace_id}
             )
+            logger.info(f"GET return_policy: status={return_resp.status_code}")
+            logger.info(f"  Response body: {return_resp.text[:500]}")
+            
+            # Parse responses
+            fulfillment_policies = fulfillment_resp.json().get("fulfillmentPolicies", []) if fulfillment_resp.status_code == 200 else []
+            payment_policies = payment_resp.json().get("paymentPolicies", []) if payment_resp.status_code == 200 else []
+            return_policies = return_resp.json().get("returnPolicies", []) if return_resp.status_code == 200 else []
+            
+            logger.info(f"Found: {len(fulfillment_policies)} fulfillment, {len(payment_policies)} payment, {len(return_policies)} return policies")
+            
+            # Create default policies if any are missing
+            created_policies = {"fulfillment": None, "payment": None, "return": None}
+            
+            # Create default Fulfillment Policy if none exist
+            if not fulfillment_policies:
+                logger.info("No fulfillment policies found, creating default...")
+                create_resp = await http_client.post(
+                    f"{EBAY_SANDBOX_API_URL}/sell/account/v1/fulfillment_policy",
+                    headers=headers,
+                    json={
+                        "name": "Standard Shipping - International",
+                        "marketplaceId": marketplace_id,
+                        "categoryTypes": [{"name": "ALL_EXCLUDING_MOTORS_VEHICLES"}],
+                        "handlingTime": {"value": 3, "unit": "DAY"},
+                        "shippingOptions": [{
+                            "optionType": "DOMESTIC",
+                            "costType": "FLAT_RATE",
+                            "shippingServices": [{
+                                "sortOrder": 1,
+                                "shippingCarrierCode": "USPS",
+                                "shippingServiceCode": "USPSPriority",
+                                "shippingCost": {"value": "10.00", "currency": "USD"},
+                                "additionalShippingCost": {"value": "5.00", "currency": "USD"},
+                                "freeShipping": False,
+                                "shipToLocations": {"regionIncluded": [{"regionName": "WORLDWIDE"}]}
+                            }]
+                        }]
+                    }
+                )
+                logger.info(f"CREATE fulfillment_policy: status={create_resp.status_code}")
+                logger.info(f"  Response: {create_resp.text[:500]}")
+                if create_resp.status_code in [200, 201]:
+                    created_policy = create_resp.json()
+                    created_policies["fulfillment"] = created_policy.get("fulfillmentPolicyId")
+                    fulfillment_policies = [created_policy]
+            
+            # Create default Payment Policy if none exist
+            if not payment_policies:
+                logger.info("No payment policies found, creating default...")
+                create_resp = await http_client.post(
+                    f"{EBAY_SANDBOX_API_URL}/sell/account/v1/payment_policy",
+                    headers=headers,
+                    json={
+                        "name": "PayPal Payment Policy",
+                        "marketplaceId": marketplace_id,
+                        "categoryTypes": [{"name": "ALL_EXCLUDING_MOTORS_VEHICLES"}],
+                        "paymentMethods": [{
+                            "paymentMethodType": "PAYPAL",
+                            "recipientAccountReference": {
+                                "referenceType": "PAYPAL_EMAIL",
+                                "referenceId": "seller@example.com"
+                            }
+                        }],
+                        "immediatePay": False
+                    }
+                )
+                logger.info(f"CREATE payment_policy: status={create_resp.status_code}")
+                logger.info(f"  Response: {create_resp.text[:500]}")
+                if create_resp.status_code in [200, 201]:
+                    created_policy = create_resp.json()
+                    created_policies["payment"] = created_policy.get("paymentPolicyId")
+                    payment_policies = [created_policy]
+            
+            # Create default Return Policy if none exist
+            if not return_policies:
+                logger.info("No return policies found, creating default...")
+                create_resp = await http_client.post(
+                    f"{EBAY_SANDBOX_API_URL}/sell/account/v1/return_policy",
+                    headers=headers,
+                    json={
+                        "name": "30 Day Returns",
+                        "marketplaceId": marketplace_id,
+                        "categoryTypes": [{"name": "ALL_EXCLUDING_MOTORS_VEHICLES"}],
+                        "returnsAccepted": True,
+                        "returnPeriod": {"value": 30, "unit": "DAY"},
+                        "refundMethod": "MONEY_BACK",
+                        "returnShippingCostPayer": "BUYER"
+                    }
+                )
+                logger.info(f"CREATE return_policy: status={create_resp.status_code}")
+                logger.info(f"  Response: {create_resp.text[:500]}")
+                if create_resp.status_code in [200, 201]:
+                    created_policy = create_resp.json()
+                    created_policies["return"] = created_policy.get("returnPolicyId")
+                    return_policies = [created_policy]
+            
+            logger.info("=" * 60)
         
         return {
-            "fulfillment_policies": fulfillment_resp.json().get("fulfillmentPolicies", []) if fulfillment_resp.status_code == 200 else [],
-            "payment_policies": payment_resp.json().get("paymentPolicies", []) if payment_resp.status_code == 200 else [],
-            "return_policies": return_resp.json().get("returnPolicies", []) if return_resp.status_code == 200 else []
+            "fulfillment_policies": fulfillment_policies,
+            "payment_policies": payment_policies,
+            "return_policies": return_policies,
+            "created_policies": created_policies,
+            "marketplace_id": marketplace_id
         }
         
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Failed to fetch policies: {str(e)}")
+        logger.error(f"Failed to fetch/create policies: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
