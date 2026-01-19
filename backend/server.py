@@ -198,6 +198,7 @@ class SettingsUpdate(BaseModel):
     return_policy_id: Optional[str] = None
     payment_policy_id: Optional[str] = None
     merchant_location_key: Optional[str] = None
+    ebay_environment: Optional[str] = None  # "sandbox" or "production"
 
 class SettingsResponse(BaseModel):
     fulfillment_policy_id: Optional[str] = None
@@ -205,6 +206,7 @@ class SettingsResponse(BaseModel):
     payment_policy_id: Optional[str] = None
     merchant_location_key: Optional[str] = None
     ebay_connected: bool = False
+    ebay_environment: str = "sandbox"
 
 
 # ============ BATCH MODELS ============
