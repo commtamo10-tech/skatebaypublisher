@@ -2897,46 +2897,53 @@ async def publish_draft_multi_marketplace(
             logger.error(f"Inventory failed: {inv_response.text[:500]}")
             raise HTTPException(status_code=400, detail=f"Inventory creation failed: {inv_response.text[:300]}")
         
-        # Step 2: Ensure merchant location exists
-        location_key = "default_location"
-        logger.info(f"Step 2: Checking/creating merchant location: {location_key}")
-        
-        loc_check = await http_client.get(
-            f"{api_url}/sell/inventory/v1/location/{location_key}",
-            headers=headers
-        )
-        
-        if loc_check.status_code != 200:
-            logger.info("Creating merchant location...")
-            loc_payload = {
-                "location": {
-                    "address": {
-                        "addressLine1": "Via Roma 1",
-                        "city": "Milan",
-                        "stateOrProvince": "MI",
-                        "postalCode": "20100",
-                        "country": "IT"
-                    }
-                },
-                "locationTypes": ["WAREHOUSE"],
-                "name": "Main Warehouse",
-                "merchantLocationStatus": "ENABLED"
-            }
-            loc_create = await http_client.post(
+        # Step 2: Create locations for each marketplace if needed
+        created_locations = set()
+        for marketplace_id in request.marketplaces:
+            mp_config = get_marketplace_config(marketplace_id, settings)
+            location_key = mp_config.get("merchant_location_key", f"location_{mp_config['country_code'].lower()}")
+            
+            if location_key in created_locations:
+                continue
+            
+            logger.info(f"Step 2: Checking/creating merchant location: {location_key} for {marketplace_id}")
+            
+            loc_check = await http_client.get(
                 f"{api_url}/sell/inventory/v1/location/{location_key}",
-                headers=headers,
-                json=loc_payload
+                headers=headers
             )
-            logger.info(f"Create location: status={loc_create.status_code}")
+            
+            if loc_check.status_code != 200:
+                logger.info(f"Creating merchant location {location_key}...")
+                loc_payload = {
+                    "location": {
+                        "address": {
+                            "addressLine1": "Via Roma 1",
+                            "city": "Milan",
+                            "stateOrProvince": "MI",
+                            "postalCode": "20100",
+                            "country": "IT"  # Ship from Italy for all
+                        }
+                    },
+                    "locationTypes": ["WAREHOUSE"],
+                    "name": f"Warehouse {mp_config['country_code']}",
+                    "merchantLocationStatus": "ENABLED"
+                }
+                loc_create = await http_client.post(
+                    f"{api_url}/sell/inventory/v1/location/{location_key}",
+                    headers=headers,
+                    json=loc_payload
+                )
+                logger.info(f"Create location {location_key}: status={loc_create.status_code}")
+            
+            created_locations.add(location_key)
         
-        # Step 3: Get settings for policy IDs
-        settings = await db.settings.find_one({"_id": "app_settings"}, {"_id": 0}) or {}
-        
-        # Step 4: Create/Update and Publish offer for each marketplace
+        # Step 3: Create/Update and Publish offer for each marketplace
         for marketplace_id in request.marketplaces:
             logger.info(f"\n--- Processing {marketplace_id} ---")
             
-            mp_config = get_marketplace_config(marketplace_id, use_sandbox)
+            # Get marketplace config with DB settings merged
+            mp_config = get_marketplace_config(marketplace_id, settings)
             if not mp_config:
                 results["marketplaces"][marketplace_id] = {"error": "Unknown marketplace"}
                 continue
@@ -2954,10 +2961,11 @@ async def publish_draft_multi_marketplace(
             item_type = draft.get("item_type", "MISC")
             category_id = get_category_for_item(item_type, marketplace_id)
             
-            # Get policy IDs from settings (for now use same policies for all marketplaces)
-            fulfillment_policy_id = settings.get("fulfillment_policy_id")
-            payment_policy_id = settings.get("payment_policy_id")
-            return_policy_id = settings.get("return_policy_id")
+            # Get policy IDs from marketplace config (now per-marketplace!)
+            fulfillment_policy_id = mp_config.get("fulfillment_policy_id")
+            payment_policy_id = mp_config.get("payment_policy_id")
+            return_policy_id = mp_config.get("return_policy_id")
+            merchant_location_key = mp_config.get("merchant_location_key", f"location_{country_code.lower()}")
             
             if not all([fulfillment_policy_id, payment_policy_id, return_policy_id]):
                 results["marketplaces"][marketplace_id] = {
