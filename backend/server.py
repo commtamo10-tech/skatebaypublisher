@@ -56,6 +56,7 @@ JWT_SECRET = os.environ.get('JWT_SECRET', secrets.token_hex(32))
 EBAY_CLIENT_ID = os.environ.get('EBAY_CLIENT_ID', '')
 EBAY_CLIENT_SECRET = os.environ.get('EBAY_CLIENT_SECRET', '')
 EBAY_REDIRECT_URI = os.environ.get('EBAY_REDIRECT_URI', '')
+EBAY_RUNAME = os.environ.get('EBAY_RUNAME', '')  # RuName for OAuth redirect_uri parameter
 EBAY_SCOPES = os.environ.get('EBAY_SCOPES', 'https://api.ebay.com/oauth/api_scope/sell.inventory https://api.ebay.com/oauth/api_scope/sell.account')
 EMERGENT_LLM_KEY = os.environ.get('EMERGENT_LLM_KEY', '')
 FRONTEND_URL = os.environ.get('FRONTEND_URL', 'http://localhost:3000')
