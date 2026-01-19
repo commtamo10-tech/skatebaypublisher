@@ -453,7 +453,17 @@ async def ebay_auth_callback(code: str = Query(...), state: str = Query(...)):
     
     await db.oauth_states.delete_one({"state": state})
     
+    # Use RuName if available for token exchange
+    redirect_uri_param = EBAY_RUNAME if EBAY_RUNAME else EBAY_REDIRECT_URI
+    
     credentials = base64.b64encode(f"{EBAY_CLIENT_ID}:{EBAY_CLIENT_SECRET}".encode()).decode()
+    
+    logger.info("=" * 60)
+    logger.info("EBAY TOKEN EXCHANGE:")
+    logger.info(f"Token URL: {EBAY_SANDBOX_TOKEN_URL}")
+    logger.info(f"redirect_uri (RuName): {redirect_uri_param}")
+    logger.info(f"code: {code[:20]}...")
+    logger.info("=" * 60)
     
     async with httpx.AsyncClient() as http_client:
         response = await http_client.post(
@@ -465,13 +475,13 @@ async def ebay_auth_callback(code: str = Query(...), state: str = Query(...)):
             data={
                 "grant_type": "authorization_code",
                 "code": code,
-                "redirect_uri": EBAY_REDIRECT_URI
+                "redirect_uri": redirect_uri_param  # Use RuName here too
             }
         )
     
     if response.status_code != 200:
-        logger.error(f"eBay token exchange failed: {response.text}")
-        raise HTTPException(status_code=400, detail="Failed to exchange code for tokens")
+        logger.error(f"eBay token exchange failed: {response.status_code} - {response.text}")
+        raise HTTPException(status_code=400, detail=f"Failed to exchange code for tokens: {response.text}")
     
     token_data = response.json()
     
@@ -488,6 +498,8 @@ async def ebay_auth_callback(code: str = Query(...), state: str = Query(...)):
         },
         upsert=True
     )
+    
+    logger.info("eBay OAuth successful! Tokens saved.")
     
     # Redirect to frontend settings page
     return RedirectResponse(url=f"{FRONTEND_URL}/settings?ebay_connected=true")
