@@ -8,7 +8,7 @@ import { Badge } from "../components/ui/badge";
 import { toast } from "sonner";
 import { 
   ArrowLeft, Save, Link2, CheckCircle, AlertCircle,
-  RefreshCw, ExternalLink
+  RefreshCw, ExternalLink, Bug
 } from "lucide-react";
 
 export default function Settings() {
@@ -16,6 +16,8 @@ export default function Settings() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [fetchingPolicies, setFetchingPolicies] = useState(false);
+  const [debugInfo, setDebugInfo] = useState(null);
+  const [showDebug, setShowDebug] = useState(false);
   
   const [settings, setSettings] = useState({
     fulfillment_policy_id: "",
