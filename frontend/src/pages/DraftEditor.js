@@ -1089,11 +1089,46 @@ export default function DraftEditor() {
                   <CheckCircle className="w-5 h-5 text-green-600" />
                   <span className="font-bold text-green-800 uppercase tracking-wider">Published to eBay</span>
                 </div>
-                <div className="font-mono text-sm text-green-700 space-y-1">
-                  {draft.offer_id && <p>Offer ID: {draft.offer_id}</p>}
-                  {draft.listing_id && <p>Listing ID: {draft.listing_id}</p>}
-                </div>
-                {draft.listing_id && (
+                
+                {/* Multi-marketplace results */}
+                {draft.multi_marketplace_results ? (
+                  <div className="space-y-2">
+                    {Object.entries(draft.multi_marketplace_results).map(([mp, result]) => (
+                      <div key={mp} className={`p-2 border-2 ${result.success ? 'border-green-300 bg-green-100' : 'border-red-300 bg-red-100'}`}>
+                        <div className="flex items-center justify-between">
+                          <span className="font-mono font-bold text-sm">{mp}</span>
+                          {result.success ? (
+                            <span className="text-green-700 text-xs">{result.price}</span>
+                          ) : (
+                            <span className="text-red-700 text-xs">Failed</span>
+                          )}
+                        </div>
+                        {result.listing_id && (
+                          <a 
+                            href={result.listing_url || `https://www.sandbox.ebay.com/itm/${result.listing_id}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs text-blue-600 hover:underline font-mono"
+                          >
+                            Listing #{result.listing_id}
+                          </a>
+                        )}
+                        {result.error && (
+                          <p className="text-xs text-red-600 font-mono mt-1 truncate" title={result.error}>
+                            {result.error.substring(0, 80)}...
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="font-mono text-sm text-green-700 space-y-1">
+                    {draft.offer_id && <p>Offer ID: {draft.offer_id}</p>}
+                    {draft.listing_id && <p>Listing ID: {draft.listing_id}</p>}
+                  </div>
+                )}
+                
+                {draft.listing_id && !draft.multi_marketplace_results && (
                   <a 
                     href={`https://www.sandbox.ebay.com/itm/${draft.listing_id}`}
                     target="_blank"
@@ -1105,6 +1140,73 @@ export default function DraftEditor() {
                     View on eBay Sandbox
                   </a>
                 )}
+              </div>
+            )}
+            
+            {/* Marketplace Selector for Publishing */}
+            {!isPublished && (
+              <div className="bg-blue-50 border-2 border-blue-300 p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="font-bold text-blue-800 uppercase tracking-wider text-sm">Select Marketplaces</span>
+                  <span className="text-xs text-blue-600 font-mono">{selectedMarketplaces.length} selected</span>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-2">
+                  {MARKETPLACES.map(mp => (
+                    <button
+                      key={mp.id}
+                      onClick={() => toggleMarketplace(mp.id)}
+                      className={`p-3 border-2 text-left transition-all ${
+                        selectedMarketplaces.includes(mp.id)
+                          ? 'bg-blue-500 text-white border-blue-600 shadow-hard-sm'
+                          : 'bg-white text-gray-700 border-gray-300 hover:border-blue-400'
+                      }`}
+                    >
+                      <div className="font-bold text-sm">{mp.name}</div>
+                      <div className="text-xs font-mono opacity-75">
+                        {mp.defaultPrice} {mp.currency}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+                
+                <p className="text-xs text-blue-600 font-mono mt-2">
+                  💡 Same SKU will be listed on all selected marketplaces with their default prices
+                </p>
+              </div>
+            )}
+            
+            {/* Publish Results */}
+            {publishResults && (
+              <div className="bg-gray-50 border-2 border-gray-300 p-4">
+                <div className="font-bold text-gray-800 uppercase tracking-wider text-sm mb-2">Publish Results</div>
+                <div className="space-y-2">
+                  {Object.entries(publishResults.marketplaces || {}).map(([mp, result]) => (
+                    <div key={mp} className={`p-2 border-2 ${result.success ? 'border-green-300 bg-green-50' : 'border-red-300 bg-red-50'}`}>
+                      <div className="flex items-center justify-between">
+                        <span className="font-mono font-bold text-sm">{mp}</span>
+                        {result.success ? (
+                          <span className="text-green-700 text-xs">✓ {result.price}</span>
+                        ) : (
+                          <span className="text-red-700 text-xs">✗ Failed</span>
+                        )}
+                      </div>
+                      {result.listing_url && (
+                        <a 
+                          href={result.listing_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-blue-600 hover:underline font-mono"
+                        >
+                          {result.listing_url}
+                        </a>
+                      )}
+                      {result.error && (
+                        <p className="text-xs text-red-600 font-mono mt-1">{result.error.substring(0, 100)}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </div>
