@@ -21,6 +21,16 @@ from typing import List, Optional, Dict, Any
 from datetime import datetime, timezone, timedelta
 import jwt
 
+# Import marketplace configuration
+from ebay_config import (
+    MARKETPLACE_CONFIG, 
+    get_marketplace_config, 
+    get_all_marketplaces,
+    get_category_for_item,
+    FALLBACK_SHIPPING_SERVICES,
+    DEFAULT_HANDLING_TIME
+)
+
 # HTML Sanitization config for eBay descriptions
 # Allow div with inline styles for 90s sticker label design
 ALLOWED_TAGS = ['p', 'br', 'ul', 'ol', 'li', 'strong', 'em', 'b', 'i', 'h2', 'h3', 'h4', 'blockquote', 'hr', 'div', 'span']
