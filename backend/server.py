@@ -2795,7 +2795,7 @@ async def publish_draft_multi_marketplace(
     if not draft:
         raise HTTPException(status_code=404, detail="Draft not found")
     
-    # Validation
+    # Basic validation
     errors = []
     if not draft.get("title"):
         errors.append("Title is required")
@@ -2805,18 +2805,42 @@ async def publish_draft_multi_marketplace(
     if errors:
         raise HTTPException(status_code=400, detail={"errors": errors})
     
-    # Get environment
+    # Get environment and settings
     environment = await get_ebay_environment()
     use_sandbox = environment == "sandbox"
+    settings = await db.settings.find_one({"_id": "app_settings"}, {"_id": 0}) or {}
+    
+    # Validate marketplace configurations BEFORE proceeding
+    missing_configs = []
+    for marketplace_id in request.marketplaces:
+        mp_config = get_marketplace_config(marketplace_id, settings)
+        if not mp_config:
+            missing_configs.append(f"Unknown marketplace: {marketplace_id}")
+            continue
+        
+        validation_errors = validate_marketplace_config(marketplace_id, mp_config)
+        if validation_errors:
+            missing_configs.extend(validation_errors)
+    
+    if missing_configs:
+        raise HTTPException(
+            status_code=400, 
+            detail={
+                "errors": missing_configs,
+                "message": "Missing policy/location configuration. Go to Settings and configure policies for each marketplace."
+            }
+        )
     
     try:
         access_token = await get_ebay_access_token()
     except HTTPException as e:
         raise HTTPException(status_code=401, detail=f"eBay not connected: {e.detail}")
     
-    # Get base API URL
-    base_config = get_ebay_config(environment)
-    api_url = base_config["api_url"]
+    # Get base API URL based on environment
+    if use_sandbox:
+        api_url = "https://api.sandbox.ebay.com"
+    else:
+        api_url = "https://api.ebay.com"
     
     # Convert image URLs to absolute
     image_urls = []
