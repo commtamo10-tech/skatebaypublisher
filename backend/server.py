@@ -580,6 +580,43 @@ async def get_me(user = Depends(get_current_user)):
 
 # ============ EBAY OAUTH ROUTES ============
 
+@api_router.get("/ebay/oauth/config")
+async def get_ebay_oauth_config(user = Depends(get_current_user)):
+    """Debug endpoint to check OAuth configuration"""
+    environment = await get_ebay_environment()
+    config = get_ebay_config(environment)
+    
+    # Check what's configured
+    sandbox_configured = bool(EBAY_CLIENT_ID and EBAY_REDIRECT_URI)
+    prod_configured = bool(EBAY_PROD_CLIENT_ID and EBAY_PROD_REDIRECT_URI)
+    
+    return {
+        "current_environment": environment,
+        "env_default": EBAY_ENV_DEFAULT,
+        "sandbox": {
+            "configured": sandbox_configured,
+            "client_id": EBAY_CLIENT_ID[:20] + "..." if EBAY_CLIENT_ID else None,
+            "redirect_uri": EBAY_REDIRECT_URI,
+            "runame": EBAY_RUNAME or None,
+            "auth_url": EBAY_SANDBOX_AUTH_URL,
+            "token_url": EBAY_SANDBOX_TOKEN_URL
+        },
+        "production": {
+            "configured": prod_configured,
+            "client_id": EBAY_PROD_CLIENT_ID[:20] + "..." if EBAY_PROD_CLIENT_ID else None,
+            "redirect_uri": EBAY_PROD_REDIRECT_URI,
+            "runame": EBAY_PROD_RUNAME or None,
+            "auth_url": EBAY_PROD_AUTH_URL,
+            "token_url": EBAY_PROD_TOKEN_URL
+        },
+        "scopes": EBAY_SCOPES.split(" "),
+        "active_config": {
+            "auth_url": config["auth_url"],
+            "token_url": config["token_url"],
+            "redirect_uri": config["runame"] or config["redirect_uri"]
+        }
+    }
+
 @api_router.get("/ebay/auth/start")
 async def ebay_auth_start(user = Depends(get_current_user)):
     """Start eBay OAuth flow"""
