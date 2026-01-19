@@ -597,11 +597,41 @@ export default function DraftEditor() {
     }
   };
 
+  // Marketplace selection state
+  const [selectedMarketplaces, setSelectedMarketplaces] = useState(["EBAY_US"]);
+  const [showMarketplaceSelector, setShowMarketplaceSelector] = useState(false);
+  const [publishResults, setPublishResults] = useState(null);
+
+  const MARKETPLACES = [
+    { id: "EBAY_US", name: "🇺🇸 USA", currency: "USD", defaultPrice: 25.00 },
+    { id: "EBAY_DE", name: "🇩🇪 Germany", currency: "EUR", defaultPrice: 12.00 },
+    { id: "EBAY_ES", name: "🇪🇸 Spain", currency: "EUR", defaultPrice: 12.00 },
+    { id: "EBAY_AU", name: "🇦🇺 Australia", currency: "AUD", defaultPrice: 100.00 },
+  ];
+
   const handlePublish = async () => {
     setPublishing(true);
+    setPublishResults(null);
     try {
-      const response = await api.post(`/drafts/${id}/publish`);
-      toast.success(`Published! Listing ID: ${response.data.listing_id || 'N/A'}`);
+      const response = await api.post(`/drafts/${id}/publish-multi`, {
+        marketplaces: selectedMarketplaces
+      });
+      
+      const results = response.data;
+      setPublishResults(results);
+      
+      // Count successes
+      const successes = Object.values(results.marketplaces || {}).filter(r => r.success).length;
+      const total = selectedMarketplaces.length;
+      
+      if (successes === total) {
+        toast.success(`Published to ${successes} marketplace(s)!`);
+      } else if (successes > 0) {
+        toast.warning(`Published to ${successes}/${total} marketplaces`);
+      } else {
+        toast.error("Publish failed for all marketplaces");
+      }
+      
       await fetchDraft();
     } catch (error) {
       const detail = error.response?.data?.detail;
@@ -614,6 +644,14 @@ export default function DraftEditor() {
     } finally {
       setPublishing(false);
     }
+  };
+
+  const toggleMarketplace = (mpId) => {
+    setSelectedMarketplaces(prev => 
+      prev.includes(mpId) 
+        ? prev.filter(id => id !== mpId)
+        : [...prev, mpId]
+    );
   };
 
   const handlePreview = async () => {
