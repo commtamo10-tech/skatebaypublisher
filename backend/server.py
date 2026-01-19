@@ -2190,31 +2190,37 @@ async def bootstrap_marketplaces(
                         {"paymentMethodType": "PAYPAL"}
                     ]
                 
-                payment_resp = await http_client.post(
+                # First try to get existing payment policies
+                existing_resp = await http_client.get(
                     f"{api_url}/sell/account/v1/payment_policy",
                     headers={**headers, "X-EBAY-C-MARKETPLACE-ID": marketplace_id},
-                    json=payment_payload
+                    params={"marketplace_id": marketplace_id}
                 )
-                logger.info(f"  Create payment: status={payment_resp.status_code}")
                 
-                if payment_resp.status_code == 201:
-                    payment_data = payment_resp.json()
-                    result.payment_policy_id = payment_data.get("paymentPolicyId")
-                    logger.info(f"  Payment ID: {result.payment_policy_id}")
-                elif payment_resp.status_code == 400:
-                    logger.warning(f"  Payment creation failed: {payment_resp.text[:300]}")
-                    # Try to get existing
-                    existing_resp = await http_client.get(
-                        f"{api_url}/sell/account/v1/payment_policy?marketplace_id={marketplace_id}",
-                        headers=headers
+                if existing_resp.status_code == 200:
+                    existing_policies = existing_resp.json().get("paymentPolicies", [])
+                    if existing_policies:
+                        result.payment_policy_id = existing_policies[0].get("paymentPolicyId")
+                        logger.info(f"  Using existing payment: {result.payment_policy_id}")
+                
+                # Create new if none exists
+                if not result.payment_policy_id:
+                    payment_resp = await http_client.post(
+                        f"{api_url}/sell/account/v1/payment_policy",
+                        headers={**headers, "X-EBAY-C-MARKETPLACE-ID": marketplace_id},
+                        json=payment_payload
                     )
-                    if existing_resp.status_code == 200:
-                        existing_policies = existing_resp.json().get("paymentPolicies", [])
-                        if existing_policies:
-                            result.payment_policy_id = existing_policies[0].get("paymentPolicyId")
-                            logger.info(f"  Using existing: {result.payment_policy_id}")
-                else:
-                    logger.error(f"  Payment error: {payment_resp.text[:300]}")
+                    logger.info(f"  Create payment: status={payment_resp.status_code}")
+                    logger.info(f"  Response: {payment_resp.text[:300]}")
+                    
+                    if payment_resp.status_code == 201:
+                        payment_data = payment_resp.json()
+                        result.payment_policy_id = payment_data.get("paymentPolicyId")
+                        logger.info(f"  Payment ID: {result.payment_policy_id}")
+                    elif payment_resp.status_code == 400:
+                        logger.warning(f"  Payment creation failed: {payment_resp.text[:300]}")
+                    else:
+                        logger.error(f"  Payment error: {payment_resp.text[:300]}")
                 
                 # ========== STEP 5: Create Return Policy ==========
                 # 30 days, seller pays return shipping, domestic only
