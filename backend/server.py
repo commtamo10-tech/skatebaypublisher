@@ -620,7 +620,7 @@ async def get_ebay_oauth_config(user = Depends(get_current_user)):
 @api_router.get("/ebay/auth/start")
 async def ebay_auth_start(user = Depends(get_current_user)):
     """Start eBay OAuth flow"""
-    from urllib.parse import urlencode, quote
+    from urllib.parse import quote
     
     # Get current environment
     environment = await get_ebay_environment()
@@ -661,17 +661,20 @@ async def ebay_auth_start(user = Depends(get_current_user)):
     
     # Build authorize URL with ALL required parameters
     # Reference: https://developer.ebay.com/api-docs/static/oauth-authorization-code-grant.html
-    params = {
-        "client_id": config["client_id"],
-        "response_type": "code",
-        "redirect_uri": redirect_uri,
-        "scope": EBAY_SCOPES,
-        "state": state
-    }
-    
-    # Build the full authorize URL
+    # IMPORTANT: scope must be space-separated and URL-encoded with %20 (not +)
     auth_base_url = config["auth_url"]
-    query_string = urlencode(params)
+    
+    # Build query string manually to ensure correct encoding
+    # - scope: spaces become %20 (not +)
+    # - redirect_uri: must be exactly as registered
+    query_parts = [
+        f"client_id={quote(config['client_id'], safe='')}",
+        "response_type=code",
+        f"redirect_uri={quote(redirect_uri, safe='')}",
+        f"scope={quote(EBAY_SCOPES, safe='')}",  # Spaces become %20
+        f"state={quote(state, safe='')}"
+    ]
+    query_string = "&".join(query_parts)
     auth_url = f"{auth_base_url}?{query_string}"
     
     # Detailed logging (no secrets)
