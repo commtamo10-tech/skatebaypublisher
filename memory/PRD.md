@@ -1,225 +1,129 @@
 # SkateBay - eBay Listing Manager for Vintage Skateboard Shop
 
 ## Original Problem Statement
-Full-stack web app (React frontend + FastAPI backend + MongoDB) per creare inserzioni eBay in modo semi-automatico per un negozio di skateboard vintage. L'utente carica solo le foto; l'app genera titolo/descrizione/item specifics in inglese (eBay-optimized) usando LLM, salva una bozza modificabile nell'app e pubblica su eBay solo dopo approvazione.
-
-**EVOLUZIONE**: L'applicazione è evoluta in un sistema multi-marketplace (US, DE, ES, AU) con bootstrap automatico delle policy e retry resiliente.
-
-## User Personas
-- **Admin User**: Shop owner managing vintage skateboard listings (Wheels, Trucks, Decks, Apparel, Misc)
-- **Single user authentication** (password-based)
-
-## Tech Stack
-- **Frontend**: React + Tailwind CSS + Shadcn UI
-- **Backend**: FastAPI + Python
-- **Database**: MongoDB
-- **LLM**: OpenAI GPT-5.2 via Emergent Universal Key
-- **Design**: Swiss Brutalist style (Chivo + JetBrains Mono fonts)
+Full-stack web app (React frontend + FastAPI backend + MongoDB) per creare inserzioni eBay in modo semi-automatico per un negozio di skateboard vintage.
 
 ---
 
 ## What's Been Implemented (January 2025)
 
-### ✅ LATEST - Retry Automatico Safe (Jan 19, 2025)
+### ✅ LATEST - OAuth Fix & Enhanced Logging (Jan 19, 2025)
 
-#### Retry con Backoff Esponenziale
-- [x] Helper function `retry_with_backoff()` per chiamate HTTP
-- [x] Retry solo su HTTP 429 (rate limit) e 5xx (server errors)
-- [x] Max 3 tentativi con backoff esponenziale (base 2s)
-- [x] Jitter ±25% per evitare thundering herd
-- [x] Rispetto header `Retry-After` per 429
+#### Environment Variable `EBAY_ENV`
+- [x] Aggiunto `EBAY_ENV=sandbox|production` in `.env`
+- [x] Backend legge da env, con override da DB settings
 
-#### Prevenzione Duplicati
-- [x] Check listing esistente prima di publishOffer
-- [x] Se SKU+marketplace ha già listingId → skip e ritorna risultato esistente
-- [x] Check sia su eBay API che su draft history
+#### OAuth URLs Corretti
+```
+Sandbox:
+  - authorize: https://auth.sandbox.ebay.com/oauth2/authorize
+  - token: https://api.sandbox.ebay.com/identity/v1/oauth2/token
 
-#### Logging Migliorato
-- [x] `🔄 RETRY {n}/{max}` con status code e error body
-- [x] `⏭️ SKIPPING` con listing ID quando già pubblicato
-- [x] `(attempt {n}/3)` nel response log
-- [x] Campo `retries` nel risultato se ci sono stati retry
-- [x] Campo `note` nel risultato per skip ("Already published")
-
-#### updateOffer Safe
-- [x] Invio payload completo con TUTTI i campi richiesti
-- [x] Nessun rischio di perdere dati durante update
-
-### ✅ END-TO-END TEST PASSED
-
-**Test 1 - Pubblicazione normale:**
-```json
-{
-  "success": true,
-  "offer_id": "10596030010",
-  "listing_id": "110588679631",
-  "price": "49.99 USD",
-  "listing_url": "https://www.sandbox.ebay.com/itm/110588679631"
-}
+Production:
+  - authorize: https://auth.ebay.com/oauth2/authorize  
+  - token: https://api.ebay.com/identity/v1/oauth2/token
 ```
 
-**Test 2 - Chiamata duplicata (skip):**
-```json
-{
-  "success": true,
-  "offer_id": "10596030010",
-  "listing_id": "110588679631",
-  "note": "Already published (skipped)"
-}
+#### Authorize URL Parameters (tutti obbligatori)
+- `client_id` - App ID registrato su eBay Developer
+- `response_type=code` - Authorization Code Grant
+- `redirect_uri` - DEVE combaciare esattamente con quello registrato
+- `scope` - sell.inventory + sell.account
+- `state` - Random token per CSRF protection
+
+#### Logging Dettagliato
+```
+🔐 EBAY OAUTH START - Environment: SANDBOX
+📋 OAuth Parameters:
+   auth_base_url: https://auth.sandbox.ebay.com/oauth2/authorize
+   client_id: Pasquale-VintageS-SBX-...
+   response_type: code
+   redirect_uri: https://vintage-lister.../api/ebay/auth/callback
+   scope: sell.inventory sell.account
+   state: movRJZvNEewIVwfv...
+🔗 FULL AUTHORIZE URL: https://auth.sandbox.ebay.com/oauth2/authorize?...
 ```
 
-**Log output:**
-```
-📦 OFFER PAYLOAD FOR EBAY_US
-🚀 PUBLISHING OFFER 10596030010 to EBAY_US
-📬 PUBLISH RESPONSE FOR EBAY_US (attempt 1/3)
-SUCCESS! Listing ID: 110588679631
-
-// Seconda chiamata:
-⏭️ SKIPPING EBAY_US - Already published with listing ID: 110588679631
-```
+#### Debug Endpoint
+- `GET /api/ebay/oauth/config` - Mostra configurazione OAuth completa
 
 ---
 
-## Previous Implementation
+### Retry Automatico Safe (Jan 19)
+- [x] Retry su HTTP 429 e 5xx (max 3 tentativi)
+- [x] Backoff esponenziale con jitter
+- [x] Rispetto header Retry-After
+- [x] Prevenzione duplicati (skip se già pubblicato)
 
 ### Multi-Marketplace Bootstrap (Jan 19)
-- [x] Endpoint `POST /api/settings/ebay/bootstrap-marketplaces`
-- [x] Creazione automatica location + policy per marketplace
-- [x] Return policy: 30 giorni, seller pays, domestic only
-- [x] UI Settings con pulsante Bootstrap
-- [x] UI Draft Editor con selettore marketplace
-
-### Core Features
-- [x] Draft CRUD con auto-fill aspects (Vision LLM)
-- [x] JWT Authentication
-- [x] eBay OAuth (Sandbox + Production toggle)
-- [x] Batch upload con auto-grouping
+- [x] Bootstrap automatico policy per US, DE, ES, AU
+- [x] Clear logging per publish (payload + response)
 
 ---
 
-## Database Schema (MongoDB)
+## Environment Variables (.env)
 
-### Settings Collection
-```javascript
-{
-  "_id": "app_settings",
-  "ebay_environment": "sandbox",
-  "marketplaces": {
-    "EBAY_US": {
-      "merchant_location_key": "warehouse_us",
-      "policies": {
-        "fulfillment_policy_id": "...",
-        "payment_policy_id": "...",
-        "return_policy_id": "..."
-      }
-    }
-  }
-}
-```
+```bash
+# eBay Environment
+EBAY_ENV=sandbox  # or production
 
-### Drafts Collection
-```javascript
-{
-  "id": "uuid",
-  "sku": "OSS-WHL-000050",
-  "status": "PUBLISHED",
-  "listing_id": "110588679631",
-  "multi_marketplace_results": {
-    "EBAY_US": {
-      "success": true,
-      "listing_id": "110588679631",
-      "offer_id": "10596030010"
-    }
-  }
-}
+# Sandbox credentials
+EBAY_CLIENT_ID=...
+EBAY_CLIENT_SECRET=...
+EBAY_REDIRECT_URI=https://your-domain/api/ebay/auth/callback
+EBAY_RUNAME=  # optional, use redirect_uri if empty
+EBAY_SCOPES=https://api.ebay.com/oauth/api_scope/sell.inventory https://api.ebay.com/oauth/api_scope/sell.account
+
+# Production credentials
+EBAY_PROD_CLIENT_ID=...
+EBAY_PROD_CLIENT_SECRET=...
+EBAY_PROD_REDIRECT_URI=...
+EBAY_PROD_RUNAME=...
 ```
 
 ---
 
 ## Key API Endpoints
 
-### Multi-Marketplace Publish
-- `POST /api/drafts/{id}/publish-multi`
-  - Body: `{"marketplaces": ["EBAY_US", "EBAY_DE"]}`
-  - Features: retry on 429/5xx, skip if already published
+### OAuth
+- `GET /api/ebay/oauth/config` - Debug OAuth configuration
+- `GET /api/ebay/auth/start` - Start OAuth flow (returns auth_url)
+- `GET /api/ebay/auth/callback` - OAuth callback handler
 
-### Bootstrap
+### Multi-Marketplace
 - `POST /api/settings/ebay/bootstrap-marketplaces`
+- `POST /api/drafts/{id}/publish-multi`
 - `GET /api/marketplaces`
-
----
-
-## Retry Logic Details
-
-```python
-async def retry_with_backoff(
-    http_client, method, url, headers, json_body,
-    max_retries=3, base_delay=2.0, context=""
-):
-    for attempt in range(1, max_retries + 1):
-        response = await http_client.request(...)
-        
-        if response.status_code == 429 or response.status_code >= 500:
-            # Log retry attempt
-            logger.warning(f"🔄 RETRY {attempt}/{max_retries} - Status: {status}")
-            
-            if attempt < max_retries:
-                # Respect Retry-After for 429
-                if status == 429 and "Retry-After" in headers:
-                    delay = float(headers["Retry-After"])
-                else:
-                    delay = base_delay * (2 ** (attempt - 1))  # 2s, 4s, 8s
-                
-                # Add jitter ±25%
-                delay += delay * 0.25 * (random.random() * 2 - 1)
-                await asyncio.sleep(delay)
-                continue
-        
-        return response, attempt
-```
-
----
-
-## Sandbox Limitations
-
-| Marketplace | Status |
-|-------------|--------|
-| EBAY_US | ✅ READY - testato e funzionante |
-| EBAY_DE/ES/AU | ⚠️ Sandbox limitation - da testare in Production |
 
 ---
 
 ## Prioritized Backlog
 
 ### P0 (Completed ✅)
+- [x] OAuth fix con URL corretti
+- [x] Enhanced logging
+- [x] Retry automatico
 - [x] Multi-marketplace bootstrap
-- [x] Retry automatico safe
-- [x] Duplicate prevention
-- [x] Clear logging
 
 ### P1 (Next)
-- [ ] Test publish su DE/ES/AU con Production credentials
+- [ ] Test OAuth in Production con credenziali reali
+- [ ] Test publish su marketplace EU (DE/ES)
 
-### P2 (Medium Priority)
-- [ ] Migrazione a Supabase (in pausa)
+### P2
+- [ ] Migrazione Supabase
 - [ ] Refactoring server.py
-
-### P3 (Future)
-- [ ] Visual clustering batch upload
-- [ ] Background job queue
 
 ---
 
 ## Credentials for Testing
 - **Password**: admin123
 - **API**: https://vintage-lister.preview.emergentagent.com
-- **eBay**: Sandbox
+- **eBay**: Sandbox (connected)
 
 ---
 
 ## Files of Reference
-- `/app/backend/server.py` - Main backend (include `retry_with_backoff`)
-- `/app/backend/ebay_config.py` - Marketplace configuration
-- `/app/frontend/src/pages/Settings.js` - Settings page
-- `/app/frontend/src/pages/DraftEditor.js` - Draft editor
+- `/app/backend/server.py`
+- `/app/backend/.env` (EBAY_ENV, credentials)
+- `/app/backend/ebay_config.py`
+- `/app/frontend/src/pages/Settings.js`
