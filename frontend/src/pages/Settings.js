@@ -90,7 +90,7 @@ export default function Settings() {
 
   const fetchDebugInfo = async () => {
     try {
-      const response = await api.get("/ebay/auth/debug");
+      const response = await api.get("/ebay/debug");
       setDebugInfo(response.data);
       setShowDebug(true);
       console.log("eBay Debug Info:", response.data);
