@@ -1426,6 +1426,54 @@ async def publish_draft(draft_id: str, user = Depends(get_current_user)):
     
     logger.info(f"Validation passed. Policy IDs: fulfillment={settings.get('fulfillment_policy_id')}, return={settings.get('return_policy_id')}, payment={settings.get('payment_policy_id')}")
     
+    # Check if merchant location exists, create if not
+    if not settings.get("merchant_location_key"):
+        logger.info("No merchant location set, creating one...")
+        try:
+            access_token = await get_ebay_access_token()
+            location_key = "default_location"
+            
+            async with httpx.AsyncClient(timeout=30.0) as http_client:
+                # Try to create location
+                location_payload = {
+                    "location": {
+                        "address": {
+                            "addressLine1": "Via Roma 1",
+                            "city": "Milan",
+                            "stateOrProvince": "MI",
+                            "postalCode": "20100",
+                            "country": "IT"
+                        }
+                    },
+                    "locationTypes": ["WAREHOUSE"],
+                    "name": "Main Warehouse",
+                    "merchantLocationStatus": "ENABLED"
+                }
+                
+                create_resp = await http_client.post(
+                    f"{EBAY_SANDBOX_API_URL}/sell/inventory/v1/location/{location_key}",
+                    headers={
+                        "Authorization": f"Bearer {access_token}",
+                        "Content-Type": "application/json"
+                    },
+                    json=location_payload
+                )
+                
+                logger.info(f"Auto-create location: status={create_resp.status_code}")
+                
+                if create_resp.status_code in [200, 201, 204, 409]:  # 409 = already exists
+                    settings["merchant_location_key"] = location_key
+                    await db.settings.update_one(
+                        {"_id": "app_settings"},
+                        {"$set": {"merchant_location_key": location_key}},
+                        upsert=True
+                    )
+                    logger.info(f"Location set to: {location_key}")
+                else:
+                    logger.warning(f"Could not create location: {create_resp.text[:200]}")
+        except Exception as loc_err:
+            logger.warning(f"Location creation failed: {loc_err}")
+    
     try:
         access_token = await get_ebay_access_token()
         
