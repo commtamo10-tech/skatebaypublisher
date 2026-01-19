@@ -3638,33 +3638,73 @@ async def publish_draft_multi_marketplace(
                 for offer in offers_data.get("offers", []):
                     if offer.get("marketplaceId") == marketplace_id:
                         existing_offer_id = offer.get("offerId")
-                        logger.info(f"Found existing offer: {existing_offer_id}")
+                        # Check if this offer is already published (has listingId)
+                        existing_listing_id = offer.get("listing", {}).get("listingId")
+                        if existing_listing_id:
+                            # Already published! Skip and return existing result
+                            logger.info(f"⏭️ SKIPPING {marketplace_id} - Already published with listing ID: {existing_listing_id}")
+                            results["marketplaces"][marketplace_id] = {
+                                "success": True,
+                                "offer_id": existing_offer_id,
+                                "listing_id": existing_listing_id,
+                                "price": f"{price} {currency}",
+                                "listing_url": f"https://www.{'sandbox.' if use_sandbox else ''}ebay.com/itm/{existing_listing_id}",
+                                "note": "Already published (skipped)"
+                            }
+                            break
+                        else:
+                            logger.info(f"Found existing unpublished offer: {existing_offer_id}")
                         break
+            
+            # Skip to next marketplace if already published
+            if results["marketplaces"].get(marketplace_id, {}).get("success"):
+                continue
+            
+            # Also check draft's multi_marketplace_results for existing listing
+            existing_results = draft.get("multi_marketplace_results", {})
+            if existing_results.get(marketplace_id, {}).get("listing_id"):
+                existing_listing_id = existing_results[marketplace_id]["listing_id"]
+                logger.info(f"⏭️ SKIPPING {marketplace_id} - Found existing listing in draft: {existing_listing_id}")
+                results["marketplaces"][marketplace_id] = {
+                    "success": True,
+                    "offer_id": existing_results[marketplace_id].get("offer_id"),
+                    "listing_id": existing_listing_id,
+                    "price": f"{price} {currency}",
+                    "listing_url": f"https://www.{'sandbox.' if use_sandbox else ''}ebay.com/itm/{existing_listing_id}",
+                    "note": "Already published (from draft history)"
+                }
+                continue
+            
+            offer_id = None
             
             # Create or Update offer
             if existing_offer_id:
-                # Delete existing offer first to ensure clean state
-                logger.info(f"Deleting existing offer {existing_offer_id}...")
+                # Delete existing unpublished offer to ensure clean state
+                logger.info(f"Deleting existing unpublished offer {existing_offer_id}...")
                 delete_resp = await http_client.delete(
                     f"{api_url}/sell/inventory/v1/offer/{existing_offer_id}",
                     headers=headers
                 )
                 logger.info(f"Delete offer response: {delete_resp.status_code}")
                 if delete_resp.status_code in [200, 204]:
-                    logger.info("Offer deleted successfully")
+                    logger.info("Offer deleted successfully, will create new")
                     existing_offer_id = None  # Force create new offer
                 else:
-                    # Try update instead
-                    logger.info(f"Delete failed ({delete_resp.status_code}), trying update...")
+                    # Delete failed, try update with FULL payload
+                    logger.info(f"Delete failed ({delete_resp.status_code}), trying full update...")
+                    # updateOffer is "replace" - must include ALL required fields
                     offer_response = await http_client.put(
                         f"{api_url}/sell/inventory/v1/offer/{existing_offer_id}",
                         headers=headers,
                         json=offer_payload
                     )
                     logger.info(f"updateOffer: status={offer_response.status_code}")
-                    offer_id = existing_offer_id
+                    if offer_response.status_code in [200, 204]:
+                        offer_id = existing_offer_id
+                    else:
+                        logger.warning(f"updateOffer failed: {offer_response.text[:200]}")
             
-            if not existing_offer_id:
+            if not offer_id and not existing_offer_id:
                 # Create new offer
                 offer_response = await http_client.post(
                     f"{api_url}/sell/inventory/v1/offer",
@@ -3691,31 +3731,46 @@ async def publish_draft_multi_marketplace(
                     
                     if not offer_id:
                         results["marketplaces"][marketplace_id] = {
+                            "success": False,
                             "error": f"Create offer failed: {offer_response.text[:200]}"
                         }
                         continue
                 else:
                     results["marketplaces"][marketplace_id] = {
+                        "success": False,
                         "error": f"Create offer failed: {offer_response.text[:200]}"
                     }
                     continue
             
+            if not offer_id:
+                results["marketplaces"][marketplace_id] = {
+                    "success": False,
+                    "error": "Failed to create or retrieve offer ID"
+                }
+                continue
+            
             logger.info(f"Offer ID: {offer_id}")
             
-            # Publish offer
-            # === CLEAR LOGGING: PUBLISH OFFER ===
+            # ========== PUBLISH OFFER WITH RETRY ==========
             logger.info("=" * 60)
             logger.info(f"🚀 PUBLISHING OFFER {offer_id} to {marketplace_id}")
             logger.info("=" * 60)
             
-            publish_response = await http_client.post(
-                f"{api_url}/sell/inventory/v1/offer/{offer_id}/publish",
-                headers=headers
+            # Use retry with backoff for publish (429 and 5xx only)
+            publish_response, attempt_num = await retry_with_backoff(
+                http_client=http_client,
+                method="POST",
+                url=f"{api_url}/sell/inventory/v1/offer/{offer_id}/publish",
+                headers=headers,
+                json_body=None,
+                max_retries=3,
+                base_delay=2.0,
+                context=f"publishOffer {marketplace_id}"
             )
             
             # === CLEAR LOGGING: PUBLISH RESPONSE ===
             logger.info("=" * 60)
-            logger.info(f"📬 PUBLISH RESPONSE FOR {marketplace_id}")
+            logger.info(f"📬 PUBLISH RESPONSE FOR {marketplace_id} (attempt {attempt_num}/3)")
             logger.info(f"Status Code: {publish_response.status_code}")
             if publish_response.text:
                 try:
