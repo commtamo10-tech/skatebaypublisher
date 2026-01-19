@@ -107,6 +107,91 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(level
 logger = logging.getLogger(__name__)
 
 
+# ============ RETRY HELPER WITH EXPONENTIAL BACKOFF ============
+
+async def retry_with_backoff(
+    http_client: httpx.AsyncClient,
+    method: str,
+    url: str,
+    headers: dict,
+    json_body: dict = None,
+    max_retries: int = 3,
+    base_delay: float = 1.0,
+    context: str = ""
+) -> Tuple[httpx.Response, int]:
+    """
+    Execute HTTP request with retry on 429 and 5xx errors.
+    Uses exponential backoff with jitter.
+    Respects Retry-After header for 429 responses.
+    
+    Returns: (response, attempt_number)
+    """
+    last_response = None
+    
+    for attempt in range(1, max_retries + 1):
+        try:
+            if method.upper() == "POST":
+                response = await http_client.post(url, headers=headers, json=json_body)
+            elif method.upper() == "PUT":
+                response = await http_client.put(url, headers=headers, json=json_body)
+            elif method.upper() == "GET":
+                response = await http_client.get(url, headers=headers)
+            elif method.upper() == "DELETE":
+                response = await http_client.delete(url, headers=headers)
+            else:
+                raise ValueError(f"Unsupported HTTP method: {method}")
+            
+            last_response = response
+            
+            # Check if we should retry
+            if response.status_code == 429 or response.status_code >= 500:
+                error_body = response.text[:300] if response.text else "No body"
+                logger.warning(f"🔄 RETRY {attempt}/{max_retries} [{context}] - Status: {response.status_code}")
+                logger.warning(f"   Error body: {error_body}")
+                
+                if attempt < max_retries:
+                    # Calculate delay
+                    if response.status_code == 429:
+                        # Respect Retry-After header if present
+                        retry_after = response.headers.get("Retry-After")
+                        if retry_after:
+                            try:
+                                delay = float(retry_after)
+                                logger.info(f"   Using Retry-After header: {delay}s")
+                            except ValueError:
+                                delay = base_delay * (2 ** (attempt - 1))
+                        else:
+                            delay = base_delay * (2 ** (attempt - 1))
+                    else:
+                        # Exponential backoff with jitter for 5xx
+                        delay = base_delay * (2 ** (attempt - 1))
+                    
+                    # Add jitter (±25%)
+                    jitter = delay * 0.25 * (random.random() * 2 - 1)
+                    delay = max(0.5, delay + jitter)
+                    
+                    logger.info(f"   Waiting {delay:.2f}s before retry...")
+                    await asyncio.sleep(delay)
+                    continue
+            
+            # Success or non-retryable error
+            return response, attempt
+            
+        except httpx.TimeoutException as e:
+            logger.warning(f"🔄 RETRY {attempt}/{max_retries} [{context}] - Timeout: {str(e)}")
+            if attempt < max_retries:
+                delay = base_delay * (2 ** (attempt - 1))
+                jitter = delay * 0.25 * (random.random() * 2 - 1)
+                delay = max(0.5, delay + jitter)
+                logger.info(f"   Waiting {delay:.2f}s before retry...")
+                await asyncio.sleep(delay)
+            else:
+                raise
+    
+    # Return last response after all retries exhausted
+    return last_response, max_retries
+
+
 # ============ EBAY ENVIRONMENT HELPERS ============
 
 async def get_ebay_environment():
