@@ -2772,6 +2772,338 @@ async def delete_batch(batch_id: str, user = Depends(get_current_user)):
     return {"message": "Batch deleted"}
 
 
+# ============ MULTI-MARKETPLACE PUBLISH ============
+
+class MultiMarketplacePublishRequest(BaseModel):
+    marketplaces: List[str] = ["EBAY_US"]  # List of marketplace IDs to publish to
+    custom_prices: Optional[Dict[str, float]] = None  # Override prices per marketplace
+
+@api_router.post("/drafts/{draft_id}/publish-multi")
+async def publish_draft_multi_marketplace(
+    draft_id: str, 
+    request: MultiMarketplacePublishRequest,
+    user = Depends(get_current_user)
+):
+    """Publish draft to multiple eBay marketplaces"""
+    logger.info("=" * 60)
+    logger.info(f"MULTI-MARKETPLACE PUBLISH: {draft_id}")
+    logger.info(f"Marketplaces: {request.marketplaces}")
+    logger.info("=" * 60)
+    
+    draft = await db.drafts.find_one({"id": draft_id}, {"_id": 0})
+    if not draft:
+        raise HTTPException(status_code=404, detail="Draft not found")
+    
+    # Validation
+    errors = []
+    if not draft.get("title"):
+        errors.append("Title is required")
+    if not draft.get("image_urls") or len(draft["image_urls"]) == 0:
+        errors.append("At least one image is required")
+    
+    if errors:
+        raise HTTPException(status_code=400, detail={"errors": errors})
+    
+    # Get environment
+    environment = await get_ebay_environment()
+    use_sandbox = environment == "sandbox"
+    
+    try:
+        access_token = await get_ebay_access_token()
+    except HTTPException as e:
+        raise HTTPException(status_code=401, detail=f"eBay not connected: {e.detail}")
+    
+    # Get base API URL
+    base_config = get_ebay_config(environment)
+    api_url = base_config["api_url"]
+    
+    # Convert image URLs to absolute
+    image_urls = []
+    for url in draft.get("image_urls", []):
+        if url.startswith("/api/"):
+            image_urls.append(f"{FRONTEND_URL}{url}")
+        elif url.startswith("http"):
+            image_urls.append(url)
+        else:
+            image_urls.append(f"{FRONTEND_URL}/api/uploads/{url}")
+    
+    # Build aspects
+    aspects = {}
+    for k, v in (draft.get("aspects") or {}).items():
+        if v and str(v).strip():
+            aspects[k] = [str(v)]
+    
+    sku = draft["sku"]
+    results = {"sku": sku, "marketplaces": {}}
+    
+    async with httpx.AsyncClient(timeout=60.0) as http_client:
+        headers = {
+            "Authorization": f"Bearer {access_token}",
+            "Content-Type": "application/json",
+            "Content-Language": "en-US"
+        }
+        
+        # Step 1: Create/Update Inventory Item (same for all marketplaces)
+        logger.info(f"Step 1: Creating inventory item for SKU {sku}")
+        
+        inventory_payload = {
+            "product": {
+                "title": draft["title"],
+                "description": draft.get("description", ""),
+                "aspects": aspects,
+                "imageUrls": image_urls
+            },
+            "condition": draft.get("condition", "USED_GOOD"),
+            "availability": {
+                "shipToLocationAvailability": {
+                    "quantity": 1
+                }
+            }
+        }
+        
+        inv_response = await http_client.put(
+            f"{api_url}/sell/inventory/v1/inventory_item/{sku}",
+            headers=headers,
+            json=inventory_payload
+        )
+        
+        logger.info(f"createOrReplaceInventoryItem: status={inv_response.status_code}")
+        if inv_response.status_code not in [200, 204]:
+            logger.error(f"Inventory failed: {inv_response.text[:500]}")
+            raise HTTPException(status_code=400, detail=f"Inventory creation failed: {inv_response.text[:300]}")
+        
+        # Step 2: Ensure merchant location exists
+        location_key = "default_location"
+        logger.info(f"Step 2: Checking/creating merchant location: {location_key}")
+        
+        loc_check = await http_client.get(
+            f"{api_url}/sell/inventory/v1/location/{location_key}",
+            headers=headers
+        )
+        
+        if loc_check.status_code != 200:
+            logger.info("Creating merchant location...")
+            loc_payload = {
+                "location": {
+                    "address": {
+                        "addressLine1": "Via Roma 1",
+                        "city": "Milan",
+                        "stateOrProvince": "MI",
+                        "postalCode": "20100",
+                        "country": "IT"
+                    }
+                },
+                "locationTypes": ["WAREHOUSE"],
+                "name": "Main Warehouse",
+                "merchantLocationStatus": "ENABLED"
+            }
+            loc_create = await http_client.post(
+                f"{api_url}/sell/inventory/v1/location/{location_key}",
+                headers=headers,
+                json=loc_payload
+            )
+            logger.info(f"Create location: status={loc_create.status_code}")
+        
+        # Step 3: Get settings for policy IDs
+        settings = await db.settings.find_one({"_id": "app_settings"}, {"_id": 0}) or {}
+        
+        # Step 4: Create/Update and Publish offer for each marketplace
+        for marketplace_id in request.marketplaces:
+            logger.info(f"\n--- Processing {marketplace_id} ---")
+            
+            mp_config = get_marketplace_config(marketplace_id, use_sandbox)
+            if not mp_config:
+                results["marketplaces"][marketplace_id] = {"error": "Unknown marketplace"}
+                continue
+            
+            # Get price (custom or default from config)
+            if request.custom_prices and marketplace_id in request.custom_prices:
+                price = request.custom_prices[marketplace_id]
+            else:
+                price = draft.get("price") or mp_config.get("default_price", 25.00)
+            
+            currency = mp_config["currency"]
+            country_code = mp_config["country_code"]
+            
+            # Get category
+            item_type = draft.get("item_type", "MISC")
+            category_id = get_category_for_item(item_type, marketplace_id)
+            
+            # Get policy IDs from settings (for now use same policies for all marketplaces)
+            fulfillment_policy_id = settings.get("fulfillment_policy_id")
+            payment_policy_id = settings.get("payment_policy_id")
+            return_policy_id = settings.get("return_policy_id")
+            
+            if not all([fulfillment_policy_id, payment_policy_id, return_policy_id]):
+                results["marketplaces"][marketplace_id] = {
+                    "error": "Missing policy IDs. Go to Settings and fetch/create policies first."
+                }
+                continue
+            
+            # Build offer payload
+            offer_payload = {
+                "sku": sku,
+                "marketplaceId": marketplace_id,
+                "format": "FIXED_PRICE",
+                "pricingSummary": {
+                    "price": {
+                        "value": str(price),
+                        "currency": currency
+                    }
+                },
+                "availableQuantity": 1,
+                "categoryId": category_id,
+                "countryCode": country_code,
+                "merchantLocationKey": location_key,
+                "listingPolicies": {
+                    "fulfillmentPolicyId": fulfillment_policy_id,
+                    "paymentPolicyId": payment_policy_id,
+                    "returnPolicyId": return_policy_id
+                },
+                "listingDescription": draft.get("description", "")
+            }
+            
+            logger.info(f"Offer payload: sku={sku}, marketplace={marketplace_id}, price={price} {currency}")
+            
+            # Check if offer already exists for this SKU+marketplace
+            existing_offer_id = None
+            get_offers_resp = await http_client.get(
+                f"{api_url}/sell/inventory/v1/offer",
+                headers=headers,
+                params={"sku": sku}
+            )
+            
+            if get_offers_resp.status_code == 200:
+                offers_data = get_offers_resp.json()
+                for offer in offers_data.get("offers", []):
+                    if offer.get("marketplaceId") == marketplace_id:
+                        existing_offer_id = offer.get("offerId")
+                        logger.info(f"Found existing offer: {existing_offer_id}")
+                        break
+            
+            # Create or Update offer
+            if existing_offer_id:
+                # Update existing offer
+                offer_response = await http_client.put(
+                    f"{api_url}/sell/inventory/v1/offer/{existing_offer_id}",
+                    headers=headers,
+                    json=offer_payload
+                )
+                logger.info(f"updateOffer: status={offer_response.status_code}")
+                offer_id = existing_offer_id
+            else:
+                # Create new offer
+                offer_response = await http_client.post(
+                    f"{api_url}/sell/inventory/v1/offer",
+                    headers=headers,
+                    json=offer_payload
+                )
+                logger.info(f"createOffer: status={offer_response.status_code}")
+                
+                if offer_response.status_code == 201:
+                    offer_data = offer_response.json()
+                    offer_id = offer_data.get("offerId")
+                elif offer_response.status_code == 400:
+                    # Check for "already exists" error
+                    try:
+                        err_data = offer_response.json()
+                        for err in err_data.get("errors", []):
+                            if "already exists" in err.get("message", "").lower():
+                                for param in err.get("parameters", []):
+                                    if param.get("name") == "offerId":
+                                        offer_id = param.get("value")
+                                        break
+                    except:
+                        pass
+                    
+                    if not offer_id:
+                        results["marketplaces"][marketplace_id] = {
+                            "error": f"Create offer failed: {offer_response.text[:200]}"
+                        }
+                        continue
+                else:
+                    results["marketplaces"][marketplace_id] = {
+                        "error": f"Create offer failed: {offer_response.text[:200]}"
+                    }
+                    continue
+            
+            logger.info(f"Offer ID: {offer_id}")
+            
+            # Publish offer
+            logger.info(f"Publishing offer {offer_id}...")
+            publish_response = await http_client.post(
+                f"{api_url}/sell/inventory/v1/offer/{offer_id}/publish",
+                headers=headers
+            )
+            
+            logger.info(f"publishOffer: status={publish_response.status_code}")
+            logger.info(f"Response: {publish_response.text[:500] if publish_response.text else 'empty'}")
+            
+            if publish_response.status_code in [200, 204]:
+                publish_data = publish_response.json() if publish_response.text else {}
+                listing_id = publish_data.get("listingId")
+                
+                results["marketplaces"][marketplace_id] = {
+                    "success": True,
+                    "offer_id": offer_id,
+                    "listing_id": listing_id,
+                    "price": f"{price} {currency}",
+                    "listing_url": f"https://www.{'sandbox.' if use_sandbox else ''}ebay.com/itm/{listing_id}" if listing_id else None
+                }
+                logger.info(f"SUCCESS! Listing ID: {listing_id}")
+            else:
+                error_text = publish_response.text[:300] if publish_response.text else "Unknown error"
+                results["marketplaces"][marketplace_id] = {
+                    "success": False,
+                    "offer_id": offer_id,
+                    "error": error_text
+                }
+                logger.error(f"Publish failed: {error_text}")
+    
+    # Update draft with results
+    successful_marketplaces = [
+        mp for mp, data in results["marketplaces"].items() 
+        if data.get("success")
+    ]
+    
+    update_data = {
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+        "multi_marketplace_results": results["marketplaces"]
+    }
+    
+    if successful_marketplaces:
+        update_data["status"] = "PUBLISHED"
+        # Store first successful listing_id
+        first_success = results["marketplaces"][successful_marketplaces[0]]
+        update_data["listing_id"] = first_success.get("listing_id")
+        update_data["offer_id"] = first_success.get("offer_id")
+    
+    await db.drafts.update_one({"id": draft_id}, {"$set": update_data})
+    
+    logger.info("=" * 60)
+    logger.info(f"MULTI-MARKETPLACE PUBLISH COMPLETE")
+    logger.info(f"Results: {results}")
+    logger.info("=" * 60)
+    
+    return results
+
+
+@api_router.get("/marketplaces")
+async def get_marketplaces(user = Depends(get_current_user)):
+    """Get list of supported marketplaces with their configuration"""
+    marketplaces = []
+    for mp_id, config in MARKETPLACE_CONFIG.items():
+        marketplaces.append({
+            "id": mp_id,
+            "name": config["name"],
+            "currency": config["currency"],
+            "country_code": config["country_code"],
+            "default_price": config["default_price"],
+            "default_shipping_cost": config["default_shipping_cost"]
+        })
+    return {"marketplaces": marketplaces}
+
+
 # ============ SETUP ============
 
 # Include router
