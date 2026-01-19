@@ -1500,6 +1500,16 @@ async def publish_draft(draft_id: str, user = Depends(get_current_user)):
     
     logger.info(f"Validation passed. Policy IDs: fulfillment={settings.get('fulfillment_policy_id')}, return={settings.get('return_policy_id')}, payment={settings.get('payment_policy_id')}")
     
+    # Get eBay environment config
+    environment = await get_ebay_environment()
+    config = get_ebay_config(environment)
+    api_url = config["api_url"]
+    marketplace_id = config["marketplace_id"]
+    country_code = config["country_code"]
+    currency = config["currency"]
+    
+    logger.info(f"Publishing to {environment.upper()}: marketplace={marketplace_id}, country={country_code}, currency={currency}")
+    
     # Check if merchant location exists, create if not
     if not settings.get("merchant_location_key"):
         logger.info("No merchant location set, creating one...")
