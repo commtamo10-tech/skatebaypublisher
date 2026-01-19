@@ -2227,7 +2227,7 @@ async def bootstrap_marketplaces(
                 logger.info(f"Step 5: Creating return policy for {marketplace_id}...")
                 
                 return_payload = {
-                    "name": f"30 Day Returns {country_code} - {environment}",
+                    "name": f"30 Day Returns {country_code} - {environment} - {secrets.token_hex(4)}",
                     "description": f"30 day returns, seller pays shipping, domestic only",
                     "marketplaceId": marketplace_id,
                     "categoryTypes": [{"name": "ALL_EXCLUDING_MOTORS_VEHICLES"}],
@@ -2242,31 +2242,37 @@ async def bootstrap_marketplaces(
                     }
                 }
                 
-                return_resp = await http_client.post(
+                # First try to get existing return policies
+                existing_resp = await http_client.get(
                     f"{api_url}/sell/account/v1/return_policy",
                     headers={**headers, "X-EBAY-C-MARKETPLACE-ID": marketplace_id},
-                    json=return_payload
+                    params={"marketplace_id": marketplace_id}
                 )
-                logger.info(f"  Create return: status={return_resp.status_code}")
                 
-                if return_resp.status_code == 201:
-                    return_data = return_resp.json()
-                    result.return_policy_id = return_data.get("returnPolicyId")
-                    logger.info(f"  Return ID: {result.return_policy_id}")
-                elif return_resp.status_code == 400:
-                    logger.warning(f"  Return creation failed: {return_resp.text[:300]}")
-                    # Try to get existing
-                    existing_resp = await http_client.get(
-                        f"{api_url}/sell/account/v1/return_policy?marketplace_id={marketplace_id}",
-                        headers=headers
+                if existing_resp.status_code == 200:
+                    existing_policies = existing_resp.json().get("returnPolicies", [])
+                    if existing_policies:
+                        result.return_policy_id = existing_policies[0].get("returnPolicyId")
+                        logger.info(f"  Using existing return: {result.return_policy_id}")
+                
+                # Create new if none exists
+                if not result.return_policy_id:
+                    return_resp = await http_client.post(
+                        f"{api_url}/sell/account/v1/return_policy",
+                        headers={**headers, "X-EBAY-C-MARKETPLACE-ID": marketplace_id},
+                        json=return_payload
                     )
-                    if existing_resp.status_code == 200:
-                        existing_policies = existing_resp.json().get("returnPolicies", [])
-                        if existing_policies:
-                            result.return_policy_id = existing_policies[0].get("returnPolicyId")
-                            logger.info(f"  Using existing: {result.return_policy_id}")
-                else:
-                    logger.error(f"  Return error: {return_resp.text[:300]}")
+                    logger.info(f"  Create return: status={return_resp.status_code}")
+                    logger.info(f"  Response: {return_resp.text[:300]}")
+                    
+                    if return_resp.status_code == 201:
+                        return_data = return_resp.json()
+                        result.return_policy_id = return_data.get("returnPolicyId")
+                        logger.info(f"  Return ID: {result.return_policy_id}")
+                    elif return_resp.status_code == 400:
+                        logger.warning(f"  Return creation failed: {return_resp.text[:300]}")
+                    else:
+                        logger.error(f"  Return error: {return_resp.text[:300]}")
                 
                 # ========== STEP 6: Save to settings ==========
                 mp_settings["policies"] = {
