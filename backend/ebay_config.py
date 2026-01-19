@@ -97,9 +97,14 @@ MARKETPLACE_CONFIG = {
 # Alias for backward compatibility
 DEFAULT_MARKETPLACE_SETTINGS = MARKETPLACE_CONFIG
 
-# Category mapping by item type
+# Category mapping by item type (eBay leaf category IDs)
+# 117034 = Skateboarding > Parts & Accessories > Wheels
+# 36631 = Skateboarding > Parts & Accessories > Trucks  
+# 16263 = Skateboarding > Decks
+# 36642 = Skateboarding > Clothing & Accessories
+# 16265 = Skateboarding > Other
 CATEGORY_BY_ITEM_TYPE = {
-    "WHL": {"EBAY_US": "36632", "EBAY_DE": "36632", "EBAY_ES": "36632", "EBAY_AU": "36632"},
+    "WHL": {"EBAY_US": "117034", "EBAY_DE": "117034", "EBAY_ES": "117034", "EBAY_AU": "117034"},
     "TRK": {"EBAY_US": "36631", "EBAY_DE": "36631", "EBAY_ES": "36631", "EBAY_AU": "36631"},
     "DCK": {"EBAY_US": "16263", "EBAY_DE": "16263", "EBAY_ES": "16263", "EBAY_AU": "16263"},
     "APP": {"EBAY_US": "36642", "EBAY_DE": "36642", "EBAY_ES": "36642", "EBAY_AU": "36642"},
