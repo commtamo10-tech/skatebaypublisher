@@ -1497,7 +1497,16 @@ async def publish_draft(draft_id: str, user = Depends(get_current_user)):
             if inv_response.status_code not in [200, 204]:
                 raise Exception(f"Inventory creation failed: {inv_response.text}")
             
-            logger.info("Step 2: Creating offer...")
+            logger.info(f"Step 2: Creating offer...")
+            
+            # Clean categoryId - remove any text description, keep only the number
+            raw_category_id = str(draft["category_id"])
+            # Extract just the numeric part
+            category_id = ''.join(c for c in raw_category_id.split()[0] if c.isdigit())
+            if not category_id:
+                category_id = ''.join(c for c in raw_category_id if c.isdigit())
+            
+            logger.info(f"Category ID: raw='{raw_category_id}' -> cleaned='{category_id}'")
             
             # 2. Create Offer
             offer_payload = {
@@ -1511,7 +1520,7 @@ async def publish_draft(draft_id: str, user = Depends(get_current_user)):
                     }
                 },
                 "availableQuantity": 1,
-                "categoryId": draft["category_id"],
+                "categoryId": category_id,
                 "listingPolicies": {
                     "fulfillmentPolicyId": settings["fulfillment_policy_id"],
                     "returnPolicyId": settings["return_policy_id"],
