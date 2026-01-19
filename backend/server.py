@@ -3602,14 +3602,29 @@ async def publish_draft_multi_marketplace(
             logger.info(f"Offer ID: {offer_id}")
             
             # Publish offer
-            logger.info(f"Publishing offer {offer_id}...")
+            # === CLEAR LOGGING: PUBLISH OFFER ===
+            logger.info("=" * 60)
+            logger.info(f"🚀 PUBLISHING OFFER {offer_id} to {marketplace_id}")
+            logger.info("=" * 60)
+            
             publish_response = await http_client.post(
                 f"{api_url}/sell/inventory/v1/offer/{offer_id}/publish",
                 headers=headers
             )
             
-            logger.info(f"publishOffer: status={publish_response.status_code}")
-            logger.info(f"Response: {publish_response.text[:500] if publish_response.text else 'empty'}")
+            # === CLEAR LOGGING: PUBLISH RESPONSE ===
+            logger.info("=" * 60)
+            logger.info(f"📬 PUBLISH RESPONSE FOR {marketplace_id}")
+            logger.info(f"Status Code: {publish_response.status_code}")
+            if publish_response.text:
+                try:
+                    response_json = publish_response.json()
+                    logger.info(f"Response JSON: {json.dumps(response_json, indent=2)}")
+                except:
+                    logger.info(f"Response Text: {publish_response.text[:500]}")
+            else:
+                logger.info("Response: empty")
+            logger.info("=" * 60)
             
             if publish_response.status_code in [200, 204]:
                 publish_data = publish_response.json() if publish_response.text else {}
