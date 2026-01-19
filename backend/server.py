@@ -25,6 +25,7 @@ import jwt
 from ebay_config import (
     MARKETPLACE_CONFIG, 
     get_marketplace_config, 
+    get_default_marketplace_config,
     get_all_marketplaces,
     get_category_for_item,
     validate_marketplace_config,
