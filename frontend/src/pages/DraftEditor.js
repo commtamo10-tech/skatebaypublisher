@@ -1055,6 +1055,18 @@ export default function DraftEditor() {
                   {draft.offer_id && <p>Offer ID: {draft.offer_id}</p>}
                   {draft.listing_id && <p>Listing ID: {draft.listing_id}</p>}
                 </div>
+                {draft.listing_id && (
+                  <a 
+                    href={`https://www.sandbox.ebay.com/itm/${draft.listing_id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 mt-3 px-4 py-2 bg-green-600 text-white font-bold uppercase tracking-wider text-sm border-2 border-green-700 shadow-hard-sm hover:translate-y-[1px] hover:shadow-none transition-all"
+                    data-testid="view-on-ebay-btn"
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                    View on eBay Sandbox
+                  </a>
+                )}
               </div>
             )}
           </div>
