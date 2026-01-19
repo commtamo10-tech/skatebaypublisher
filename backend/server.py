@@ -604,10 +604,10 @@ async def ebay_auth_callback(code: str = Query(None), state: str = Query(None), 
         )
         
         # Verify tokens were saved
-        saved_tokens = await db.ebay_tokens.find_one({"_id": "ebay_tokens"})
+        saved_tokens = await db.ebay_tokens.find_one({"_id": token_collection_id})
         if saved_tokens and saved_tokens.get("access_token"):
-            logger.info("eBay OAuth successful! Tokens saved and verified.")
-            return RedirectResponse(url=f"{FRONTEND_URL}/settings?ebay_connected=true")
+            logger.info(f"eBay OAuth successful! Tokens saved for {environment}.")
+            return RedirectResponse(url=f"{FRONTEND_URL}/settings?ebay_connected=true&environment={environment}")
         else:
             logger.error("Tokens not saved correctly to database!")
             return RedirectResponse(url=f"{FRONTEND_URL}/settings?ebay_error=db_save_failed&ebay_error_desc=Failed to save tokens to database")
@@ -620,17 +620,20 @@ async def ebay_auth_callback(code: str = Query(None), state: str = Query(None), 
 @api_router.get("/ebay/debug")
 async def ebay_debug_status(user = Depends(get_current_user)):
     """Debug endpoint to check eBay OAuth status - does not expose tokens"""
-    tokens = await db.ebay_tokens.find_one({"_id": "ebay_tokens"})
+    environment = await get_ebay_environment()
+    token_collection_id = f"ebay_tokens_{environment}"
+    tokens = await db.ebay_tokens.find_one({"_id": token_collection_id})
     
     if not tokens:
         return {
             "connected": False,
+            "environment": environment,
             "has_access_token": False,
             "has_refresh_token": False,
             "token_expires_at": None,
             "scopes": [],
             "updated_at": None,
-            "message": "No tokens found in database. Please complete OAuth flow."
+            "message": f"No tokens found for {environment}. Please complete OAuth flow."
         }
     
     # Check if expired
