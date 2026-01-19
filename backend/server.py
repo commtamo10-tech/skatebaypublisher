@@ -3477,9 +3477,11 @@ async def publish_draft_multi_marketplace(
             currency = mp_config["currency"]
             country_code = mp_config["country_code"]
             
-            # Get category
-            item_type = draft.get("item_type", "MISC")
-            category_id = get_category_for_item(item_type, marketplace_id)
+            # Get category - prefer draft's custom category, fallback to item_type mapping
+            category_id = draft.get("category_id")
+            if not category_id:
+                item_type = draft.get("item_type", "MISC")
+                category_id = get_category_for_item(item_type, marketplace_id)
             
             # Get policy IDs from marketplace config (nested in 'policies' dict)
             policies = mp_config.get("policies", {})
