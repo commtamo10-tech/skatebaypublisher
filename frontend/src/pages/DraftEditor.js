@@ -601,15 +601,48 @@ export default function DraftEditor() {
   const [selectedMarketplaces, setSelectedMarketplaces] = useState(["EBAY_US"]);
   const [showMarketplaceSelector, setShowMarketplaceSelector] = useState(false);
   const [publishResults, setPublishResults] = useState(null);
+  const [marketplaceData, setMarketplaceData] = useState([]);
 
-  const MARKETPLACES = [
-    { id: "EBAY_US", name: "🇺🇸 USA", currency: "USD", defaultPrice: 25.00 },
-    { id: "EBAY_DE", name: "🇩🇪 Germany", currency: "EUR", defaultPrice: 12.00 },
-    { id: "EBAY_ES", name: "🇪🇸 Spain", currency: "EUR", defaultPrice: 12.00 },
-    { id: "EBAY_AU", name: "🇦🇺 Australia", currency: "AUD", defaultPrice: 100.00 },
+  // Fetch marketplace configuration on mount
+  useEffect(() => {
+    const fetchMarketplaces = async () => {
+      try {
+        const response = await api.get("/marketplaces");
+        setMarketplaceData(response.data.marketplaces || []);
+      } catch (error) {
+        console.error("Failed to fetch marketplaces:", error);
+        // Fall back to static list
+        setMarketplaceData([
+          { id: "EBAY_US", name: "United States", currency: "USD", default_price: 25.00, is_configured: false },
+          { id: "EBAY_DE", name: "Germany", currency: "EUR", default_price: 12.00, is_configured: false },
+          { id: "EBAY_ES", name: "Spain", currency: "EUR", default_price: 12.00, is_configured: false },
+          { id: "EBAY_AU", name: "Australia", currency: "AUD", default_price: 100.00, is_configured: false },
+        ]);
+      }
+    };
+    fetchMarketplaces();
+  }, []);
+
+  // Fallback static list (used when API unavailable)
+  const MARKETPLACES = marketplaceData.length > 0 ? marketplaceData : [
+    { id: "EBAY_US", name: "🇺🇸 USA", currency: "USD", default_price: 25.00, is_configured: false },
+    { id: "EBAY_DE", name: "🇩🇪 Germany", currency: "EUR", default_price: 12.00, is_configured: false },
+    { id: "EBAY_ES", name: "🇪🇸 Spain", currency: "EUR", default_price: 12.00, is_configured: false },
+    { id: "EBAY_AU", name: "🇦🇺 Australia", currency: "AUD", default_price: 100.00, is_configured: false },
   ];
 
   const handlePublish = async () => {
+    // Validate that selected marketplaces are configured
+    const unconfigured = selectedMarketplaces.filter(mpId => {
+      const mp = MARKETPLACES.find(m => m.id === mpId);
+      return mp && !mp.is_configured;
+    });
+    
+    if (unconfigured.length > 0) {
+      toast.error(`Please configure these marketplaces first: ${unconfigured.join(", ")}. Go to Settings > Bootstrap Marketplaces.`);
+      return;
+    }
+    
     setPublishing(true);
     setPublishResults(null);
     try {
