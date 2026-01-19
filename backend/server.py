@@ -1867,7 +1867,7 @@ async def get_ebay_policies(user = Depends(get_current_user)):
             # 0. First, opt-in to Business Policies (SELLING_POLICY_MANAGEMENT)
             logger.info("Step 0: Opting in to Business Policies...")
             opt_in_resp = await http_client.post(
-                f"{EBAY_SANDBOX_API_URL}/sell/account/v1/program/opt_in",
+                f"{api_url}/sell/account/v1/program/opt_in",
                 headers=headers,
                 json={"programType": "SELLING_POLICY_MANAGEMENT"}
             )
@@ -1896,7 +1896,7 @@ async def get_ebay_policies(user = Depends(get_current_user)):
             
             # 1. Fetch Fulfillment Policies
             fulfillment_resp = await http_client.get(
-                f"{EBAY_SANDBOX_API_URL}/sell/account/v1/fulfillment_policy",
+                f"{api_url}/sell/account/v1/fulfillment_policy",
                 headers=headers,
                 params={"marketplace_id": marketplace_id}
             )
@@ -1905,7 +1905,7 @@ async def get_ebay_policies(user = Depends(get_current_user)):
             
             # 2. Fetch Payment Policies
             payment_resp = await http_client.get(
-                f"{EBAY_SANDBOX_API_URL}/sell/account/v1/payment_policy",
+                f"{api_url}/sell/account/v1/payment_policy",
                 headers=headers,
                 params={"marketplace_id": marketplace_id}
             )
@@ -1914,7 +1914,7 @@ async def get_ebay_policies(user = Depends(get_current_user)):
             
             # 3. Fetch Return Policies
             return_resp = await http_client.get(
-                f"{EBAY_SANDBOX_API_URL}/sell/account/v1/return_policy",
+                f"{api_url}/sell/account/v1/return_policy",
                 headers=headers,
                 params={"marketplace_id": marketplace_id}
             )
@@ -1935,7 +1935,7 @@ async def get_ebay_policies(user = Depends(get_current_user)):
             if not fulfillment_policies:
                 logger.info("No fulfillment policies found, creating default...")
                 create_resp = await http_client.post(
-                    f"{EBAY_SANDBOX_API_URL}/sell/account/v1/fulfillment_policy",
+                    f"{api_url}/sell/account/v1/fulfillment_policy",
                     headers=headers,
                     json={
                         "name": "Standard Shipping - International",
@@ -1970,7 +1970,7 @@ async def get_ebay_policies(user = Depends(get_current_user)):
                 # For Sandbox: use minimal payment policy without specific payment methods
                 # eBay managed payments is the default for most marketplaces now
                 create_resp = await http_client.post(
-                    f"{EBAY_SANDBOX_API_URL}/sell/account/v1/payment_policy",
+                    f"{api_url}/sell/account/v1/payment_policy",
                     headers=headers,
                     json={
                         "name": "Standard Payment Policy",
@@ -1990,7 +1990,7 @@ async def get_ebay_policies(user = Depends(get_current_user)):
             if not return_policies:
                 logger.info("No return policies found, creating default...")
                 create_resp = await http_client.post(
-                    f"{EBAY_SANDBOX_API_URL}/sell/account/v1/return_policy",
+                    f"{api_url}/sell/account/v1/return_policy",
                     headers=headers,
                     json={
                         "name": "30 Day Returns",
