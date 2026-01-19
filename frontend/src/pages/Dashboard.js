@@ -16,7 +16,7 @@ import { toast } from "sonner";
 import { 
   Plus, Search, Settings, LogOut, Truck, 
   FileText, CheckCircle, AlertCircle, Clock,
-  Circle, Trash2, Upload
+  Circle, Trash2, Upload, ExternalLink
 } from "lucide-react";
 
 const ITEM_TYPES = {
