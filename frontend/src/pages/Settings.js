@@ -8,7 +8,7 @@ import { Badge } from "../components/ui/badge";
 import { toast } from "sonner";
 import { 
   ArrowLeft, Save, Link2, CheckCircle, AlertCircle,
-  RefreshCw, ExternalLink, Bug
+  RefreshCw, ExternalLink, Bug, Globe
 } from "lucide-react";
 
 export default function Settings() {
@@ -24,7 +24,8 @@ export default function Settings() {
     return_policy_id: "",
     payment_policy_id: "",
     merchant_location_key: "",
-    ebay_connected: false
+    ebay_connected: false,
+    ebay_environment: "sandbox"
   });
   
   const [policies, setPolicies] = useState(null);
@@ -32,7 +33,8 @@ export default function Settings() {
   useEffect(() => {
     // Handle OAuth success
     if (searchParams.get("ebay_connected") === "true") {
-      toast.success("eBay account connected successfully!");
+      const env = searchParams.get("environment") || "sandbox";
+      toast.success(`eBay ${env} account connected successfully!`);
       // Clear URL params
       window.history.replaceState({}, '', '/settings');
     }
