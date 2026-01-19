@@ -76,9 +76,57 @@ export default function Settings() {
     setFetchingPolicies(true);
     try {
       const response = await api.get("/ebay/policies");
-      setPolicies(response.data);
-      toast.success("Policies fetched from eBay");
+      const data = response.data;
+      setPolicies(data);
+      
+      // Log response for debugging
+      console.log("eBay Policies Response:", data);
+      
+      // Auto-fill the first available policy ID for each type
+      const updates = {};
+      
+      if (data.fulfillment_policies?.length > 0) {
+        const policyId = data.fulfillment_policies[0].fulfillmentPolicyId;
+        if (policyId && !settings.fulfillment_policy_id) {
+          updates.fulfillment_policy_id = policyId;
+        }
+      }
+      
+      if (data.return_policies?.length > 0) {
+        const policyId = data.return_policies[0].returnPolicyId;
+        if (policyId && !settings.return_policy_id) {
+          updates.return_policy_id = policyId;
+        }
+      }
+      
+      if (data.payment_policies?.length > 0) {
+        const policyId = data.payment_policies[0].paymentPolicyId;
+        if (policyId && !settings.payment_policy_id) {
+          updates.payment_policy_id = policyId;
+        }
+      }
+      
+      // Also check for newly created policies
+      if (data.created_policies) {
+        if (data.created_policies.fulfillment) {
+          updates.fulfillment_policy_id = data.created_policies.fulfillment;
+        }
+        if (data.created_policies.return) {
+          updates.return_policy_id = data.created_policies.return;
+        }
+        if (data.created_policies.payment) {
+          updates.payment_policy_id = data.created_policies.payment;
+        }
+      }
+      
+      if (Object.keys(updates).length > 0) {
+        setSettings(prev => ({ ...prev, ...updates }));
+        toast.success(`Policies fetched and ${Object.keys(updates).length} field(s) auto-filled!`);
+      } else {
+        toast.success("Policies fetched from eBay");
+      }
     } catch (error) {
+      console.error("Fetch policies error:", error);
       toast.error("Failed to fetch policies. Make sure eBay is connected.");
     } finally {
       setFetchingPolicies(false);
