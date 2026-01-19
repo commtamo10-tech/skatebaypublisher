@@ -543,24 +543,28 @@ async def ebay_auth_callback(code: str = Query(None), state: str = Query(None), 
         logger.error(f"Invalid or expired state: {state}")
         return RedirectResponse(url=f"{FRONTEND_URL}/settings?ebay_error=invalid_state&ebay_error_desc=State expired or invalid. Please try again.")
     
+    # Get environment from state document
+    environment = state_doc.get("environment", "sandbox")
+    config = get_ebay_config(environment)
+    
     await db.oauth_states.delete_one({"state": state})
     
     # Use RuName if available for token exchange
-    redirect_uri_param = EBAY_RUNAME if EBAY_RUNAME else EBAY_REDIRECT_URI
+    redirect_uri_param = config["runame"] if config["runame"] else config["redirect_uri"]
     
-    credentials = base64.b64encode(f"{EBAY_CLIENT_ID}:{EBAY_CLIENT_SECRET}".encode()).decode()
+    credentials = base64.b64encode(f"{config['client_id']}:{config['client_secret']}".encode()).decode()
     
     logger.info("=" * 60)
-    logger.info("EBAY TOKEN EXCHANGE:")
-    logger.info(f"Token URL: {EBAY_SANDBOX_TOKEN_URL}")
-    logger.info(f"redirect_uri (RuName): {redirect_uri_param}")
+    logger.info(f"EBAY TOKEN EXCHANGE ({environment.upper()}):")
+    logger.info(f"Token URL: {config['token_url']}")
+    logger.info(f"redirect_uri: {redirect_uri_param}")
     logger.info(f"code: {code[:30]}...")
     logger.info("=" * 60)
     
     try:
         async with httpx.AsyncClient(timeout=30.0) as http_client:
             response = await http_client.post(
-                EBAY_SANDBOX_TOKEN_URL,
+                config["token_url"],
                 headers={
                     "Authorization": f"Basic {credentials}",
                     "Content-Type": "application/x-www-form-urlencoded"
@@ -582,15 +586,17 @@ async def ebay_auth_callback(code: str = Query(None), state: str = Query(None), 
         
         token_data = response.json()
         
-        # Save tokens to database
+        # Save tokens to database (separate collection for each environment)
+        token_collection_id = f"ebay_tokens_{environment}"
         await db.ebay_tokens.update_one(
-            {"_id": "ebay_tokens"},
+            {"_id": token_collection_id},
             {
                 "$set": {
                     "access_token": token_data["access_token"],
                     "refresh_token": token_data.get("refresh_token"),
                     "token_expiry": (datetime.now(timezone.utc) + timedelta(seconds=token_data.get("expires_in", 7200))).isoformat(),
                     "scopes": token_data.get("scope", "").split() if token_data.get("scope") else [],
+                    "environment": environment,
                     "updated_at": datetime.now(timezone.utc).isoformat()
                 }
             },
