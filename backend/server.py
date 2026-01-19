@@ -27,6 +27,7 @@ from ebay_config import (
     get_marketplace_config, 
     get_all_marketplaces,
     get_category_for_item,
+    validate_marketplace_config,
     FALLBACK_SHIPPING_SERVICES,
     DEFAULT_HANDLING_TIME
 )
