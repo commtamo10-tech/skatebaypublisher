@@ -320,6 +320,7 @@ export default function Settings() {
                 </button>
               </div>
               <div className="space-y-1">
+                <p><span className="text-muted-foreground">environment:</span> <span className="font-bold">{debugInfo.environment || 'sandbox'}</span></p>
                 <p><span className="text-muted-foreground">connected:</span> <span className={debugInfo.connected ? 'text-green-600' : 'text-red-600'}>{String(debugInfo.connected)}</span></p>
                 <p><span className="text-muted-foreground">has_access_token:</span> <span className={debugInfo.has_access_token ? 'text-green-600' : 'text-red-600'}>{String(debugInfo.has_access_token)}</span></p>
                 <p><span className="text-muted-foreground">has_refresh_token:</span> <span className={debugInfo.has_refresh_token ? 'text-green-600' : 'text-red-600'}>{String(debugInfo.has_refresh_token)}</span></p>
