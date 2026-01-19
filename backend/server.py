@@ -2967,13 +2967,17 @@ async def publish_draft_multi_marketplace(
             return_policy_id = mp_config.get("return_policy_id")
             merchant_location_key = mp_config.get("merchant_location_key", f"location_{country_code.lower()}")
             
+            # This check is redundant now (we validate upfront) but keep as safety
             if not all([fulfillment_policy_id, payment_policy_id, return_policy_id]):
                 results["marketplaces"][marketplace_id] = {
-                    "error": "Missing policy IDs. Go to Settings and fetch/create policies first."
+                    "error": f"Missing policy IDs for {marketplace_id}. Configure in Settings."
                 }
                 continue
             
-            # Build offer payload
+            logger.info(f"Using policies for {marketplace_id}: fulfillment={fulfillment_policy_id}, payment={payment_policy_id}, return={return_policy_id}")
+            logger.info(f"Using location: {merchant_location_key}")
+            
+            # Build offer payload with marketplace-specific policies
             offer_payload = {
                 "sku": sku,
                 "marketplaceId": marketplace_id,
@@ -2987,7 +2991,7 @@ async def publish_draft_multi_marketplace(
                 "availableQuantity": 1,
                 "categoryId": category_id,
                 "countryCode": country_code,
-                "merchantLocationKey": location_key,
+                "merchantLocationKey": merchant_location_key,
                 "listingPolicies": {
                     "fulfillmentPolicyId": fulfillment_policy_id,
                     "paymentPolicyId": payment_policy_id,
