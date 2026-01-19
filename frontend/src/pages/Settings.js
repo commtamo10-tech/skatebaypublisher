@@ -28,9 +28,23 @@ export default function Settings() {
   const [policies, setPolicies] = useState(null);
 
   useEffect(() => {
+    // Handle OAuth success
     if (searchParams.get("ebay_connected") === "true") {
       toast.success("eBay account connected successfully!");
+      // Clear URL params
+      window.history.replaceState({}, '', '/settings');
     }
+    
+    // Handle OAuth errors
+    const ebayError = searchParams.get("ebay_error");
+    const ebayErrorDesc = searchParams.get("ebay_error_desc");
+    if (ebayError) {
+      toast.error(`eBay connection failed: ${ebayErrorDesc || ebayError}`);
+      console.error("eBay OAuth Error:", ebayError, ebayErrorDesc);
+      // Clear URL params
+      window.history.replaceState({}, '', '/settings');
+    }
+    
     fetchSettings();
   }, [searchParams]);
 
