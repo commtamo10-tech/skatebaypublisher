@@ -1,10 +1,21 @@
 # eBay Multi-Marketplace Configuration
 # Structured settings per marketplace with policies, shipping, and location
 
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
+
+# Default handling time (days)
+DEFAULT_HANDLING_TIME = 3
+
+# Fallback shipping service codes per marketplace (used if Metadata API fails)
+FALLBACK_SHIPPING_SERVICES = {
+    "EBAY_US": "USPSPriority",
+    "EBAY_DE": "DE_DeutschePostBrief",
+    "EBAY_ES": "ES_CorreosDeEspanaPaqueteAzul",
+    "EBAY_AU": "AU_StandardDelivery",
+}
 
 # Default marketplace configurations
-DEFAULT_MARKETPLACE_SETTINGS = {
+MARKETPLACE_CONFIG = {
     "EBAY_US": {
         "name": "United States",
         "site_id": "0",
@@ -14,7 +25,7 @@ DEFAULT_MARKETPLACE_SETTINGS = {
         "price": {"value": 25.00, "currency": "USD"},
         "shipping_standard": {
             "cost": {"value": 25.00, "currency": "USD"},
-            "handling_time_days": 3,
+            "handling_time_days": DEFAULT_HANDLING_TIME,
             "shipping_service_code": None  # Will be fetched from Metadata API
         },
         "policies": {
@@ -33,7 +44,7 @@ DEFAULT_MARKETPLACE_SETTINGS = {
         "price": {"value": 12.00, "currency": "EUR"},
         "shipping_standard": {
             "cost": {"value": 12.00, "currency": "EUR"},
-            "handling_time_days": 3,
+            "handling_time_days": DEFAULT_HANDLING_TIME,
             "shipping_service_code": None
         },
         "policies": {
@@ -52,7 +63,7 @@ DEFAULT_MARKETPLACE_SETTINGS = {
         "price": {"value": 12.00, "currency": "EUR"},
         "shipping_standard": {
             "cost": {"value": 12.00, "currency": "EUR"},
-            "handling_time_days": 3,
+            "handling_time_days": DEFAULT_HANDLING_TIME,
             "shipping_service_code": None
         },
         "policies": {
@@ -71,7 +82,7 @@ DEFAULT_MARKETPLACE_SETTINGS = {
         "price": {"value": 100.00, "currency": "AUD"},
         "shipping_standard": {
             "cost": {"value": 100.00, "currency": "AUD"},
-            "handling_time_days": 3,
+            "handling_time_days": DEFAULT_HANDLING_TIME,
             "shipping_service_code": None
         },
         "policies": {
@@ -82,6 +93,9 @@ DEFAULT_MARKETPLACE_SETTINGS = {
         "merchant_location_key": None
     },
 }
+
+# Alias for backward compatibility
+DEFAULT_MARKETPLACE_SETTINGS = MARKETPLACE_CONFIG
 
 # Category mapping by item type
 CATEGORY_BY_ITEM_TYPE = {
@@ -95,7 +109,7 @@ CATEGORY_BY_ITEM_TYPE = {
 
 def get_default_marketplace_config(marketplace_id: str) -> dict:
     """Get default configuration for a marketplace"""
-    return DEFAULT_MARKETPLACE_SETTINGS.get(marketplace_id, {}).copy()
+    return MARKETPLACE_CONFIG.get(marketplace_id, {}).copy()
 
 
 def get_marketplace_config(marketplace_id: str, db_settings: dict = None) -> dict:
@@ -119,9 +133,14 @@ def get_marketplace_config(marketplace_id: str, db_settings: dict = None) -> dic
             if "shipping_standard" in mp_settings:
                 config["shipping_standard"].update(mp_settings["shipping_standard"])
             
-            # Merge policies
+            # Merge policies - flatten from nested structure
             if "policies" in mp_settings:
                 config["policies"].update(mp_settings["policies"])
+            
+            # Also check for flat policy IDs (for backward compatibility)
+            for policy_key in ["fulfillment_policy_id", "payment_policy_id", "return_policy_id"]:
+                if mp_settings.get(policy_key):
+                    config["policies"][policy_key] = mp_settings[policy_key]
             
             # Merge location
             if mp_settings.get("merchant_location_key"):
@@ -132,7 +151,7 @@ def get_marketplace_config(marketplace_id: str, db_settings: dict = None) -> dic
 
 def get_all_marketplaces() -> list:
     """Get list of all supported marketplace IDs"""
-    return list(DEFAULT_MARKETPLACE_SETTINGS.keys())
+    return list(MARKETPLACE_CONFIG.keys())
 
 
 def get_category_for_item(item_type: str, marketplace_id: str) -> str:
@@ -163,10 +182,14 @@ def validate_marketplace_for_publish(marketplace_id: str, config: dict) -> list:
     return missing
 
 
+# Alias for backward compatibility with server.py import
+validate_marketplace_config = validate_marketplace_for_publish
+
+
 def get_marketplace_display_info() -> list:
     """Get marketplace info for UI display"""
     result = []
-    for mp_id, config in DEFAULT_MARKETPLACE_SETTINGS.items():
+    for mp_id, config in MARKETPLACE_CONFIG.items():
         result.append({
             "id": mp_id,
             "name": config["name"],
