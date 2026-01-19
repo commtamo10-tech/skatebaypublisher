@@ -2964,10 +2964,11 @@ async def publish_draft_multi_marketplace(
             item_type = draft.get("item_type", "MISC")
             category_id = get_category_for_item(item_type, marketplace_id)
             
-            # Get policy IDs from marketplace config (now per-marketplace!)
-            fulfillment_policy_id = mp_config.get("fulfillment_policy_id")
-            payment_policy_id = mp_config.get("payment_policy_id")
-            return_policy_id = mp_config.get("return_policy_id")
+            # Get policy IDs from marketplace config (nested in 'policies' dict)
+            policies = mp_config.get("policies", {})
+            fulfillment_policy_id = policies.get("fulfillment_policy_id")
+            payment_policy_id = policies.get("payment_policy_id")
+            return_policy_id = policies.get("return_policy_id")
             merchant_location_key = mp_config.get("merchant_location_key", f"location_{country_code.lower()}")
             
             # This check is redundant now (we validate upfront) but keep as safety
