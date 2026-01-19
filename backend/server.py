@@ -445,11 +445,29 @@ async def ebay_auth_start(user = Depends(get_current_user)):
     return {"auth_url": auth_url}
 
 @api_router.get("/ebay/auth/callback")
-async def ebay_auth_callback(code: str = Query(...), state: str = Query(...)):
+async def ebay_auth_callback(code: str = Query(None), state: str = Query(None), error: str = Query(None), error_description: str = Query(None)):
     """Handle eBay OAuth callback"""
+    logger.info("=" * 60)
+    logger.info("EBAY OAUTH CALLBACK RECEIVED")
+    logger.info(f"code: {code[:30] if code else 'NONE'}...")
+    logger.info(f"state: {state}")
+    logger.info(f"error: {error}")
+    logger.info(f"error_description: {error_description}")
+    logger.info("=" * 60)
+    
+    # Handle OAuth errors from eBay
+    if error:
+        logger.error(f"eBay OAuth error: {error} - {error_description}")
+        return RedirectResponse(url=f"{FRONTEND_URL}/settings?ebay_error={error}&ebay_error_desc={error_description or 'Unknown error'}")
+    
+    if not code or not state:
+        logger.error("Missing code or state in callback")
+        return RedirectResponse(url=f"{FRONTEND_URL}/settings?ebay_error=missing_params&ebay_error_desc=Missing code or state")
+    
     state_doc = await db.oauth_states.find_one({"state": state})
     if not state_doc:
-        raise HTTPException(status_code=400, detail="Invalid or expired state")
+        logger.error(f"Invalid or expired state: {state}")
+        return RedirectResponse(url=f"{FRONTEND_URL}/settings?ebay_error=invalid_state&ebay_error_desc=State expired or invalid. Please try again.")
     
     await db.oauth_states.delete_one({"state": state})
     
@@ -462,47 +480,98 @@ async def ebay_auth_callback(code: str = Query(...), state: str = Query(...)):
     logger.info("EBAY TOKEN EXCHANGE:")
     logger.info(f"Token URL: {EBAY_SANDBOX_TOKEN_URL}")
     logger.info(f"redirect_uri (RuName): {redirect_uri_param}")
-    logger.info(f"code: {code[:20]}...")
+    logger.info(f"code: {code[:30]}...")
     logger.info("=" * 60)
     
-    async with httpx.AsyncClient() as http_client:
-        response = await http_client.post(
-            EBAY_SANDBOX_TOKEN_URL,
-            headers={
-                "Authorization": f"Basic {credentials}",
-                "Content-Type": "application/x-www-form-urlencoded"
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as http_client:
+            response = await http_client.post(
+                EBAY_SANDBOX_TOKEN_URL,
+                headers={
+                    "Authorization": f"Basic {credentials}",
+                    "Content-Type": "application/x-www-form-urlencoded"
+                },
+                data={
+                    "grant_type": "authorization_code",
+                    "code": code,
+                    "redirect_uri": redirect_uri_param
+                }
+            )
+        
+        logger.info(f"Token exchange response: status={response.status_code}")
+        logger.info(f"Token exchange body: {response.text[:500]}")
+        
+        if response.status_code != 200:
+            logger.error(f"eBay token exchange failed: {response.status_code} - {response.text}")
+            error_msg = response.text[:200].replace('"', "'")
+            return RedirectResponse(url=f"{FRONTEND_URL}/settings?ebay_error=token_exchange_failed&ebay_error_desc={error_msg}")
+        
+        token_data = response.json()
+        
+        # Save tokens to database
+        await db.ebay_tokens.update_one(
+            {"_id": "ebay_tokens"},
+            {
+                "$set": {
+                    "access_token": token_data["access_token"],
+                    "refresh_token": token_data.get("refresh_token"),
+                    "token_expiry": (datetime.now(timezone.utc) + timedelta(seconds=token_data.get("expires_in", 7200))).isoformat(),
+                    "scopes": token_data.get("scope", "").split() if token_data.get("scope") else [],
+                    "updated_at": datetime.now(timezone.utc).isoformat()
+                }
             },
-            data={
-                "grant_type": "authorization_code",
-                "code": code,
-                "redirect_uri": redirect_uri_param  # Use RuName here too
-            }
+            upsert=True
         )
+        
+        # Verify tokens were saved
+        saved_tokens = await db.ebay_tokens.find_one({"_id": "ebay_tokens"})
+        if saved_tokens and saved_tokens.get("access_token"):
+            logger.info("eBay OAuth successful! Tokens saved and verified.")
+            return RedirectResponse(url=f"{FRONTEND_URL}/settings?ebay_connected=true")
+        else:
+            logger.error("Tokens not saved correctly to database!")
+            return RedirectResponse(url=f"{FRONTEND_URL}/settings?ebay_error=db_save_failed&ebay_error_desc=Failed to save tokens to database")
+            
+    except Exception as e:
+        logger.error(f"Exception during token exchange: {str(e)}")
+        return RedirectResponse(url=f"{FRONTEND_URL}/settings?ebay_error=exception&ebay_error_desc={str(e)[:100]}")
+
+
+@api_router.get("/ebay/auth/debug")
+async def ebay_auth_debug(user = Depends(get_current_user)):
+    """Debug endpoint to check eBay OAuth status - does not expose tokens"""
+    tokens = await db.ebay_tokens.find_one({"_id": "ebay_tokens"})
     
-    if response.status_code != 200:
-        logger.error(f"eBay token exchange failed: {response.status_code} - {response.text}")
-        raise HTTPException(status_code=400, detail=f"Failed to exchange code for tokens: {response.text}")
+    if not tokens:
+        return {
+            "connected": False,
+            "has_access_token": False,
+            "has_refresh_token": False,
+            "token_expires_at": None,
+            "scopes": [],
+            "updated_at": None,
+            "message": "No tokens found in database. Please complete OAuth flow."
+        }
     
-    token_data = response.json()
+    # Check if expired
+    expiry_str = tokens.get("token_expiry", "2000-01-01T00:00:00+00:00")
+    try:
+        expiry = datetime.fromisoformat(expiry_str.replace("Z", "+00:00"))
+        is_expired = expiry < datetime.now(timezone.utc)
+    except:
+        is_expired = True
+        expiry = None
     
-    await db.ebay_tokens.update_one(
-        {"_id": "ebay_tokens"},
-        {
-            "$set": {
-                "access_token": token_data["access_token"],
-                "refresh_token": token_data["refresh_token"],
-                "token_expiry": (datetime.now(timezone.utc) + timedelta(seconds=token_data["expires_in"])).isoformat(),
-                "scopes": token_data.get("scope", "").split(),
-                "updated_at": datetime.now(timezone.utc).isoformat()
-            }
-        },
-        upsert=True
-    )
-    
-    logger.info("eBay OAuth successful! Tokens saved.")
-    
-    # Redirect to frontend settings page
-    return RedirectResponse(url=f"{FRONTEND_URL}/settings?ebay_connected=true")
+    return {
+        "connected": bool(tokens.get("access_token")) and not is_expired,
+        "has_access_token": bool(tokens.get("access_token")),
+        "has_refresh_token": bool(tokens.get("refresh_token")),
+        "token_expires_at": expiry_str,
+        "is_expired": is_expired,
+        "scopes": tokens.get("scopes", []),
+        "updated_at": tokens.get("updated_at"),
+        "message": "Tokens found" if tokens.get("access_token") else "Tokens incomplete"
+    }
 
 @api_router.get("/ebay/status")
 async def ebay_status(user = Depends(get_current_user)):
