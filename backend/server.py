@@ -3518,10 +3518,24 @@ async def publish_draft_multi_marketplace(
                     "paymentPolicyId": payment_policy_id,
                     "returnPolicyId": return_policy_id
                 },
-                "listingDescription": draft.get("description", "")
+                "listingDescription": draft.get("description", "")[:200] + "..." if len(draft.get("description", "")) > 200 else draft.get("description", "")
             }
             
-            logger.info(f"Offer payload: sku={sku}, marketplace={marketplace_id}, price={price} {currency}")
+            # === CLEAR LOGGING: OFFER PAYLOAD ===
+            logger.info("=" * 60)
+            logger.info(f"📦 OFFER PAYLOAD FOR {marketplace_id}")
+            logger.info("=" * 60)
+            logger.info(json.dumps({
+                "sku": offer_payload["sku"],
+                "marketplaceId": offer_payload["marketplaceId"],
+                "format": offer_payload["format"],
+                "price": offer_payload["pricingSummary"]["price"],
+                "categoryId": offer_payload["categoryId"],
+                "countryCode": offer_payload["countryCode"],
+                "merchantLocationKey": offer_payload["merchantLocationKey"],
+                "listingPolicies": offer_payload["listingPolicies"]
+            }, indent=2))
+            logger.info("=" * 60)
             
             # Check if offer already exists for this SKU+marketplace
             existing_offer_id = None
