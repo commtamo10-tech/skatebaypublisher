@@ -1535,7 +1535,7 @@ async def publish_draft(draft_id: str, user = Depends(get_current_user)):
                 }
                 
                 create_resp = await http_client.post(
-                    f"{EBAY_SANDBOX_API_URL}/sell/inventory/v1/location/{location_key}",
+                    f"{api_url}/sell/inventory/v1/location/{location_key}",
                     headers={
                         "Authorization": f"Bearer {access_token}",
                         "Content-Type": "application/json"
@@ -1605,7 +1605,7 @@ async def publish_draft(draft_id: str, user = Depends(get_current_user)):
         async with httpx.AsyncClient(timeout=30.0) as http_client:
             # Create/Update inventory item
             inv_response = await http_client.put(
-                f"{EBAY_SANDBOX_API_URL}/sell/inventory/v1/inventory_item/{draft['sku']}",
+                f"{api_url}/sell/inventory/v1/inventory_item/{draft['sku']}",
                 headers={
                     "Authorization": f"Bearer {access_token}",
                     "Content-Type": "application/json",
@@ -1674,7 +1674,7 @@ async def publish_draft(draft_id: str, user = Depends(get_current_user)):
                 # Try to get existing offers for this SKU
                 logger.info(f"Checking for existing offers for SKU {draft['sku']}...")
                 get_offers_resp = await http_client.get(
-                    f"{EBAY_SANDBOX_API_URL}/sell/inventory/v1/offer",
+                    f"{api_url}/sell/inventory/v1/offer",
                     headers={"Authorization": f"Bearer {access_token}"},
                     params={"sku": draft["sku"]}
                 )
@@ -1690,7 +1690,7 @@ async def publish_draft(draft_id: str, user = Depends(get_current_user)):
                 # Update existing offer
                 logger.info(f"Updating existing offer {offer_id}...")
                 offer_response = await http_client.put(
-                    f"{EBAY_SANDBOX_API_URL}/sell/inventory/v1/offer/{offer_id}",
+                    f"{api_url}/sell/inventory/v1/offer/{offer_id}",
                     headers={
                         "Authorization": f"Bearer {access_token}",
                         "Content-Type": "application/json",
@@ -1708,7 +1708,7 @@ async def publish_draft(draft_id: str, user = Depends(get_current_user)):
             else:
                 # Create new offer
                 offer_response = await http_client.post(
-                    f"{EBAY_SANDBOX_API_URL}/sell/inventory/v1/offer",
+                    f"{api_url}/sell/inventory/v1/offer",
                     headers={
                         "Authorization": f"Bearer {access_token}",
                         "Content-Type": "application/json",
@@ -1753,7 +1753,7 @@ async def publish_draft(draft_id: str, user = Depends(get_current_user)):
             
             # 3. Publish Offer
             publish_response = await http_client.post(
-                f"{EBAY_SANDBOX_API_URL}/sell/inventory/v1/offer/{offer_id}/publish",
+                f"{api_url}/sell/inventory/v1/offer/{offer_id}/publish",
                 headers={
                     "Authorization": f"Bearer {access_token}",
                     "Content-Type": "application/json"
@@ -2048,7 +2048,7 @@ async def create_merchant_location(user = Depends(get_current_user)):
         async with httpx.AsyncClient(timeout=30.0) as http_client:
             # First check if location exists
             check_resp = await http_client.get(
-                f"{EBAY_SANDBOX_API_URL}/sell/inventory/v1/location/{location_key}",
+                f"{api_url}/sell/inventory/v1/location/{location_key}",
                 headers={"Authorization": f"Bearer {access_token}"}
             )
             
@@ -2079,7 +2079,7 @@ async def create_merchant_location(user = Depends(get_current_user)):
             }
             
             create_resp = await http_client.post(
-                f"{EBAY_SANDBOX_API_URL}/sell/inventory/v1/location/{location_key}",
+                f"{api_url}/sell/inventory/v1/location/{location_key}",
                 headers={
                     "Authorization": f"Bearer {access_token}",
                     "Content-Type": "application/json"
