@@ -1138,7 +1138,7 @@ export default function DraftEditor() {
                         </div>
                         {result.listing_id && (
                           <a 
-                            href={result.listing_url || `https://www.sandbox.ebay.com/itm/${result.listing_id}`}
+                            href={result.listing_url || `https://www.ebay.com/itm/${result.listing_id}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-xs text-blue-600 hover:underline font-mono"
