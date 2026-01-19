@@ -230,18 +230,55 @@ export default function Settings() {
               )}
             </div>
             
-            <Button
-              variant={settings.ebay_connected ? "outline" : "default"}
-              onClick={handleConnectEbay}
-              className={`border-2 border-border shadow-hard hover:translate-y-[2px] hover:shadow-hard-sm transition-all uppercase font-bold tracking-wider text-sm ${
-                settings.ebay_connected ? '' : 'bg-primary text-primary-foreground'
-              }`}
-              data-testid="connect-ebay-btn"
-            >
-              <Link2 className="w-4 h-4 mr-2" />
-              {settings.ebay_connected ? "Reconnect" : "Connect eBay"}
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={fetchDebugInfo}
+                className="border-2 border-border shadow-hard-sm hover:translate-y-[1px] hover:shadow-none transition-all uppercase font-bold text-xs tracking-wider"
+                data-testid="debug-ebay-btn"
+              >
+                <Bug className="w-4 h-4 mr-1" />
+                Debug
+              </Button>
+              <Button
+                variant={settings.ebay_connected ? "outline" : "default"}
+                onClick={handleConnectEbay}
+                className={`border-2 border-border shadow-hard hover:translate-y-[2px] hover:shadow-hard-sm transition-all uppercase font-bold tracking-wider text-sm ${
+                  settings.ebay_connected ? '' : 'bg-primary text-primary-foreground'
+                }`}
+                data-testid="connect-ebay-btn"
+              >
+                <Link2 className="w-4 h-4 mr-2" />
+                {settings.ebay_connected ? "Reconnect" : "Connect eBay"}
+              </Button>
+            </div>
           </div>
+          
+          {/* Debug Info Panel */}
+          {showDebug && debugInfo && (
+            <div className="mt-4 p-4 bg-muted border-2 border-border font-mono text-sm">
+              <div className="flex items-center justify-between mb-2">
+                <span className="font-bold uppercase text-xs tracking-wider">Debug Info</span>
+                <button 
+                  onClick={() => setShowDebug(false)}
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="space-y-1">
+                <p><span className="text-muted-foreground">connected:</span> <span className={debugInfo.connected ? 'text-green-600' : 'text-red-600'}>{String(debugInfo.connected)}</span></p>
+                <p><span className="text-muted-foreground">has_access_token:</span> <span className={debugInfo.has_access_token ? 'text-green-600' : 'text-red-600'}>{String(debugInfo.has_access_token)}</span></p>
+                <p><span className="text-muted-foreground">has_refresh_token:</span> <span className={debugInfo.has_refresh_token ? 'text-green-600' : 'text-red-600'}>{String(debugInfo.has_refresh_token)}</span></p>
+                <p><span className="text-muted-foreground">token_expires_at:</span> {debugInfo.token_expires_at || 'null'}</p>
+                <p><span className="text-muted-foreground">is_expired:</span> {String(debugInfo.is_expired)}</p>
+                <p><span className="text-muted-foreground">scopes:</span> {debugInfo.scopes?.join(', ') || 'none'}</p>
+                <p><span className="text-muted-foreground">updated_at:</span> {debugInfo.updated_at || 'null'}</p>
+                <p className="pt-2 text-muted-foreground italic">{debugInfo.message}</p>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Business Policies */}
