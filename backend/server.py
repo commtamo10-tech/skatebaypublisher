@@ -1429,8 +1429,8 @@ async def publish_draft(draft_id: str, user = Depends(get_current_user)):
     try:
         access_token = await get_ebay_access_token()
         
-        # Get backend URL for image URLs
-        backend_url = os.environ.get('REACT_APP_BACKEND_URL', FRONTEND_URL.replace(':3000', ':8001'))
+        # Get backend URL for image URLs - use FRONTEND_URL for public access
+        backend_url = FRONTEND_URL
         
         # Convert relative URLs to absolute
         image_urls = []
@@ -1442,12 +1442,22 @@ async def publish_draft(draft_id: str, user = Depends(get_current_user)):
             else:
                 image_urls.append(f"{backend_url}/api/uploads/{url}")
         
+        logger.info(f"Image URLs: {image_urls}")
+        
+        # Build aspects dict - filter out empty values
+        aspects = {}
+        for k, v in (draft.get("aspects") or {}).items():
+            if v and str(v).strip():
+                aspects[k] = [str(v)]
+        
+        logger.info(f"Aspects: {aspects}")
+        
         # 1. Create Inventory Item
         inventory_payload = {
             "product": {
                 "title": draft["title"],
                 "description": draft.get("description", ""),
-                "aspects": {k: [v] for k, v in (draft.get("aspects") or {}).items()},
+                "aspects": aspects,
                 "imageUrls": image_urls
             },
             "condition": draft.get("condition", "USED_GOOD"),
@@ -1458,7 +1468,9 @@ async def publish_draft(draft_id: str, user = Depends(get_current_user)):
             }
         }
         
-        async with httpx.AsyncClient() as http_client:
+        logger.info(f"Step 1: Creating inventory item for SKU {draft['sku']}")
+        
+        async with httpx.AsyncClient(timeout=30.0) as http_client:
             # Create/Update inventory item
             inv_response = await http_client.put(
                 f"{EBAY_SANDBOX_API_URL}/sell/inventory/v1/inventory_item/{draft['sku']}",
@@ -1469,6 +1481,9 @@ async def publish_draft(draft_id: str, user = Depends(get_current_user)):
                 },
                 json=inventory_payload
             )
+            
+            logger.info(f"createOrReplaceInventoryItem: status={inv_response.status_code}")
+            logger.info(f"  Response: {inv_response.text[:500] if inv_response.text else 'empty'}")
             
             # Log API call
             await db.api_logs.insert_one({
@@ -1481,6 +1496,8 @@ async def publish_draft(draft_id: str, user = Depends(get_current_user)):
             
             if inv_response.status_code not in [200, 204]:
                 raise Exception(f"Inventory creation failed: {inv_response.text}")
+            
+            logger.info("Step 2: Creating offer...")
             
             # 2. Create Offer
             offer_payload = {
@@ -1505,6 +1522,8 @@ async def publish_draft(draft_id: str, user = Depends(get_current_user)):
             if settings.get("merchant_location_key"):
                 offer_payload["merchantLocationKey"] = settings["merchant_location_key"]
             
+            logger.info(f"Offer payload: {offer_payload}")
+            
             offer_response = await http_client.post(
                 f"{EBAY_SANDBOX_API_URL}/sell/inventory/v1/offer",
                 headers={
@@ -1514,6 +1533,9 @@ async def publish_draft(draft_id: str, user = Depends(get_current_user)):
                 },
                 json=offer_payload
             )
+            
+            logger.info(f"createOffer: status={offer_response.status_code}")
+            logger.info(f"  Response: {offer_response.text[:500] if offer_response.text else 'empty'}")
             
             await db.api_logs.insert_one({
                 "endpoint": "createOffer",
@@ -1529,11 +1551,19 @@ async def publish_draft(draft_id: str, user = Depends(get_current_user)):
             offer_data = offer_response.json()
             offer_id = offer_data["offerId"]
             
+            logger.info(f"Step 3: Publishing offer {offer_id}...")
+            
             # 3. Publish Offer
             publish_response = await http_client.post(
                 f"{EBAY_SANDBOX_API_URL}/sell/inventory/v1/offer/{offer_id}/publish",
-                headers={"Authorization": f"Bearer {access_token}"}
+                headers={
+                    "Authorization": f"Bearer {access_token}",
+                    "Content-Type": "application/json"
+                }
             )
+            
+            logger.info(f"publishOffer: status={publish_response.status_code}")
+            logger.info(f"  Response: {publish_response.text[:500] if publish_response.text else 'empty'}")
             
             await db.api_logs.insert_one({
                 "endpoint": "publishOffer",
@@ -1549,6 +1579,9 @@ async def publish_draft(draft_id: str, user = Depends(get_current_user)):
             
             publish_data = publish_response.json() if publish_response.text else {}
             listing_id = publish_data.get("listingId")
+            
+            logger.info(f"SUCCESS! Listing ID: {listing_id}")
+            logger.info("=" * 60)
             
             # Update draft
             await db.drafts.update_one(
