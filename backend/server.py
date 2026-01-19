@@ -1803,11 +1803,14 @@ async def get_settings(user = Depends(get_current_user)):
     """Get app settings"""
     settings = await db.settings.find_one({"_id": "app_settings"}, {"_id": 0})
     if not settings:
-        settings = {}
+        settings = {"ebay_environment": "sandbox"}
     
-    # Check eBay connection
-    tokens = await db.ebay_tokens.find_one({"_id": "ebay_tokens"})
-    settings["ebay_connected"] = bool(tokens)
+    # Get environment and check eBay connection for that environment
+    environment = settings.get("ebay_environment", "sandbox")
+    token_collection_id = f"ebay_tokens_{environment}"
+    tokens = await db.ebay_tokens.find_one({"_id": token_collection_id})
+    settings["ebay_connected"] = bool(tokens and tokens.get("access_token"))
+    settings["ebay_environment"] = environment
     
     return SettingsResponse(**settings)
 
@@ -1816,6 +1819,17 @@ async def update_settings(update: SettingsUpdate, user = Depends(get_current_use
     """Update app settings"""
     update_data = {k: v for k, v in update.model_dump().items() if v is not None}
     
+    # If environment is changing, clear policy IDs (they're environment-specific)
+    if "ebay_environment" in update_data:
+        old_settings = await db.settings.find_one({"_id": "app_settings"})
+        old_env = old_settings.get("ebay_environment", "sandbox") if old_settings else "sandbox"
+        if update_data["ebay_environment"] != old_env:
+            update_data["fulfillment_policy_id"] = None
+            update_data["return_policy_id"] = None
+            update_data["payment_policy_id"] = None
+            update_data["merchant_location_key"] = None
+            logger.info(f"Environment changed from {old_env} to {update_data['ebay_environment']}, cleared policy IDs")
+    
     await db.settings.update_one(
         {"_id": "app_settings"},
         {"$set": update_data},
@@ -1823,8 +1837,10 @@ async def update_settings(update: SettingsUpdate, user = Depends(get_current_use
     )
     
     settings = await db.settings.find_one({"_id": "app_settings"}, {"_id": 0})
-    tokens = await db.ebay_tokens.find_one({"_id": "ebay_tokens"})
-    settings["ebay_connected"] = bool(tokens)
+    environment = settings.get("ebay_environment", "sandbox")
+    token_collection_id = f"ebay_tokens_{environment}"
+    tokens = await db.ebay_tokens.find_one({"_id": token_collection_id})
+    settings["ebay_connected"] = bool(tokens and tokens.get("access_token"))
     
     return SettingsResponse(**settings)
 
@@ -1833,16 +1849,19 @@ async def get_ebay_policies(user = Depends(get_current_user)):
     """Fetch business policies from eBay, create defaults if none exist"""
     try:
         access_token = await get_ebay_access_token()
-        marketplace_id = "EBAY_US"
+        environment = await get_ebay_environment()
+        config = get_ebay_config(environment)
+        marketplace_id = config["marketplace_id"]
+        api_url = config["api_url"]
         
         logger.info("=" * 60)
-        logger.info(f"FETCHING EBAY POLICIES for marketplace: {marketplace_id}")
+        logger.info(f"FETCHING EBAY POLICIES ({environment.upper()}) for marketplace: {marketplace_id}")
         
         async with httpx.AsyncClient(timeout=30.0) as http_client:
             headers = {
                 "Authorization": f"Bearer {access_token}",
                 "Content-Type": "application/json",
-                "Content-Language": "en-US"
+                "Content-Language": "en-US" if environment == "sandbox" else "it-IT"
             }
             
             # 0. First, opt-in to Business Policies (SELLING_POLICY_MANAGEMENT)
