@@ -636,11 +636,12 @@ async def ebay_auth_start(user = Depends(get_current_user)):
         logger.error(f"❌ {error_msg}")
         raise HTTPException(status_code=400, detail=error_msg)
     
-    # Determine redirect_uri - use RuName if available, otherwise redirect_uri
-    # IMPORTANT: Must match EXACTLY what's registered in eBay Developer Portal
-    redirect_uri = config["runame"] if config["runame"] else config["redirect_uri"]
+    # For OAuth2, redirect_uri must be the FULL URL, not the RuName
+    # The RuName is just an identifier in eBay's system
+    # The redirect_uri in the authorize request must match EXACTLY what's registered
+    redirect_uri = config["redirect_uri"]
     if not redirect_uri:
-        error_msg = f"eBay {environment} RuName or Redirect URI not configured."
+        error_msg = f"eBay {environment} Redirect URI not configured in .env"
         logger.error(f"❌ {error_msg}")
         raise HTTPException(status_code=400, detail=error_msg)
     
