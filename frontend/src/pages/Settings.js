@@ -96,7 +96,13 @@ export default function Settings() {
   const handleConnectEbay = async () => {
     try {
       const response = await api.get("/ebay/auth/start");
-      window.location.href = response.data.auth_url;
+      // Open in new window to avoid potential iframe/security restrictions
+      // Some browsers block redirects from certain contexts
+      const authUrl = response.data.auth_url;
+      console.log("Opening eBay OAuth URL:", authUrl);
+      
+      // Try opening in same window first
+      window.location.href = authUrl;
     } catch (error) {
       const detail = error.response?.data?.detail;
       toast.error(detail || "Failed to start eBay connection");
