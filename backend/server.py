@@ -583,18 +583,37 @@ async def get_me(user = Depends(get_current_user)):
 @api_router.get("/ebay/auth/start")
 async def ebay_auth_start(user = Depends(get_current_user)):
     """Start eBay OAuth flow"""
+    from urllib.parse import urlencode, quote
+    
     # Get current environment
     environment = await get_ebay_environment()
     config = get_ebay_config(environment)
     
+    logger.info("=" * 60)
+    logger.info(f"🔐 EBAY OAUTH START - Environment: {environment.upper()}")
+    logger.info("=" * 60)
+    
+    # Validate client_id
     if not config["client_id"]:
-        raise HTTPException(status_code=400, detail=f"eBay {environment} credentials not configured. Please add EBAY_{'PROD_' if environment == 'production' else ''}CLIENT_ID to .env")
+        error_msg = f"eBay {environment} credentials not configured. Please add EBAY_{'PROD_' if environment == 'production' else ''}CLIENT_ID to .env"
+        logger.error(f"❌ {error_msg}")
+        raise HTTPException(status_code=400, detail=error_msg)
     
-    # Use RuName if available, otherwise fall back to redirect_uri
-    redirect_uri_param = config["runame"] if config["runame"] else config["redirect_uri"]
-    if not redirect_uri_param:
-        raise HTTPException(status_code=400, detail=f"eBay {environment} RuName or Redirect URI not configured.")
+    # Determine redirect_uri - use RuName if available, otherwise redirect_uri
+    # IMPORTANT: Must match EXACTLY what's registered in eBay Developer Portal
+    redirect_uri = config["runame"] if config["runame"] else config["redirect_uri"]
+    if not redirect_uri:
+        error_msg = f"eBay {environment} RuName or Redirect URI not configured."
+        logger.error(f"❌ {error_msg}")
+        raise HTTPException(status_code=400, detail=error_msg)
     
+    # Validate scopes
+    if not EBAY_SCOPES:
+        error_msg = "eBay scopes not configured"
+        logger.error(f"❌ {error_msg}")
+        raise HTTPException(status_code=400, detail=error_msg)
+    
+    # Generate random state for CSRF protection
     state = secrets.token_urlsafe(32)
     await db.oauth_states.insert_one({
         "state": state,
@@ -603,28 +622,44 @@ async def ebay_auth_start(user = Depends(get_current_user)):
         "expires_at": (datetime.now(timezone.utc) + timedelta(minutes=10)).isoformat()
     })
     
-    from urllib.parse import urlencode
-    
+    # Build authorize URL with ALL required parameters
+    # Reference: https://developer.ebay.com/api-docs/static/oauth-authorization-code-grant.html
     params = {
         "client_id": config["client_id"],
         "response_type": "code",
-        "redirect_uri": redirect_uri_param,
+        "redirect_uri": redirect_uri,
         "scope": EBAY_SCOPES,
         "state": state
     }
     
+    # Build the full authorize URL
+    auth_base_url = config["auth_url"]
     query_string = urlencode(params)
-    auth_url = f"{config['auth_url']}?{query_string}"
+    auth_url = f"{auth_base_url}?{query_string}"
     
-    logger.info("=" * 60)
-    logger.info(f"EBAY OAUTH AUTHORIZE URL GENERATED ({environment.upper()}):")
-    logger.info(f"Base URL: {config['auth_url']}")
-    logger.info(f"client_id: {config['client_id']}")
-    logger.info(f"redirect_uri: {redirect_uri_param}")
-    logger.info(f"marketplace: {config['marketplace_id']}")
+    # Detailed logging (no secrets)
+    logger.info("📋 OAuth Parameters:")
+    logger.info(f"   auth_base_url: {auth_base_url}")
+    logger.info(f"   client_id: {config['client_id']}")
+    logger.info(f"   response_type: code")
+    logger.info(f"   redirect_uri: {redirect_uri}")
+    logger.info(f"   scope: {EBAY_SCOPES}")
+    logger.info(f"   state: {state[:20]}...")
+    logger.info("")
+    logger.info(f"🔗 FULL AUTHORIZE URL:")
+    logger.info(f"   {auth_url}")
     logger.info("=" * 60)
     
-    return {"auth_url": auth_url, "environment": environment}
+    return {
+        "auth_url": auth_url, 
+        "environment": environment,
+        "debug": {
+            "auth_base_url": auth_base_url,
+            "client_id": config["client_id"],
+            "redirect_uri": redirect_uri,
+            "scopes": EBAY_SCOPES.split(" ")
+        }
+    }
 
 @api_router.get("/ebay/auth/callback")
 async def ebay_auth_callback(code: str = Query(None), state: str = Query(None), error: str = Query(None), error_description: str = Query(None)):
