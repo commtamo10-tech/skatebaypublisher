@@ -8,7 +8,7 @@ import { Badge } from "../components/ui/badge";
 import { toast } from "sonner";
 import { 
   ArrowLeft, Save, Link2, CheckCircle, AlertCircle,
-  RefreshCw, ExternalLink, Bug, Globe
+  RefreshCw, ExternalLink, Bug, Globe, Zap, Loader2
 } from "lucide-react";
 
 export default function Settings() {
@@ -16,8 +16,11 @@ export default function Settings() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [fetchingPolicies, setFetchingPolicies] = useState(false);
+  const [bootstrapping, setBootstrapping] = useState(false);
   const [debugInfo, setDebugInfo] = useState(null);
   const [showDebug, setShowDebug] = useState(false);
+  const [marketplaces, setMarketplaces] = useState([]);
+  const [bootstrapResults, setBootstrapResults] = useState(null);
   
   const [settings, setSettings] = useState({
     fulfillment_policy_id: "",
@@ -50,6 +53,7 @@ export default function Settings() {
     }
     
     fetchSettings();
+    fetchMarketplaces();
   }, [searchParams]);
 
   const fetchSettings = async () => {
@@ -60,6 +64,15 @@ export default function Settings() {
       toast.error("Failed to load settings");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchMarketplaces = async () => {
+    try {
+      const response = await api.get("/marketplaces");
+      setMarketplaces(response.data.marketplaces || []);
+    } catch (error) {
+      console.error("Failed to fetch marketplaces:", error);
     }
   };
 
@@ -167,6 +180,44 @@ export default function Settings() {
       }
     } finally {
       setFetchingPolicies(false);
+    }
+  };
+
+  const handleBootstrapMarketplaces = async () => {
+    if (!settings.ebay_connected) {
+      toast.error("Please connect your eBay account first");
+      return;
+    }
+    
+    setBootstrapping(true);
+    setBootstrapResults(null);
+    
+    try {
+      toast.info("Starting multi-marketplace bootstrap... This may take a minute.");
+      
+      const response = await api.post("/settings/ebay/bootstrap-marketplaces");
+      const data = response.data;
+      
+      console.log("Bootstrap Results:", data);
+      setBootstrapResults(data);
+      
+      // Refresh marketplaces
+      await fetchMarketplaces();
+      
+      const { success, partial, failed } = data.summary;
+      if (success > 0 && failed === 0) {
+        toast.success(`Bootstrap complete! ${success} marketplace(s) configured.`);
+      } else if (success > 0) {
+        toast.warning(`Bootstrap partial: ${success} OK, ${partial} partial, ${failed} failed`);
+      } else {
+        toast.error(`Bootstrap failed for all marketplaces. Check logs.`);
+      }
+    } catch (error) {
+      console.error("Bootstrap error:", error);
+      const detail = error.response?.data?.detail;
+      toast.error(detail || "Bootstrap failed. Check console for details.");
+    } finally {
+      setBootstrapping(false);
     }
   };
 
@@ -334,11 +385,110 @@ export default function Settings() {
           )}
         </div>
 
-        {/* Business Policies */}
+        {/* Multi-Marketplace Configuration */}
         <div className="bg-card border-2 border-border p-6 shadow-hard">
           <div className="flex items-center justify-between mb-4 border-b-2 border-border pb-2">
             <h2 className="font-heading font-bold text-xl uppercase tracking-tight">
-              Business Policies
+              <Globe className="w-5 h-5 inline mr-2" />
+              Multi-Marketplace
+            </h2>
+            <Button
+              onClick={handleBootstrapMarketplaces}
+              disabled={bootstrapping || !settings.ebay_connected}
+              className="bg-gradient-to-r from-blue-600 to-purple-600 text-white border-2 border-blue-700 shadow-hard hover:translate-y-[2px] hover:shadow-hard-sm transition-all uppercase font-bold tracking-wider text-sm"
+              data-testid="bootstrap-marketplaces-btn"
+            >
+              {bootstrapping ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Bootstrapping...
+                </>
+              ) : (
+                <>
+                  <Zap className="w-4 h-4 mr-2" />
+                  Bootstrap Marketplaces
+                </>
+              )}
+            </Button>
+          </div>
+          
+          <p className="text-muted-foreground font-mono text-sm mb-4">
+            Auto-configure policies and locations for all supported marketplaces (US, DE, ES, AU).
+            <br />
+            <span className="text-xs">
+              Creates: inventory location, fulfillment policy, payment policy, return policy (30 days, seller pays, domestic only).
+            </span>
+          </p>
+          
+          {/* Bootstrap Results */}
+          {bootstrapResults && (
+            <div className="mb-4 p-4 bg-muted border-2 border-border">
+              <h3 className="font-bold text-sm uppercase tracking-wider mb-2">Bootstrap Results</h3>
+              <div className="space-y-2">
+                {bootstrapResults.results?.map((r, i) => (
+                  <div key={i} className={`p-2 border ${r.success ? 'border-green-500 bg-green-50' : 'border-amber-500 bg-amber-50'}`}>
+                    <div className="flex items-center gap-2">
+                      {r.success ? (
+                        <CheckCircle className="w-4 h-4 text-green-600" />
+                      ) : (
+                        <AlertCircle className="w-4 h-4 text-amber-600" />
+                      )}
+                      <span className="font-bold font-mono">{r.marketplace_id}</span>
+                    </div>
+                    {r.error && <p className="text-sm text-red-600 mt-1">{r.error}</p>}
+                    {r.success && (
+                      <div className="text-xs font-mono mt-1 text-muted-foreground">
+                        Location: {r.location_key} | Shipping: {r.shipping_service_code}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          
+          {/* Marketplace Status Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {marketplaces.map((mp) => (
+              <div 
+                key={mp.id}
+                className={`p-4 border-2 ${mp.is_configured ? 'border-green-500 bg-green-50' : 'border-border bg-muted'}`}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <span className="font-bold">{mp.name}</span>
+                  <Badge variant={mp.is_configured ? "default" : "outline"} className={mp.is_configured ? 'bg-green-600' : ''}>
+                    {mp.is_configured ? "Ready" : "Not Configured"}
+                  </Badge>
+                </div>
+                <div className="text-xs font-mono space-y-1 text-muted-foreground">
+                  <p>Currency: {mp.currency}</p>
+                  <p>Default Price: {mp.default_price} {mp.currency}</p>
+                  <p>Shipping: {mp.default_shipping} {mp.currency}</p>
+                  {mp.merchant_location_key && (
+                    <p className="text-green-700">Location: {mp.merchant_location_key}</p>
+                  )}
+                  {mp.policies?.fulfillment_policy_id && (
+                    <p className="text-green-700 truncate" title={mp.policies.fulfillment_policy_id}>
+                      Fulfillment: {mp.policies.fulfillment_policy_id.slice(0, 12)}...
+                    </p>
+                  )}
+                </div>
+              </div>
+            ))}
+            
+            {marketplaces.length === 0 && (
+              <div className="col-span-2 text-center py-4 text-muted-foreground font-mono">
+                No marketplace data. Click "Bootstrap Marketplaces" to configure.
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Business Policies (Legacy - single marketplace) */}
+        <div className="bg-card border-2 border-border p-6 shadow-hard">
+          <div className="flex items-center justify-between mb-4 border-b-2 border-border pb-2">
+            <h2 className="font-heading font-bold text-xl uppercase tracking-tight">
+              Legacy Policies (Single Marketplace)
             </h2>
             {settings.ebay_connected && (
               <Button
@@ -356,7 +506,7 @@ export default function Settings() {
           </div>
           
           <p className="text-muted-foreground font-mono text-sm mb-6">
-            Enter your eBay business policy IDs. These are required to publish listings.
+            These are global policy IDs (used for single-marketplace publishing). For multi-marketplace, use the Bootstrap above.
           </p>
           
           <div className="space-y-4">
@@ -456,23 +606,26 @@ export default function Settings() {
           <p className="text-muted-foreground font-mono text-sm mb-4">
             These shipping rates are applied to all listings via your fulfillment policy:
           </p>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
             <div className="bg-muted p-4 border-2 border-border">
-              <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Europe</p>
-              <p className="font-mono text-lg mt-1">$10</p>
-              <p className="text-xs text-muted-foreground font-mono">Incl. UK & Switzerland</p>
+              <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">US</p>
+              <p className="font-mono text-lg mt-1">$25 USD</p>
             </div>
             <div className="bg-muted p-4 border-2 border-border">
-              <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">USA + Canada</p>
-              <p className="font-mono text-lg mt-1">$25</p>
+              <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Germany</p>
+              <p className="font-mono text-lg mt-1">€12 EUR</p>
             </div>
             <div className="bg-muted p-4 border-2 border-border">
-              <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Rest of World</p>
-              <p className="font-mono text-lg mt-1">$45</p>
+              <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Spain</p>
+              <p className="font-mono text-lg mt-1">€12 EUR</p>
+            </div>
+            <div className="bg-muted p-4 border-2 border-border">
+              <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Australia</p>
+              <p className="font-mono text-lg mt-1">$100 AUD</p>
             </div>
           </div>
           <p className="text-muted-foreground font-mono text-xs mt-4">
-            Handling time: 2 business days · Returns: 30 days, buyer pays return shipping
+            Handling time: {3} business days · Returns: 30 days, seller pays return shipping
           </p>
         </div>
 
@@ -488,7 +641,7 @@ export default function Settings() {
             <li>Add credentials to backend .env: EBAY_CLIENT_ID, EBAY_CLIENT_SECRET, EBAY_REDIRECT_URI</li>
             <li>Create a Sandbox test seller account and set up business policies</li>
             <li>Click "Connect eBay" above and authorize the app</li>
-            <li>Fetch or manually enter your policy IDs</li>
+            <li><strong>NEW:</strong> Click "Bootstrap Marketplaces" to auto-configure US, DE, ES, AU</li>
           </ol>
         </div>
       </main>
