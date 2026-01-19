@@ -236,4 +236,4 @@ Full-stack web app (React frontend + FastAPI backend + MongoDB) per creare inser
 
 ## Credentials for Testing
 - **Password**: admin123
-- **API**: https://skatepost.preview.emergentagent.com
+- **API**: https://vintage-lister.preview.emergentagent.com

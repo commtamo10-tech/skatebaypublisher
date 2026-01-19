@@ -1,0 +1,157 @@
+<analysis>**original_problem_statement:**
+L'utente vuole creare un'applicazione web full-stack per creare semi-automaticamente inserzioni eBay per il suo negozio di skateboard vintage. L'obiettivo si è evoluto in un'applicazione multi-marketplace (US, DE, ES, AU).
+
+**PRODUCT REQUIREMENTS:**
+La richiesta più recente e dettagliata è di implementare un sistema completo per la pubblicazione multi-marketplace su eBay, che include:
+1.  **Bootstrap Automatico delle Policy:** Creare un endpoint  che, per ogni marketplace (EBAY_US, EBAY_DE, EBAY_ES, EBAY_AU), esegua automaticamente le seguenti operazioni:
+    *   Crei una  e ne salvi la .
+    *   Recuperi dinamicamente i servizi di spedizione validi tramite la Metadata API (), senza hardcodare i codici.
+    *   Crei e salvi gli ID di tre tipi di policy (, , ) tramite la Account API, usando configurazioni specifiche per ogni marketplace (es. costi, valute).
+2.  **Pubblicazione Multi-Marketplace:** Aggiornare l'endpoint  per:
+    *   Validare che tutte le policy e la location siano configurate per i marketplace selezionati prima di tentare la pubblicazione.
+    *   Usare i  e  specifici del marketplace durante la creazione dell'offerta ().
+    *   Pubblicare lo stesso SKU su più marketplace con prezzi e configurazioni diverse.
+3.  **Persistenza dei Dati:** I settings (policy ID, location keys, prezzi) devono essere persistenti. L'utente ha menzionato una migrazione a Supabase (Postgres) ma l'ha messa in pausa per concentrarsi sulla funzionalità di pubblicazione. L'implementazione attuale usa MongoDB.
+4.  **UI:**
+    *   La pagina Settings deve avere un pulsante Bootstrap marketplaces e visualizzare gli ID delle policy per ogni marketplace.
+    *   L'editor dei draft deve avere un selettore per scegliere su quali marketplace pubblicare.
+    *   Il risultato della pubblicazione deve mostrare i link alle inserzioni per ogni marketplace creato con successo.
+
+**User's preferred language**: Italiano. The next agent MUST respond in Italian.
+
+**what currently exists?**
+Un'applicazione full-stack (React + FastAPI + MongoDB) con un flusso di pubblicazione funzionante per un singolo marketplace (eBay Sandbox). L'interfaccia utente ha un selettore per la pubblicazione multi-marketplace e il backend ha una configurazione hardcoded iniziale () e un endpoint . È stato implementato anche un selettore di ambiente (Sandbox/Production). L'autenticazione OAuth con eBay e la gestione delle policy di base sono state debuggate e funzionano.
+
+**Last working item**:
+- **Last item agent was working:** Implementazione del flusso di bootstrap automatico per le policy e le location multi-marketplace, come da richiesta dettagliata dell'utente. L'agente aveva appena iniziato ad analizzare la richiesta dopo aver completato una versione più semplice e hardcoded.
+- **Status:** NOT STARTED (relativamente all'implementazione dettagliata; la versione base è presente).
+- **Agent Testing Done:** N
+- **Which testing method agent to use?** backend testing agent. Questo task richiede di orchestrare multiple chiamate API a eBay (Metadata, Account, Inventory), rendendolo ideale per test automatici con  che possono verificare le risposte e lo stato del database.
+- **User Testing Done:** N
+
+**All Pending/In progress Issue list**:
+- **Issue 1: (P0) Implementare il Bootstrap Automatico Multi-Marketplace**
+  - **Description:** Creare l'endpoint  per automatizzare la creazione di location e policy (fulfillment, payment, return) per i marketplace US, DE, ES, AU. L'endpoint deve usare la Metadata API di eBay per trovare dinamicamente i  validi. Successivamente, l'endpoint  deve essere aggiornato per usare queste configurazioni per-marketplace.
+  - **Attempted fixes:** È stata creata una versione semplificata con configurazione hardcoded in , ma non soddisfa i requisiti di automazione e dinamicità richiesti dall'utente.
+  - **Next debug checklist:**
+    1.  In , implementare la logica per il nuovo endpoint .
+    2.  All'interno dell'endpoint, iterare sui marketplace configurati (US, DE, ES, AU).
+    3.  Per ogni marketplace:
+        *   Chiamare la Account API per creare/verificare una .
+        *   Chiamare la Metadata API () per ottenere un  valido.
+        *   Chiamare la Account API per creare le policy ,  e .
+        *   Salvare tutti gli ID generati (location key, policy IDs) nel documento  del database.
+    4.  Modificare l'endpoint  per validare e utilizzare queste configurazioni salvate.
+    5.  Aggiungere un pulsante Bootstrap marketplaces in  che chiami il nuovo endpoint.
+  - **Why fix this issue and what will be achieved with the fix?** Questa è la funzionalità chiave per rendere l'app uno strumento di pubblicazione multi-marketplace efficiente, eliminando la configurazione manuale su eBay.
+  - **Status:** NOT STARTED
+  - **Is recurring issue?** N
+  - **Should Test frontend/backend/both after fix?** Both.
+  - **Blocked on other issue:** None.
+
+**In progress Task List**:
+Nessuno.
+
+**Upcoming and Future Tasks**
+- **P1 - Migrare la persistenza a Supabase (Postgres):** L'utente ha richiesto questa migrazione ma l'ha messa in pausa. È un cambiamento architetturale importante da riprendere in futuro.
+- **P2 - Refactoring del codice:** Suddividere il monolite  in router più piccoli e scomporre il componente  in componenti e hook riutilizzabili.
+- **P3 - Migliorare il Batch Upload:** Implementare la funzionalità di clustering visivo delle immagini richiesta inizialmente ma messa in backlog.
+
+**Completed work in this session**
+- Debuggato e risolto il flusso di autenticazione OAuth 2.0 di eBay Sandbox, gestendo correttamente ,  e disallineamenti di dominio tra gli ambienti di preview.
+- Implementato l'opt-in automatico alle Business Policies di eBay per gli account sandbox.
+- Implementato con successo il flusso di pubblicazione completo per un singolo listing, risolvendo errori relativi a ,  e offerte già esistenti.
+- Aggiunto un selettore di ambiente (Sandbox/Production) sia nel backend che nel frontend.
+- Implementata una prima versione della pubblicazione multi-marketplace con configurazione hardcoded e un selettore UI.
+- Creato un endpoint  per facilitare il debug dei deploy.
+- Aggiunto un link View on eBay nella UI per le inserzioni pubblicate.
+
+**Earlier issues found/mentioned but not fixed**
+- **Issue 1: Autenticazione del Testing Agent**
+  - **Debug checklist:** Il testing agent automatico non riesce a mantenere lo stato di login, impedendo test E2E affidabili. È necessario investigare la gestione del token JWT in  o passare il token come parametro.
+  - **Why to solve this issue and what will be achieved with this?** Risolverlo è cruciale per la stabilità a lungo termine e per abilitare test di regressione automatici.
+  - **Should Test frontend/backend/both after fix:** Both.
+  - **Is recurring issue?** Y
+
+**Known issue recurrence from previous fork**
+- N/A
+
+**Code Architecture**
+
+
+**Key Technical Concepts**
+- **Frontend:** React, Tailwind CSS, Shadcn/UI, 
+- **Backend:** FastAPI, Pydantic, Motor (driver async per MongoDB)
+- **Database:** MongoDB
+- **Integrations:** eBay APIs (Inventory, Account, Metadata)
+
+**key DB schema**
+-   **settings**: 
+-   **drafts**: 
+-   **api_logs**: Collezione per il debug delle chiamate API a eBay.
+
+**changes in tech stack**
+- Nessuno. La migrazione a Supabase/Postgres è in pausa.
+
+**All files of reference**
+- 
+- 
+- 
+- 
+- 
+- 
+
+**Areas that need refactoring**:
+- : È un monolite di quasi 3000 righe. Deve essere urgentemente scomposto usando  per separare la logica di auth, drafts, eBay, e settings.
+- : Contiene logica complessa che dovrebbe essere estratta in custom hooks (es. , ) e componenti più piccoli.
+
+**key api endpoints**
+-    (Da implementare)
+-    (Da aggiornare)
+-   
+-   
+-   
+-   
+
+**Critical Info for New Agent**
+- La priorità assoluta è implementare la funzionalità di bootstrap automatico multi-marketplace come specificato dall'utente. Questo è un task complesso che richiede di orchestrare chiamate a diverse API di eBay.
+- L'utente è molto tecnico e fornisce requisiti estremamente dettagliati. È fondamentale seguirli alla lettera.
+- La migrazione a Supabase è in pausa. Non iniziare a lavorarci a meno che l'utente non lo richieda esplicitamente.
+- Presta attenzione alla gestione degli ambienti ( vs ) e assicurati che gli URL nei file  siano coerenti con l'ambiente di test.
+
+**documents and test reports created in this job**
+- 
+
+**Last 10 User Messages and any pending HUMAN messages**
+1.  **User:** Chiede di implementare la pubblicazione multi-marketplace con configurazione hardcoded e logica minima.
+2.  **Agent:** Implementa la versione base della pubblicazione multi-marketplace.
+3.  **User:** Chiede una checklist per testare e richiede che policy e location siano specifiche per marketplace.
+4.  **Agent:** Aggiorna la configurazione per supportare policy/location per-marketplace e crea la checklist.
+5.  **User:** Fornisce i requisiti finali e dettagliati per il bootstrap automatico delle policy e l'aggiornamento della logica di pubblicazione (task attuale).
+6.  **Agent:** Conferma la ricezione del task complesso e si prepara a implementarlo.
+7.  **User (previous):** Chiede di sospendere l'integrazione Supabase per concentrarsi sul happy path di eBay.
+8.  **Agent (previous):** Chiede all'utente la connection string di Supabase.
+9.  **User (previous):** Chiede di migrare il database a Supabase (Postgres) per persistere i settings e implementare la logica multi-marketplace.
+10. **Agent (previous):** Conferma il completamento del toggle Sandbox/Production e chiede all'utente come procedere con le credenziali.
+
+**Project Health Check:**
+-   **Broken:** La funzionalità core di pubblicazione multi-marketplace è incompleta perché manca il meccanismo di bootstrap automatico delle policy, che è un requisito bloccante per l'utente.
+-   **Mocked:** N/A
+
+**3rd Party Integrations**
+-   **eBay Sell APIs (Inventory, Account, Metadata):** Integrazione principale, utilizza chiavi API fornite dall'utente per gli ambienti Sandbox e Production.
+-   **OpenAI GPT:** Utilizzata in passato per la generazione di contenuti, ma l'integrazione è attualmente in pausa. Utilizza una Emergent LLM Key.
+-   **Supabase (Postgres):** Integrazione richiesta ma messa in pausa dall'utente.
+
+**Testing status**
+-   **Testing agent used after significant changes:** NO
+-   **Troubleshoot agent used after agent stuck in loop:** NO
+-   **Test files created:** []
+-   **Known regressions:** Il problema di autenticazione del testing agent automatico, che impedisce test E2E affidabili, persiste.
+
+**Credentials to test flow:**
+-   **App Login:** password: 
+-   **eBay Credentials:** Le credenziali Sandbox dell'utente sono configurate in . Le credenziali di produzione devono essere aggiunte dall'utente nello stesso file ().
+
+**What agent forgot to execute**
+L'agente non ha dimenticato nulla; è stato interrotto proprio mentre stava per iniziare l'implementazione del complesso task di bootstrap automatico multi-marketplace richiesto dall'utente. La sessione si è conclusa dopo aver ricevuto le specifiche finali.</analysis>
