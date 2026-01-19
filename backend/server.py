@@ -537,8 +537,8 @@ async def ebay_auth_callback(code: str = Query(None), state: str = Query(None), 
         return RedirectResponse(url=f"{FRONTEND_URL}/settings?ebay_error=exception&ebay_error_desc={str(e)[:100]}")
 
 
-@api_router.get("/ebay/auth/debug")
-async def ebay_auth_debug(user = Depends(get_current_user)):
+@api_router.get("/ebay/debug")
+async def ebay_debug_status(user = Depends(get_current_user)):
     """Debug endpoint to check eBay OAuth status - does not expose tokens"""
     tokens = await db.ebay_tokens.find_one({"_id": "ebay_tokens"})
     
