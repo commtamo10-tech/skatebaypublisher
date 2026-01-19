@@ -400,8 +400,13 @@ async def get_me(user = Depends(get_current_user)):
 @api_router.get("/ebay/auth/start")
 async def ebay_auth_start(user = Depends(get_current_user)):
     """Start eBay OAuth flow"""
-    if not EBAY_CLIENT_ID or not EBAY_REDIRECT_URI:
-        raise HTTPException(status_code=400, detail="eBay credentials not configured. Please add EBAY_CLIENT_ID and EBAY_REDIRECT_URI to .env")
+    if not EBAY_CLIENT_ID:
+        raise HTTPException(status_code=400, detail="eBay credentials not configured. Please add EBAY_CLIENT_ID to .env")
+    
+    # Use RuName if available, otherwise fall back to redirect_uri
+    redirect_uri_param = EBAY_RUNAME if EBAY_RUNAME else EBAY_REDIRECT_URI
+    if not redirect_uri_param:
+        raise HTTPException(status_code=400, detail="eBay RuName or Redirect URI not configured. Please add EBAY_RUNAME to .env")
     
     state = secrets.token_urlsafe(32)
     await db.oauth_states.insert_one({
@@ -410,18 +415,17 @@ async def ebay_auth_start(user = Depends(get_current_user)):
         "expires_at": (datetime.now(timezone.utc) + timedelta(minutes=10)).isoformat()
     })
     
-    # URL encode the redirect_uri and scope
-    from urllib.parse import urlencode, quote
+    # URL encode the parameters
+    from urllib.parse import urlencode
     
     params = {
         "client_id": EBAY_CLIENT_ID,
         "response_type": "code",
-        "redirect_uri": EBAY_REDIRECT_URI,
+        "redirect_uri": redirect_uri_param,  # Use RuName here
         "scope": EBAY_SCOPES,
         "state": state
     }
     
-    # Use proper URL encoding
     query_string = urlencode(params)
     auth_url = f"{EBAY_SANDBOX_AUTH_URL}?{query_string}"
     
@@ -430,7 +434,9 @@ async def ebay_auth_start(user = Depends(get_current_user)):
     logger.info("EBAY OAUTH AUTHORIZE URL GENERATED:")
     logger.info(f"Base URL: {EBAY_SANDBOX_AUTH_URL}")
     logger.info(f"client_id: {EBAY_CLIENT_ID}")
-    logger.info(f"redirect_uri: {EBAY_REDIRECT_URI}")
+    logger.info(f"redirect_uri (RuName): {redirect_uri_param}")
+    logger.info(f"EBAY_RUNAME env: {EBAY_RUNAME}")
+    logger.info(f"EBAY_REDIRECT_URI env: {EBAY_REDIRECT_URI}")
     logger.info(f"scope: {EBAY_SCOPES}")
     logger.info(f"state: {state}")
     logger.info(f"FULL URL: {auth_url}")
