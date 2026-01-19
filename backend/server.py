@@ -197,9 +197,12 @@ async def retry_with_backoff(
 # ============ EBAY ENVIRONMENT HELPERS ============
 
 async def get_ebay_environment():
-    """Get current eBay environment (sandbox or production) from settings"""
+    """Get current eBay environment (sandbox or production) from settings or env"""
     settings = await db.settings.find_one({"_id": "app_settings"})
-    return settings.get("ebay_environment", "sandbox") if settings else "sandbox"
+    if settings and settings.get("ebay_environment"):
+        return settings.get("ebay_environment")
+    # Fall back to env variable
+    return EBAY_ENV_DEFAULT
 
 def get_ebay_config(environment: str):
     """Get eBay configuration for the specified environment"""
