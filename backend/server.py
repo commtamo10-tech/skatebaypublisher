@@ -1830,6 +1830,78 @@ async def get_ebay_policies(user = Depends(get_current_user)):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@api_router.post("/ebay/create-location")
+async def create_merchant_location(user = Depends(get_current_user)):
+    """Create a merchant location for eBay (required for publishing)"""
+    try:
+        access_token = await get_ebay_access_token()
+        location_key = "default_location"
+        
+        logger.info("Creating merchant location...")
+        
+        async with httpx.AsyncClient(timeout=30.0) as http_client:
+            # First check if location exists
+            check_resp = await http_client.get(
+                f"{EBAY_SANDBOX_API_URL}/sell/inventory/v1/location/{location_key}",
+                headers={"Authorization": f"Bearer {access_token}"}
+            )
+            
+            if check_resp.status_code == 200:
+                logger.info("Location already exists")
+                # Save to settings
+                await db.settings.update_one(
+                    {"_id": "app_settings"},
+                    {"$set": {"merchant_location_key": location_key}},
+                    upsert=True
+                )
+                return {"message": "Location already exists", "location_key": location_key}
+            
+            # Create new location
+            location_payload = {
+                "location": {
+                    "address": {
+                        "addressLine1": "Via Roma 1",
+                        "city": "Milan",
+                        "stateOrProvince": "MI",
+                        "postalCode": "20100",
+                        "country": "IT"
+                    }
+                },
+                "locationTypes": ["WAREHOUSE"],
+                "name": "Main Warehouse",
+                "merchantLocationStatus": "ENABLED"
+            }
+            
+            create_resp = await http_client.post(
+                f"{EBAY_SANDBOX_API_URL}/sell/inventory/v1/location/{location_key}",
+                headers={
+                    "Authorization": f"Bearer {access_token}",
+                    "Content-Type": "application/json"
+                },
+                json=location_payload
+            )
+            
+            logger.info(f"Create location: status={create_resp.status_code}")
+            logger.info(f"  Response: {create_resp.text[:500] if create_resp.text else 'empty'}")
+            
+            if create_resp.status_code in [200, 201, 204]:
+                # Save to settings
+                await db.settings.update_one(
+                    {"_id": "app_settings"},
+                    {"$set": {"merchant_location_key": location_key}},
+                    upsert=True
+                )
+                return {"message": "Location created", "location_key": location_key}
+            else:
+                raise Exception(f"Failed to create location: {create_resp.text}")
+                
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Create location error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # ============ STATS ============
 
 @api_router.get("/stats")
