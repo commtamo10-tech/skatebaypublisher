@@ -3630,22 +3630,6 @@ async def publish_draft_multi_marketplace(
     return results
 
 
-@api_router.get("/marketplaces")
-async def get_marketplaces(user = Depends(get_current_user)):
-    """Get list of supported marketplaces with their configuration"""
-    marketplaces = []
-    for mp_id, config in MARKETPLACE_CONFIG.items():
-        marketplaces.append({
-            "id": mp_id,
-            "name": config["name"],
-            "currency": config["currency"],
-            "country_code": config["country_code"],
-            "default_price": config["default_price"],
-            "default_shipping_cost": config["default_shipping_cost"]
-        })
-    return {"marketplaces": marketplaces}
-
-
 # ============ SETUP ============
 
 # Include router
