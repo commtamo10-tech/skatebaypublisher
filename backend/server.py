@@ -53,10 +53,19 @@ db = client[os.environ['DB_NAME']]
 # Configuration
 ADMIN_PASSWORD = os.environ.get('APP_ADMIN_PASSWORD', 'admin123')
 JWT_SECRET = os.environ.get('JWT_SECRET', secrets.token_hex(32))
+
+# eBay Sandbox credentials
 EBAY_CLIENT_ID = os.environ.get('EBAY_CLIENT_ID', '')
 EBAY_CLIENT_SECRET = os.environ.get('EBAY_CLIENT_SECRET', '')
 EBAY_REDIRECT_URI = os.environ.get('EBAY_REDIRECT_URI', '')
-EBAY_RUNAME = os.environ.get('EBAY_RUNAME', '')  # RuName for OAuth redirect_uri parameter
+EBAY_RUNAME = os.environ.get('EBAY_RUNAME', '')
+
+# eBay Production credentials
+EBAY_PROD_CLIENT_ID = os.environ.get('EBAY_PROD_CLIENT_ID', '')
+EBAY_PROD_CLIENT_SECRET = os.environ.get('EBAY_PROD_CLIENT_SECRET', '')
+EBAY_PROD_REDIRECT_URI = os.environ.get('EBAY_PROD_REDIRECT_URI', '')
+EBAY_PROD_RUNAME = os.environ.get('EBAY_PROD_RUNAME', '')
+
 EBAY_SCOPES = os.environ.get('EBAY_SCOPES', 'https://api.ebay.com/oauth/api_scope/sell.inventory https://api.ebay.com/oauth/api_scope/sell.account')
 EMERGENT_LLM_KEY = os.environ.get('EMERGENT_LLM_KEY', '')
 FRONTEND_URL = os.environ.get('FRONTEND_URL', 'http://localhost:3000')
@@ -65,6 +74,11 @@ FRONTEND_URL = os.environ.get('FRONTEND_URL', 'http://localhost:3000')
 EBAY_SANDBOX_AUTH_URL = "https://auth.sandbox.ebay.com/oauth2/authorize"
 EBAY_SANDBOX_TOKEN_URL = "https://api.sandbox.ebay.com/identity/v1/oauth2/token"
 EBAY_SANDBOX_API_URL = "https://api.sandbox.ebay.com"
+
+# eBay Production URLs
+EBAY_PROD_AUTH_URL = "https://auth.ebay.com/oauth2/authorize"
+EBAY_PROD_TOKEN_URL = "https://api.ebay.com/identity/v1/oauth2/token"
+EBAY_PROD_API_URL = "https://api.ebay.com"
 
 # Create uploads directory
 UPLOADS_DIR = ROOT_DIR / 'uploads'
