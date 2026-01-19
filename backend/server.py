@@ -409,6 +409,9 @@ async def ebay_auth_start(user = Depends(get_current_user)):
         "expires_at": (datetime.now(timezone.utc) + timedelta(minutes=10)).isoformat()
     })
     
+    # URL encode the redirect_uri and scope
+    from urllib.parse import urlencode, quote
+    
     params = {
         "client_id": EBAY_CLIENT_ID,
         "response_type": "code",
@@ -416,8 +419,21 @@ async def ebay_auth_start(user = Depends(get_current_user)):
         "scope": EBAY_SCOPES,
         "state": state
     }
-    query_string = "&".join([f"{k}={v}" for k, v in params.items()])
+    
+    # Use proper URL encoding
+    query_string = urlencode(params)
     auth_url = f"{EBAY_SANDBOX_AUTH_URL}?{query_string}"
+    
+    # Log the full authorize URL for debugging
+    logger.info("=" * 60)
+    logger.info("EBAY OAUTH AUTHORIZE URL GENERATED:")
+    logger.info(f"Base URL: {EBAY_SANDBOX_AUTH_URL}")
+    logger.info(f"client_id: {EBAY_CLIENT_ID}")
+    logger.info(f"redirect_uri: {EBAY_REDIRECT_URI}")
+    logger.info(f"scope: {EBAY_SCOPES}")
+    logger.info(f"state: {state}")
+    logger.info(f"FULL URL: {auth_url}")
+    logger.info("=" * 60)
     
     return {"auth_url": auth_url}
 
