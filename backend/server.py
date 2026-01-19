@@ -1608,12 +1608,42 @@ async def get_ebay_policies(user = Depends(get_current_user)):
         logger.info("=" * 60)
         logger.info(f"FETCHING EBAY POLICIES for marketplace: {marketplace_id}")
         
-        async with httpx.AsyncClient() as http_client:
+        async with httpx.AsyncClient(timeout=30.0) as http_client:
             headers = {
                 "Authorization": f"Bearer {access_token}",
                 "Content-Type": "application/json",
                 "Content-Language": "en-US"
             }
+            
+            # 0. First, opt-in to Business Policies (SELLING_POLICY_MANAGEMENT)
+            logger.info("Step 0: Opting in to Business Policies...")
+            opt_in_resp = await http_client.post(
+                f"{EBAY_SANDBOX_API_URL}/sell/account/v1/program/opt_in",
+                headers=headers,
+                json={"programType": "SELLING_POLICY_MANAGEMENT"}
+            )
+            logger.info(f"POST opt_in: status={opt_in_resp.status_code}")
+            logger.info(f"  Response body: {opt_in_resp.text[:500] if opt_in_resp.text else 'empty'}")
+            
+            # If opt-in succeeded or already opted in, continue
+            if opt_in_resp.status_code in [200, 204]:
+                logger.info("  Opt-in successful!")
+            elif opt_in_resp.status_code == 400:
+                # Check if already opted in
+                try:
+                    err_data = opt_in_resp.json()
+                    err_msg = str(err_data)
+                    if "already" in err_msg.lower() or "opted" in err_msg.lower():
+                        logger.info("  Already opted in to Business Policies")
+                    else:
+                        logger.warning(f"  Opt-in failed: {err_msg}")
+                except:
+                    logger.warning(f"  Opt-in returned 400: {opt_in_resp.text[:200]}")
+            else:
+                logger.warning(f"  Opt-in returned {opt_in_resp.status_code}")
+            
+            # Small delay after opt-in
+            await asyncio.sleep(1)
             
             # 1. Fetch Fulfillment Policies
             fulfillment_resp = await http_client.get(
