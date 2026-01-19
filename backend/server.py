@@ -1718,20 +1718,15 @@ async def get_ebay_policies(user = Depends(get_current_user)):
             # Create default Payment Policy if none exist
             if not payment_policies:
                 logger.info("No payment policies found, creating default...")
+                # For Sandbox: use minimal payment policy without specific payment methods
+                # eBay managed payments is the default for most marketplaces now
                 create_resp = await http_client.post(
                     f"{EBAY_SANDBOX_API_URL}/sell/account/v1/payment_policy",
                     headers=headers,
                     json={
-                        "name": "PayPal Payment Policy",
+                        "name": "Standard Payment Policy",
                         "marketplaceId": marketplace_id,
                         "categoryTypes": [{"name": "ALL_EXCLUDING_MOTORS_VEHICLES"}],
-                        "paymentMethods": [{
-                            "paymentMethodType": "PAYPAL",
-                            "recipientAccountReference": {
-                                "referenceType": "PAYPAL_EMAIL",
-                                "referenceId": "seller@example.com"
-                            }
-                        }],
                         "immediatePay": False
                     }
                 )
