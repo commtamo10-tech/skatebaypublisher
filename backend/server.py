@@ -380,6 +380,30 @@ async def generate_sku(item_type: str) -> str:
     return f"OSS-{code}-{seq:06d}"
 
 
+# ============ VERSION/HEALTH ROUTES ============
+
+BUILD_TIME = datetime.now(timezone.utc).isoformat()
+BUILD_COMMIT = "local-dev"  # In production, this would be set via env var
+
+@api_router.get("/version")
+async def get_version():
+    """Get build version info for debugging which deployment is running"""
+    return {
+        "build_time": BUILD_TIME,
+        "commit_hash": os.environ.get("GIT_COMMIT", BUILD_COMMIT),
+        "environment": "sandbox",
+        "mongo_db": os.environ.get("DB_NAME", "unknown"),
+        "frontend_url": FRONTEND_URL,
+        "ebay_redirect_uri": EBAY_REDIRECT_URI,
+        "pod_start_time": BUILD_TIME
+    }
+
+@api_router.get("/health")
+async def health_check():
+    """Simple health check endpoint"""
+    return {"status": "ok", "timestamp": datetime.now(timezone.utc).isoformat()}
+
+
 # ============ AUTH ROUTES ============
 
 @api_router.post("/auth/login", response_model=LoginResponse)
