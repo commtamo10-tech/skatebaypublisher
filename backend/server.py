@@ -687,11 +687,12 @@ async def get_ebay_access_token() -> str:
         return tokens["access_token"]
     
     # Refresh token
-    credentials = base64.b64encode(f"{EBAY_CLIENT_ID}:{EBAY_CLIENT_SECRET}".encode()).decode()
+    config = get_ebay_config(environment)
+    credentials = base64.b64encode(f"{config['client_id']}:{config['client_secret']}".encode()).decode()
     
     async with httpx.AsyncClient() as http_client:
         response = await http_client.post(
-            EBAY_SANDBOX_TOKEN_URL,
+            config["token_url"],
             headers={
                 "Authorization": f"Basic {credentials}",
                 "Content-Type": "application/x-www-form-urlencoded"
@@ -704,12 +705,12 @@ async def get_ebay_access_token() -> str:
         )
     
     if response.status_code != 200:
-        await db.ebay_tokens.delete_one({"_id": "ebay_tokens"})
+        await db.ebay_tokens.delete_one({"_id": token_collection_id})
         raise HTTPException(status_code=401, detail="eBay session expired. Please re-authorize.")
     
     new_data = response.json()
     await db.ebay_tokens.update_one(
-        {"_id": "ebay_tokens"},
+        {"_id": token_collection_id},
         {
             "$set": {
                 "access_token": new_data["access_token"],
@@ -721,6 +722,13 @@ async def get_ebay_access_token() -> str:
     )
     
     return new_data["access_token"]
+
+
+async def get_ebay_api_url() -> str:
+    """Get the correct eBay API URL based on environment"""
+    environment = await get_ebay_environment()
+    config = get_ebay_config(environment)
+    return config["api_url"]
 
 
 # ============ FILE UPLOAD ROUTES ============
