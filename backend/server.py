@@ -1150,11 +1150,109 @@ async def update_draft(draft_id: str, update: DraftUpdate, user = Depends(get_cu
 
 @api_router.delete("/drafts/{draft_id}")
 async def delete_draft(draft_id: str, user = Depends(get_current_user)):
-    """Delete draft"""
+    """Delete draft and unpublish from eBay if published"""
+    
+    # Get draft first to check if it has a listing
+    draft = await db.drafts.find_one({"id": draft_id}, {"_id": 0})
+    if not draft:
+        raise HTTPException(status_code=404, detail="Draft not found")
+    
+    sku = draft.get("sku")
+    listing_id = draft.get("listing_id")
+    offer_id = draft.get("offer_id")
+    multi_results = draft.get("multi_marketplace_results", {})
+    
+    ebay_errors = []
+    
+    # If published on eBay, try to end the listing
+    if listing_id or multi_results:
+        logger.info(f"🗑️ Deleting eBay listing for draft {draft_id}, SKU: {sku}")
+        
+        try:
+            access_token = await get_ebay_access_token()
+            environment = await get_ebay_environment()
+            config = get_ebay_config(environment)
+            api_url = config["api_url"]
+            
+            headers = {
+                "Authorization": f"Bearer {access_token}",
+                "Content-Type": "application/json"
+            }
+            
+            async with httpx.AsyncClient(timeout=30.0) as http_client:
+                # Withdraw all offers for this SKU
+                # First, get all offers for this SKU
+                offers_resp = await http_client.get(
+                    f"{api_url}/sell/inventory/v1/offer",
+                    headers=headers,
+                    params={"sku": sku}
+                )
+                
+                if offers_resp.status_code == 200:
+                    offers = offers_resp.json().get("offers", [])
+                    for offer in offers:
+                        offer_id = offer.get("offerId")
+                        listing_status = offer.get("status")
+                        
+                        if listing_status == "PUBLISHED":
+                            # Withdraw the offer (ends the listing)
+                            logger.info(f"  Withdrawing offer {offer_id}...")
+                            withdraw_resp = await http_client.post(
+                                f"{api_url}/sell/inventory/v1/offer/{offer_id}/withdraw",
+                                headers=headers
+                            )
+                            if withdraw_resp.status_code in [200, 204]:
+                                logger.info(f"  ✅ Offer {offer_id} withdrawn successfully")
+                            else:
+                                error_msg = f"Failed to withdraw offer {offer_id}: {withdraw_resp.text[:200]}"
+                                logger.warning(f"  ⚠️ {error_msg}")
+                                ebay_errors.append(error_msg)
+                        
+                        # Delete the offer
+                        logger.info(f"  Deleting offer {offer_id}...")
+                        delete_offer_resp = await http_client.delete(
+                            f"{api_url}/sell/inventory/v1/offer/{offer_id}",
+                            headers=headers
+                        )
+                        if delete_offer_resp.status_code in [200, 204]:
+                            logger.info(f"  ✅ Offer {offer_id} deleted")
+                        else:
+                            logger.warning(f"  ⚠️ Could not delete offer: {delete_offer_resp.status_code}")
+                
+                # Delete the inventory item
+                logger.info(f"  Deleting inventory item {sku}...")
+                delete_inv_resp = await http_client.delete(
+                    f"{api_url}/sell/inventory/v1/inventory_item/{sku}",
+                    headers=headers
+                )
+                if delete_inv_resp.status_code in [200, 204]:
+                    logger.info(f"  ✅ Inventory item {sku} deleted")
+                else:
+                    logger.warning(f"  ⚠️ Could not delete inventory item: {delete_inv_resp.status_code}")
+                    
+        except HTTPException as e:
+            logger.warning(f"  ⚠️ eBay not connected, skipping eBay deletion: {e.detail}")
+            ebay_errors.append(f"eBay not connected: {e.detail}")
+        except Exception as e:
+            logger.error(f"  ❌ Error deleting from eBay: {str(e)}")
+            ebay_errors.append(str(e))
+    
+    # Delete from local database
     result = await db.drafts.delete_one({"id": draft_id})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Draft not found")
-    return {"message": "Draft deleted"}
+    
+    response = {"message": "Draft deleted"}
+    if listing_id or multi_results:
+        response["ebay_deleted"] = len(ebay_errors) == 0
+        if ebay_errors:
+            response["ebay_errors"] = ebay_errors
+            response["message"] = "Draft deleted locally. Some eBay listings may need manual removal."
+        else:
+            response["message"] = "Draft and eBay listing deleted successfully"
+    
+    logger.info(f"✅ Draft {draft_id} deleted. eBay errors: {ebay_errors}")
+    return response
 
 
 # ============ LLM GENERATION ============
