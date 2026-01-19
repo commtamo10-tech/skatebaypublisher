@@ -1387,9 +1387,15 @@ OUTPUT FORMAT (JSON):
 @api_router.post("/drafts/{draft_id}/publish")
 async def publish_draft(draft_id: str, user = Depends(get_current_user)):
     """Publish draft to eBay"""
+    logger.info("=" * 60)
+    logger.info(f"PUBLISHING DRAFT: {draft_id}")
+    
     draft = await db.drafts.find_one({"id": draft_id}, {"_id": 0})
     if not draft:
         raise HTTPException(status_code=404, detail="Draft not found")
+    
+    logger.info(f"Draft SKU: {draft.get('sku')}")
+    logger.info(f"Draft title: {draft.get('title', '')[:50]}...")
     
     # Validation
     errors = []
@@ -1411,11 +1417,14 @@ async def publish_draft(draft_id: str, user = Depends(get_current_user)):
         errors.append("All business policy IDs required in Settings")
     
     if errors:
+        logger.error(f"Validation errors: {errors}")
         await db.drafts.update_one(
             {"id": draft_id},
             {"$set": {"status": "ERROR", "error_message": "; ".join(errors), "updated_at": datetime.now(timezone.utc).isoformat()}}
         )
         raise HTTPException(status_code=400, detail={"errors": errors})
+    
+    logger.info(f"Validation passed. Policy IDs: fulfillment={settings.get('fulfillment_policy_id')}, return={settings.get('return_policy_id')}, payment={settings.get('payment_policy_id')}")
     
     try:
         access_token = await get_ebay_access_token()
