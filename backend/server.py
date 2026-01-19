@@ -94,6 +94,43 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(level
 logger = logging.getLogger(__name__)
 
 
+# ============ EBAY ENVIRONMENT HELPERS ============
+
+async def get_ebay_environment():
+    """Get current eBay environment (sandbox or production) from settings"""
+    settings = await db.settings.find_one({"_id": "app_settings"})
+    return settings.get("ebay_environment", "sandbox") if settings else "sandbox"
+
+def get_ebay_config(environment: str):
+    """Get eBay configuration for the specified environment"""
+    if environment == "production":
+        return {
+            "client_id": EBAY_PROD_CLIENT_ID,
+            "client_secret": EBAY_PROD_CLIENT_SECRET,
+            "redirect_uri": EBAY_PROD_REDIRECT_URI,
+            "runame": EBAY_PROD_RUNAME,
+            "auth_url": EBAY_PROD_AUTH_URL,
+            "token_url": EBAY_PROD_TOKEN_URL,
+            "api_url": EBAY_PROD_API_URL,
+            "marketplace_id": "EBAY_IT",  # Italian marketplace
+            "country_code": "IT",
+            "currency": "EUR"
+        }
+    else:  # sandbox
+        return {
+            "client_id": EBAY_CLIENT_ID,
+            "client_secret": EBAY_CLIENT_SECRET,
+            "redirect_uri": EBAY_REDIRECT_URI,
+            "runame": EBAY_RUNAME,
+            "auth_url": EBAY_SANDBOX_AUTH_URL,
+            "token_url": EBAY_SANDBOX_TOKEN_URL,
+            "api_url": EBAY_SANDBOX_API_URL,
+            "marketplace_id": "EBAY_US",
+            "country_code": "US",
+            "currency": "USD"
+        }
+
+
 # ============ MODELS ============
 
 class LoginRequest(BaseModel):
