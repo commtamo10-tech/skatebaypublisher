@@ -1185,26 +1185,52 @@ export default function DraftEditor() {
                 </div>
                 
                 <div className="grid grid-cols-2 gap-2">
-                  {MARKETPLACES.map(mp => (
-                    <button
-                      key={mp.id}
-                      onClick={() => toggleMarketplace(mp.id)}
-                      className={`p-3 border-2 text-left transition-all ${
-                        selectedMarketplaces.includes(mp.id)
-                          ? 'bg-blue-500 text-white border-blue-600 shadow-hard-sm'
-                          : 'bg-white text-gray-700 border-gray-300 hover:border-blue-400'
-                      }`}
-                    >
-                      <div className="font-bold text-sm">{mp.name}</div>
-                      <div className="text-xs font-mono opacity-75">
-                        {mp.defaultPrice} {mp.currency}
-                      </div>
-                    </button>
-                  ))}
+                  {MARKETPLACES.map(mp => {
+                    const isConfigured = mp.is_configured;
+                    const isSelected = selectedMarketplaces.includes(mp.id);
+                    
+                    return (
+                      <button
+                        key={mp.id}
+                        onClick={() => isConfigured && toggleMarketplace(mp.id)}
+                        disabled={!isConfigured}
+                        className={`p-3 border-2 text-left transition-all relative ${
+                          !isConfigured
+                            ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
+                            : isSelected
+                              ? 'bg-blue-500 text-white border-blue-600 shadow-hard-sm'
+                              : 'bg-white text-gray-700 border-gray-300 hover:border-blue-400'
+                        }`}
+                        data-testid={`marketplace-${mp.id}`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-sm">{mp.name}</span>
+                          {isConfigured ? (
+                            <span className="text-xs bg-green-600 text-white px-1 rounded">✓</span>
+                          ) : (
+                            <span className="text-xs bg-amber-500 text-white px-1 rounded">!</span>
+                          )}
+                        </div>
+                        <div className="text-xs font-mono opacity-75">
+                          {mp.default_price || mp.defaultPrice} {mp.currency}
+                        </div>
+                        {!isConfigured && (
+                          <div className="text-xs text-amber-600 mt-1">
+                            Not configured - run Bootstrap
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
                 
                 <p className="text-xs text-blue-600 font-mono mt-2">
-                  💡 Same SKU will be listed on all selected marketplaces with their default prices
+                  💡 Same SKU will be listed on all selected marketplaces with their default prices.
+                  {MARKETPLACES.some(mp => !mp.is_configured) && (
+                    <span className="block text-amber-600 mt-1">
+                      ⚠️ Some marketplaces need configuration. Go to Settings &gt; Bootstrap Marketplaces.
+                    </span>
+                  )}
                 </p>
               </div>
             )}
