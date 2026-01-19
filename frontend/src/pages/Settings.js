@@ -205,6 +205,52 @@ export default function Settings() {
       </header>
 
       <main className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+        {/* Environment Toggle */}
+        <div className="bg-card border-2 border-border p-6 shadow-hard">
+          <h2 className="font-heading font-bold text-xl uppercase tracking-tight mb-4 border-b-2 border-border pb-2">
+            <Globe className="w-5 h-5 inline mr-2" />
+            eBay Environment
+          </h2>
+          
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => setSettings({...settings, ebay_environment: "sandbox", ebay_connected: false})}
+              className={`px-6 py-3 font-bold uppercase tracking-wider text-sm border-2 transition-all ${
+                settings.ebay_environment === "sandbox"
+                  ? "bg-amber-500 text-white border-amber-600 shadow-hard"
+                  : "bg-muted text-muted-foreground border-border hover:bg-muted/80"
+              }`}
+              data-testid="env-sandbox-btn"
+            >
+              🧪 Sandbox
+            </button>
+            <button
+              onClick={() => setSettings({...settings, ebay_environment: "production", ebay_connected: false})}
+              className={`px-6 py-3 font-bold uppercase tracking-wider text-sm border-2 transition-all ${
+                settings.ebay_environment === "production"
+                  ? "bg-green-600 text-white border-green-700 shadow-hard"
+                  : "bg-muted text-muted-foreground border-border hover:bg-muted/80"
+              }`}
+              data-testid="env-production-btn"
+            >
+              🚀 Production (ebay.it)
+            </button>
+          </div>
+          
+          <p className="mt-3 text-sm text-muted-foreground font-mono">
+            {settings.ebay_environment === "production" 
+              ? "⚠️ Production mode: Listings will be published to your real eBay.it shop"
+              : "Sandbox mode: Test listings on eBay Sandbox (not visible to buyers)"
+            }
+          </p>
+          
+          {settings.ebay_environment === "production" && (
+            <div className="mt-3 p-3 bg-amber-50 border-2 border-amber-300 text-amber-800 text-sm font-mono">
+              <strong>Important:</strong> Make sure you have configured EBAY_PROD_CLIENT_ID, EBAY_PROD_CLIENT_SECRET, and EBAY_PROD_RUNAME in environment variables.
+            </div>
+          )}
+        </div>
+
         {/* eBay Connection */}
         <div className="bg-card border-2 border-border p-6 shadow-hard">
           <h2 className="font-heading font-bold text-xl uppercase tracking-tight mb-4 border-b-2 border-border pb-2">
@@ -218,7 +264,9 @@ export default function Settings() {
                   <CheckCircle className="w-6 h-6 text-green-600" />
                   <div>
                     <p className="font-bold">Connected</p>
-                    <p className="text-sm text-muted-foreground font-mono">eBay Sandbox account linked</p>
+                    <p className="text-sm text-muted-foreground font-mono">
+                      eBay {settings.ebay_environment === "production" ? "Production (ebay.it)" : "Sandbox"} account linked
+                    </p>
                   </div>
                 </>
               ) : (
@@ -226,7 +274,9 @@ export default function Settings() {
                   <AlertCircle className="w-6 h-6 text-amber-500" />
                   <div>
                     <p className="font-bold">Not Connected</p>
-                    <p className="text-sm text-muted-foreground font-mono">Connect your eBay account to publish listings</p>
+                    <p className="text-sm text-muted-foreground font-mono">
+                      Connect your eBay {settings.ebay_environment === "production" ? "Production" : "Sandbox"} account to publish listings
+                    </p>
                   </div>
                 </>
               )}
