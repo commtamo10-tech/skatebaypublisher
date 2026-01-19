@@ -3698,7 +3698,7 @@ async def publish_draft_multi_marketplace(
                     "paymentPolicyId": payment_policy_id,
                     "returnPolicyId": return_policy_id
                 },
-                "listingDescription": draft.get("description", "")[:200] + "..." if len(draft.get("description", "")) > 200 else draft.get("description", "")
+                "listingDescription": draft.get("description", "")
             }
             
             # === CLEAR LOGGING: OFFER PAYLOAD ===
