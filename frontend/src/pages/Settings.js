@@ -136,12 +136,19 @@ export default function Settings() {
       if (Object.keys(updates).length > 0) {
         setSettings(prev => ({ ...prev, ...updates }));
         toast.success(`Policies fetched and ${Object.keys(updates).length} field(s) auto-filled!`);
+      } else if (data.fulfillment_policies?.length === 0 && data.payment_policies?.length === 0 && data.return_policies?.length === 0) {
+        toast.warning("No policies found on eBay. Default policies could not be created.");
       } else {
         toast.success("Policies fetched from eBay");
       }
     } catch (error) {
       console.error("Fetch policies error:", error);
-      toast.error("Failed to fetch policies. Make sure eBay is connected.");
+      const detail = error.response?.data?.detail;
+      if (detail?.includes("not connected")) {
+        toast.error("eBay not connected. Please click 'Connect eBay' first and complete authorization.");
+      } else {
+        toast.error(detail || "Failed to fetch policies. Check console for details.");
+      }
     } finally {
       setFetchingPolicies(false);
     }
