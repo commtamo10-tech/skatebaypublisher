@@ -3786,22 +3786,38 @@ async def publish_draft_multi_marketplace(
                 publish_data = publish_response.json() if publish_response.text else {}
                 listing_id = publish_data.get("listingId")
                 
-                results["marketplaces"][marketplace_id] = {
+                result_data = {
                     "success": True,
                     "offer_id": offer_id,
                     "listing_id": listing_id,
                     "price": f"{price} {currency}",
                     "listing_url": f"https://www.{'sandbox.' if use_sandbox else ''}ebay.com/itm/{listing_id}" if listing_id else None
                 }
-                logger.info(f"SUCCESS! Listing ID: {listing_id}")
+                
+                # Add retry info if there were retries
+                if attempt_num > 1:
+                    result_data["retries"] = attempt_num - 1
+                    logger.info(f"SUCCESS after {attempt_num - 1} retry(s)! Listing ID: {listing_id}")
+                else:
+                    logger.info(f"SUCCESS! Listing ID: {listing_id}")
+                
+                results["marketplaces"][marketplace_id] = result_data
             else:
                 error_text = publish_response.text[:300] if publish_response.text else "Unknown error"
-                results["marketplaces"][marketplace_id] = {
+                result_data = {
                     "success": False,
                     "offer_id": offer_id,
                     "error": error_text
                 }
-                logger.error(f"Publish failed: {error_text}")
+                
+                # Add retry info
+                if attempt_num > 1:
+                    result_data["retries"] = attempt_num - 1
+                    logger.error(f"Publish failed after {attempt_num} attempts: {error_text}")
+                else:
+                    logger.error(f"Publish failed: {error_text}")
+                
+                results["marketplaces"][marketplace_id] = result_data
     
     # Update draft with results
     successful_marketplaces = [
