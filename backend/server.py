@@ -3650,6 +3650,17 @@ async def publish_draft_multi_marketplace(
                 item_type = draft.get("item_type", "MISC")
                 category_id = get_category_for_item(item_type, marketplace_id)
             
+            # Sanitize category_id - extract only numeric part (e.g., "16263 (Decks)" -> "16263")
+            if category_id:
+                import re
+                match = re.match(r'^(\d+)', str(category_id))
+                if match:
+                    category_id = match.group(1)
+                else:
+                    logger.warning(f"Invalid category_id format: {category_id}, using default")
+                    item_type = draft.get("item_type", "MISC")
+                    category_id = get_category_for_item(item_type, marketplace_id)
+            
             # Get policy IDs from marketplace config (nested in 'policies' dict)
             policies = mp_config.get("policies", {})
             fulfillment_policy_id = policies.get("fulfillment_policy_id")
