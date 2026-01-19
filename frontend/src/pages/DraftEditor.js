@@ -1163,14 +1163,14 @@ export default function DraftEditor() {
                 
                 {draft.listing_id && !draft.multi_marketplace_results && (
                   <a 
-                    href={`https://www.sandbox.ebay.com/itm/${draft.listing_id}`}
+                    href={`https://www.ebay.com/itm/${draft.listing_id}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-2 mt-3 px-4 py-2 bg-green-600 text-white font-bold uppercase tracking-wider text-sm border-2 border-green-700 shadow-hard-sm hover:translate-y-[1px] hover:shadow-none transition-all"
                     data-testid="view-on-ebay-btn"
                   >
                     <ExternalLink className="w-4 h-4" />
-                    View on eBay Sandbox
+                    View on eBay
                   </a>
                 )}
               </div>
