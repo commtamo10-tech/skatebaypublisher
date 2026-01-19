@@ -88,6 +88,18 @@ export default function Settings() {
     }
   };
 
+  const fetchDebugInfo = async () => {
+    try {
+      const response = await api.get("/ebay/auth/debug");
+      setDebugInfo(response.data);
+      setShowDebug(true);
+      console.log("eBay Debug Info:", response.data);
+    } catch (error) {
+      console.error("Debug fetch error:", error);
+      toast.error("Failed to fetch debug info");
+    }
+  };
+
   const fetchPolicies = async () => {
     setFetchingPolicies(true);
     try {
