@@ -2059,12 +2059,14 @@ async def auto_suggest_categories(draft_id: str, user = Depends(get_current_user
     }
     query = type_queries.get(item_type, "skateboard")
     
-    # Get enabled marketplaces
+    # Get enabled marketplaces from settings
+    settings = await db.settings.find_one({"_id": "app_settings"}, {"_id": 0})
     enabled_marketplaces = []
-    mp_settings = settings.get("marketplaces", {})
-    for mp_id, mp_data in mp_settings.items():
-        if mp_data.get("fulfillment_policy_id"):  # Has policy = enabled
-            enabled_marketplaces.append(mp_id)
+    if settings:
+        mp_settings = settings.get("marketplaces", {})
+        for mp_id, mp_data in mp_settings.items():
+            if mp_data.get("fulfillment_policy_id"):  # Has policy = enabled
+                enabled_marketplaces.append(mp_id)
     
     if not enabled_marketplaces:
         enabled_marketplaces = ["EBAY_US", "EBAY_DE", "EBAY_ES", "EBAY_AU"]
