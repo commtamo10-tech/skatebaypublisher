@@ -1257,6 +1257,45 @@ export default function DraftEditor() {
                     </span>
                   )}
                 </p>
+                
+                {/* Auto-Categories Button */}
+                <div className="mt-4 pt-4 border-t border-blue-200">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-bold text-blue-800 uppercase tracking-wider text-xs">Categories per Marketplace</span>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={handleAutoCategories}
+                      disabled={loadingCategories}
+                      className="text-xs"
+                      data-testid="auto-categories-btn"
+                    >
+                      {loadingCategories ? (
+                        <><RefreshCw className="w-3 h-3 mr-1 animate-spin" /> Fetching...</>
+                      ) : (
+                        <><Wand2 className="w-3 h-3 mr-1" /> Auto-Suggest Categories</>
+                      )}
+                    </Button>
+                  </div>
+                  
+                  {/* Display categories per marketplace */}
+                  {Object.keys(categoryByMarketplace).length > 0 && (
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      {Object.entries(categoryByMarketplace).map(([mpId, catId]) => (
+                        <div key={mpId} className="bg-white border border-blue-200 p-2 rounded">
+                          <span className="font-bold text-blue-700">{mpId.replace('EBAY_', '')}:</span>
+                          <span className="ml-1 font-mono text-gray-600">{catId}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  
+                  {Object.keys(categoryByMarketplace).length === 0 && (
+                    <p className="text-xs text-amber-600 bg-amber-50 p-2 rounded">
+                      ⚠️ Click "Auto-Suggest Categories" to get valid categories for each marketplace before publishing.
+                    </p>
+                  )}
+                </div>
               </div>
             )}
             
