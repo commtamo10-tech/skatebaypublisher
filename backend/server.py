@@ -1567,6 +1567,100 @@ async def delete_draft_marketplace(draft_id: str, marketplace_id: str, user = De
     logger.info(f"✅ Marketplace {marketplace_id} deleted from draft {draft_id}. Remaining: {list(marketplace_listings.keys())}")
     return response
 
+
+@api_router.post("/drafts/{draft_id}/sync-marketplaces")
+async def sync_draft_marketplaces(draft_id: str, user = Depends(get_current_user)):
+    """Sync marketplace listings from eBay for drafts that were published before the multi-marketplace feature"""
+    
+    draft = await db.drafts.find_one({"id": draft_id}, {"_id": 0})
+    if not draft:
+        raise HTTPException(status_code=404, detail="Draft not found")
+    
+    if draft.get("status") != "PUBLISHED":
+        raise HTTPException(status_code=400, detail="Draft is not published")
+    
+    sku = draft.get("sku")
+    if not sku:
+        raise HTTPException(status_code=400, detail="Draft has no SKU")
+    
+    logger.info(f"🔄 Syncing marketplace listings for draft {draft_id}, SKU: {sku}")
+    
+    try:
+        access_token = await get_ebay_access_token()
+        environment = await get_ebay_environment()
+        config = get_ebay_config(environment)
+        api_url = config["api_url"]
+        
+        headers = {
+            "Authorization": f"Bearer {access_token}",
+            "Content-Type": "application/json"
+        }
+        
+        marketplace_listings = {}
+        
+        # Check for marketplace-specific SKUs
+        marketplace_suffixes = {
+            "EBAY_US": "us",
+            "EBAY_DE": "de", 
+            "EBAY_ES": "es",
+            "EBAY_AU": "au"
+        }
+        
+        async with httpx.AsyncClient(timeout=30.0) as http_client:
+            for mp_id, suffix in marketplace_suffixes.items():
+                mp_sku = f"{sku}-{suffix}"
+                
+                # Try to get offers for this SKU
+                offers_resp = await http_client.get(
+                    f"{api_url}/sell/inventory/v1/offer",
+                    headers=headers,
+                    params={"sku": mp_sku}
+                )
+                
+                if offers_resp.status_code == 200:
+                    offers = offers_resp.json().get("offers", [])
+                    for offer in offers:
+                        if offer.get("status") == "PUBLISHED":
+                            listing_id = offer.get("listing", {}).get("listingId")
+                            offer_id = offer.get("offerId")
+                            mp_config = MARKETPLACE_CONFIG.get(mp_id, {})
+                            domain = mp_config.get("domain", "ebay.com")
+                            
+                            marketplace_listings[mp_id] = {
+                                "sku": mp_sku,
+                                "offer_id": offer_id,
+                                "listing_id": listing_id,
+                                "listing_url": f"https://www.{domain}/itm/{listing_id}" if listing_id else None
+                            }
+                            logger.info(f"  Found {mp_id}: SKU={mp_sku}, listing={listing_id}")
+        
+        if marketplace_listings:
+            # Update draft with synced marketplace listings
+            await db.drafts.update_one(
+                {"id": draft_id},
+                {"$set": {
+                    "marketplace_listings": marketplace_listings,
+                    "updated_at": datetime.now(timezone.utc).isoformat()
+                }}
+            )
+            logger.info(f"✅ Synced {len(marketplace_listings)} marketplaces for draft {draft_id}")
+            return {
+                "message": f"Synced {len(marketplace_listings)} marketplaces",
+                "marketplace_listings": marketplace_listings
+            }
+        else:
+            return {
+                "message": "No marketplace listings found on eBay",
+                "marketplace_listings": {}
+            }
+            
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        logger.error(f"Error syncing marketplaces: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @api_router.post("/drafts/{draft_id}/generate")
 async def generate_draft_content(draft_id: str, user = Depends(get_current_user)):
     """Generate title, description, aspects using LLM"""
