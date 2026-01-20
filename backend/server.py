@@ -2036,11 +2036,11 @@ async def auto_suggest_categories(draft_id: str, user = Depends(get_current_user
     if not draft:
         raise HTTPException(status_code=404, detail="Draft not found")
     
-    # Get valid access token (this checks token validity)
+    # Get Application Access Token for Taxonomy API
     try:
-        access_token = await get_ebay_access_token()
+        access_token = await get_ebay_app_token()
     except HTTPException as e:
-        raise HTTPException(status_code=400, detail=f"eBay not connected: {e.detail}")
+        raise HTTPException(status_code=400, detail=f"eBay authentication error: {e.detail}")
     
     environment = await get_ebay_environment()
     config = get_ebay_config(environment)
