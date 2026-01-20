@@ -2773,16 +2773,14 @@ async def bootstrap_marketplaces(
                         cost = svc.get("shippingCost", {})
                         logger.info(f"          - {svc_code}: {cost.get('value', '?')} {cost.get('currency', '?')}")
                 
-                # Step 3d: Clone and modify the policy
-                logger.info(f"  3d. Modifying policy with new shipping rates...")
+                # Step 3c: Clone and modify the policy
+                logger.info(f"  3c. Modifying policy with new shipping rates...")
                 
                 # Clone the policy object for modification
                 updated_policy = dict(full_policy)
                 
-                # Update name if it's not ours yet
-                if not our_policy_id:
-                    updated_policy["name"] = OUR_POLICY_NAME
-                    updated_policy["description"] = f"Auto-managed international shipping rates for {mp_config['name']}"
+                # Don't rename the user's policy - keep original name
+                # We just update the shipping costs
                 
                 # Get the shippingOptions and update costs based on destination regions
                 # Target rates: €10 Europe, $25 Americas, $45 Rest of World (converted to marketplace currency)
