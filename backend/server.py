@@ -3719,6 +3719,12 @@ async def publish_draft_multi_marketplace(
         
         logger.info(f"Inventory item {sku} created/updated for all marketplaces")
         
+        # Default headers for location API (en-US is fine for locations)
+        location_headers = {
+            **base_headers,
+            "Content-Language": "en-US"
+        }
+        
         # Step 2: Create locations for each marketplace if needed
         created_locations = set()
         for marketplace_id in request.marketplaces:
@@ -3732,7 +3738,7 @@ async def publish_draft_multi_marketplace(
             
             loc_check = await http_client.get(
                 f"{api_url}/sell/inventory/v1/location/{location_key}",
-                headers=headers
+                headers=location_headers
             )
             
             if loc_check.status_code != 200:
@@ -3753,7 +3759,7 @@ async def publish_draft_multi_marketplace(
                 }
                 loc_create = await http_client.post(
                     f"{api_url}/sell/inventory/v1/location/{location_key}",
-                    headers=headers,
+                    headers=location_headers,
                     json=loc_payload
                 )
                 logger.info(f"Create location {location_key}: status={loc_create.status_code}")
