@@ -3792,10 +3792,10 @@ async def publish_draft_multi_marketplace(
             country_code = mp_config["country_code"]
             
             # Get category - prefer draft's custom category, fallback to item_type mapping
-            category_id = draft.get("category_id")
-            if not category_id:
-                item_type = draft.get("item_type", "MISC")
-                category_id = get_category_for_item(item_type, marketplace_id)
+            # ALWAYS get category from mapping based on item_type and marketplace
+            # Don't use draft's category_id as it might be for a different marketplace
+            item_type = draft.get("item_type", "MISC")
+            category_id = get_category_for_item(item_type, marketplace_id)
             
             # Sanitize category_id - extract only numeric part (e.g., "16263 (Decks)" -> "16263")
             if category_id:
@@ -3805,8 +3805,9 @@ async def publish_draft_multi_marketplace(
                     category_id = match.group(1)
                 else:
                     logger.warning(f"Invalid category_id format: {category_id}, using default")
-                    item_type = draft.get("item_type", "MISC")
-                    category_id = get_category_for_item(item_type, marketplace_id)
+                    category_id = get_category_for_item("MISC", marketplace_id)
+            
+            logger.info(f"Using category {category_id} for {marketplace_id} (item_type: {item_type})")
             
             # Get policy IDs from marketplace config (nested in 'policies' dict)
             policies = mp_config.get("policies", {})
