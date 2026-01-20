@@ -111,41 +111,40 @@ MARKETPLACE_CONFIG = {
 DEFAULT_MARKETPLACE_SETTINGS = MARKETPLACE_CONFIG
 
 # Category mapping by item type (eBay leaf category IDs)
-# Using more universal categories that work across marketplaces
-# 159043 = Sporting Goods > Skateboarding & Longboarding > Skateboard Parts
-# Note: Using 36632 for wheels across all marketplaces for consistency
+# Using 159043 as universal fallback (Sporting Goods > Skateboarding > Parts)
+# Note: Category 36632 works for AU but not for other marketplaces
 CATEGORY_BY_ITEM_TYPE = {
     "WHL": {
-        "EBAY_US": "36632",   # Skateboard Wheels
-        "EBAY_DE": "36632",   # Skateboard Wheels (universal)
-        "EBAY_ES": "36632",   # Skateboard Wheels (universal)
-        "EBAY_AU": "36632",   # Skateboard Wheels
-        "EBAY_IT": "36632",   # Skateboard Wheels (universal)
-        "EBAY_UK": "36632",   # Skateboard Wheels
+        "EBAY_US": "159043",  # Sporting Goods > Skateboarding > Parts (universal)
+        "EBAY_DE": "159043",  # Sporting Goods > Skateboarding > Parts (universal)
+        "EBAY_ES": "159043",  # Sporting Goods > Skateboarding > Parts (universal)
+        "EBAY_AU": "36632",   # Skateboard Wheels (works for AU)
+        "EBAY_IT": "159043",  # Sporting Goods > Skateboarding > Parts (universal)
+        "EBAY_UK": "159043",  # Sporting Goods > Skateboarding > Parts (universal)
     },
     "TRK": {
-        "EBAY_US": "36631",   # Skateboard Trucks
-        "EBAY_DE": "36631",   # Skateboard Trucks (universal)
-        "EBAY_ES": "36631",   # Skateboard Trucks (universal)
+        "EBAY_US": "159043",  # Sporting Goods > Skateboarding > Parts (universal)
+        "EBAY_DE": "159043",  # Sporting Goods > Skateboarding > Parts (universal)
+        "EBAY_ES": "159043",  # Sporting Goods > Skateboarding > Parts (universal)
         "EBAY_AU": "36631",   # Skateboard Trucks
-        "EBAY_IT": "36631",   # Skateboard Trucks (universal)
-        "EBAY_UK": "36631",   # Skateboard Trucks
+        "EBAY_IT": "159043",  # Sporting Goods > Skateboarding > Parts (universal)
+        "EBAY_UK": "159043",  # Sporting Goods > Skateboarding > Parts (universal)
     },
     "DCK": {
-        "EBAY_US": "16263",   # Skateboard Decks
-        "EBAY_DE": "16263",   # Skateboard Decks (universal)
-        "EBAY_ES": "16263",   # Skateboard Decks (universal)
+        "EBAY_US": "159043",  # Sporting Goods > Skateboarding > Parts (universal)
+        "EBAY_DE": "159043",  # Sporting Goods > Skateboarding > Parts (universal)
+        "EBAY_ES": "159043",  # Sporting Goods > Skateboarding > Parts (universal)
         "EBAY_AU": "16263",   # Skateboard Decks
-        "EBAY_IT": "16263",   # Skateboard Decks (universal)
-        "EBAY_UK": "16263",   # Skateboard Decks
+        "EBAY_IT": "159043",  # Sporting Goods > Skateboarding > Parts (universal)
+        "EBAY_UK": "159043",  # Sporting Goods > Skateboarding > Parts (universal)
     },
     "APP": {
-        "EBAY_US": "36642",   # Skateboard Clothing
-        "EBAY_DE": "36642",   # Skateboard Clothing (universal)
-        "EBAY_ES": "36642",   # Skateboard Clothing (universal)
+        "EBAY_US": "159043",  # Sporting Goods > Other
+        "EBAY_DE": "159043",  # Sporting Goods > Other
+        "EBAY_ES": "159043",  # Sporting Goods > Other
         "EBAY_AU": "36642",   # Skateboard Clothing
-        "EBAY_IT": "36642",   # Skateboard Clothing (universal)
-        "EBAY_UK": "36642",   # Skateboard Clothing
+        "EBAY_IT": "159043",  # Sporting Goods > Other
+        "EBAY_UK": "159043",  # Sporting Goods > Other
     },
     "MISC": {
         "EBAY_US": "159043",  # Sporting Goods > Other
