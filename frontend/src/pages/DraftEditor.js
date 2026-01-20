@@ -1087,7 +1087,7 @@ export default function DraftEditor() {
                   <Wand2 className="w-3 h-3" />Regenerate
                 </button>
               </div>
-              <Textarea value={description} onChange={handleDescriptionChange} disabled={isPublished}
+              <Textarea value={description} onChange={handleDescriptionChange}
                 rows={12} className="border-2 border-border font-mono text-sm"
                 placeholder="Product description (HTML supported)" data-testid="edit-description-input" />
               <p className="text-xs text-muted-foreground mt-2 font-mono">
