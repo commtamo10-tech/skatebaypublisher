@@ -704,6 +704,51 @@ export default function DraftEditor() {
     }
   };
 
+  const handleRepublish = async () => {
+    // First save changes
+    try {
+      await api.patch(`/drafts/${id}`, {
+        title,
+        title_manually_edited: titleManuallyEdited,
+        description,
+        description_manually_edited: descriptionManuallyEdited,
+        aspects,
+        aspects_metadata: aspectsMetadata,
+        condition,
+        category_id: categoryId,
+        price: parseFloat(price) || 0,
+        ...coreDetails
+      });
+    } catch (error) {
+      toast.error("Failed to save changes");
+      return;
+    }
+    
+    setPublishing(true);
+    try {
+      const response = await api.post(`/drafts/${id}/republish`);
+      const results = response.data;
+      
+      const successes = Object.values(results.results || {}).filter(r => r.success).length;
+      const total = Object.keys(results.results || {}).length;
+      
+      if (successes === total) {
+        toast.success(`Updated ${successes} marketplace(s)!`);
+      } else if (successes > 0) {
+        toast.warning(`Updated ${successes}/${total} marketplaces`);
+      } else {
+        toast.error("Update failed for all marketplaces");
+      }
+      
+      await fetchDraft();
+    } catch (error) {
+      const detail = error.response?.data?.detail;
+      toast.error(typeof detail === 'string' ? detail : "Republish failed");
+    } finally {
+      setPublishing(false);
+    }
+  };
+
   const toggleMarketplace = (mpId) => {
     setSelectedMarketplaces(prev => 
       prev.includes(mpId) 
