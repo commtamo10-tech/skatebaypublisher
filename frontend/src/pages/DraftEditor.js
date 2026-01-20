@@ -1181,7 +1181,6 @@ export default function DraftEditor() {
                   <Plus className="w-4 h-4" />
                 </Button>
               </div>
-              )}
               
               <p className="text-xs text-muted-foreground mt-3 font-mono">
                 ★ Core fields (Brand, Model, Size, Color, Era) update Title and Description automatically
