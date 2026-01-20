@@ -2807,7 +2807,6 @@ async def bootstrap_marketplaces(
                 
                 # First try to get existing policies for this marketplace
                 # Skip using existing if force_recreate is True
-                force_recreate = request.force_recreate if hasattr(request, 'force_recreate') and request.force_recreate else False
                 
                 existing_resp = await http_client.get(
                     f"{api_url}/sell/account/v1/fulfillment_policy",
