@@ -3677,9 +3677,8 @@ async def publish_draft_multi_marketplace(
         # eBay requires:
         # 1. X-EBAY-C-MARKETPLACE-ID header for target marketplace
         # 2. Content-Language header matching the marketplace language
-        # NOTE: According to eBay docs, inventory item is CENTRAL - create ONCE without marketplace header
-        # Then create separate offers for each marketplace
-        logger.info(f"Step 1: Creating/updating CENTRAL inventory item for SKU {sku}")
+        # The inventory item must be created WITH the marketplace header to be "available" for offers
+        logger.info(f"Step 1: Creating inventory item for SKU {sku} on EACH marketplace")
         
         inventory_payload = {
             "product": {
@@ -3696,25 +3695,29 @@ async def publish_draft_multi_marketplace(
             }
         }
         
-        # Create inventory item ONCE (centrally, no marketplace header)
-        central_headers = {
-            **base_headers,
-            "Content-Language": "en-US"  # Use primary language for central item
-        }
+        # Create inventory item for EACH marketplace with correct headers
+        for marketplace_id in request.marketplaces:
+            mp_config_for_inv = get_marketplace_config(marketplace_id, settings)
+            mp_language = mp_config_for_inv.get("language", "en-US") if mp_config_for_inv else "en-US"
+            
+            inv_headers = {
+                **base_headers,
+                "X-EBAY-C-MARKETPLACE-ID": marketplace_id,
+                "Content-Language": mp_language
+            }
+            
+            logger.info(f"  Creating inventory item for {marketplace_id} (Content-Language: {mp_language})...")
+            inv_response = await http_client.put(
+                f"{api_url}/sell/inventory/v1/inventory_item/{sku}",
+                headers=inv_headers,
+                json=inventory_payload
+            )
+            
+            logger.info(f"  createOrReplaceInventoryItem ({marketplace_id}): status={inv_response.status_code}")
+            if inv_response.status_code not in [200, 204]:
+                logger.warning(f"  Inventory creation for {marketplace_id} failed: {inv_response.text[:300]}")
         
-        logger.info(f"  Creating CENTRAL inventory item (no marketplace header)...")
-        inv_response = await http_client.put(
-            f"{api_url}/sell/inventory/v1/inventory_item/{sku}",
-            headers=central_headers,
-            json=inventory_payload
-        )
-        
-        logger.info(f"  createOrReplaceInventoryItem (CENTRAL): status={inv_response.status_code}")
-        if inv_response.status_code not in [200, 204]:
-            logger.warning(f"  Central inventory creation failed: {inv_response.text[:500]}")
-            # Try to continue anyway - item might already exist
-        
-        logger.info(f"Inventory item {sku} created/updated centrally")
+        logger.info(f"Inventory item {sku} created/updated for all marketplaces")
         
         # Default headers for location API (en-US is fine for locations)
         location_headers = {
