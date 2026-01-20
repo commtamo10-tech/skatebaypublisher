@@ -515,19 +515,19 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
 def get_description_template(item_type: str) -> str:
     """Get description template structure based on item type - Clean minimal style"""
     
-    # Clean minimal header
-    header = """<div style="font-family: Arial, sans-serif; max-width: 700px; margin: 0 auto; padding: 20px;">
+    # Clean minimal header - left aligned
+    header = """<div style="font-family: Arial, sans-serif; max-width: 700px; padding: 20px; text-align: left;">
 """
 
     footer = """
 <hr style="border: none; border-top: 1px solid #ddd; margin: 20px 0;">
 
-<p style="font-size: 13px; color: #666;">
+<p style="font-size: 13px; color: #666; text-align: left;">
 <strong>Shipping:</strong> Ships from Milan, Italy. Combined shipping available—message before purchase.<br>
 International buyers: import duties/taxes not included.
 </p>
 
-<p style="font-size: 13px; color: #666;">
+<p style="font-size: 13px; color: #666; text-align: left;">
 Questions? Message me! Thanks for looking! 🛹
 </p>
 
@@ -536,10 +536,10 @@ Questions? Message me! Thanks for looking! 🛹
     
     if item_type == "APP":
         return f"""{header}
-<p>[Write 2-3 sentences for vintage streetwear collectors. Mention the era/brand heritage.]</p>
+<p style="text-align: left;">[Write 2-3 sentences for vintage streetwear collectors. Mention the era/brand heritage.]</p>
 
-<h3 style="border-bottom: 2px solid #333; padding-bottom: 5px;">Details</h3>
-<ul style="line-height: 1.8;">
+<h3 style="border-bottom: 2px solid #333; padding-bottom: 5px; text-align: left;">Details</h3>
+<ul style="line-height: 1.8; text-align: left; padding-left: 20px;">
   <li><strong>Brand:</strong> [value]</li>
   <li><strong>Type:</strong> [T-shirt/Hoodie/etc.]</li>
   <li><strong>Size:</strong> [tag size]</li>
@@ -547,16 +547,16 @@ Questions? Message me! Thanks for looking! 🛹
   <li><strong>Era:</strong> [decade if known]</li>
 </ul>
 
-<h3 style="border-bottom: 2px solid #333; padding-bottom: 5px;">Condition</h3>
-<p>[Brief honest description]. Please review all photos carefully.</p>
+<h3 style="border-bottom: 2px solid #333; padding-bottom: 5px; text-align: left;">Condition</h3>
+<p style="text-align: left;">[Brief honest description]. Please review all photos carefully.</p>
 {footer}"""
     
     elif item_type == "WHL":
         return f"""{header}
-<p>[Write 2-3 sentences for vintage wheel collectors. Mention brand heritage.]</p>
+<p style="text-align: left;">[Write 2-3 sentences for vintage wheel collectors. Mention brand heritage.]</p>
 
-<h3 style="border-bottom: 2px solid #333; padding-bottom: 5px;">Wheel Specs</h3>
-<ul style="line-height: 1.8;">
+<h3 style="border-bottom: 2px solid #333; padding-bottom: 5px; text-align: left;">Wheel Specs</h3>
+<ul style="line-height: 1.8; text-align: left; padding-left: 20px;">
   <li><strong>Brand:</strong> [value]</li>
   <li><strong>Model:</strong> [value]</li>
   <li><strong>Size:</strong> [diameter mm]</li>
@@ -565,16 +565,16 @@ Questions? Message me! Thanks for looking! 🛹
   <li><strong>Quantity:</strong> [set of 4/pair/single]</li>
 </ul>
 
-<h3 style="border-bottom: 2px solid #333; padding-bottom: 5px;">Condition</h3>
-<p>[Brief description]. Please review all photos carefully.</p>
+<h3 style="border-bottom: 2px solid #333; padding-bottom: 5px; text-align: left;">Condition</h3>
+<p style="text-align: left;">[Brief description]. Please review all photos carefully.</p>
 {footer}"""
     
     elif item_type == "TRK":
         return f"""{header}
-<p>[Write 2-3 sentences for vintage truck collectors.]</p>
+<p style="text-align: left;">[Write 2-3 sentences for vintage truck collectors.]</p>
 
-<h3 style="border-bottom: 2px solid #333; padding-bottom: 5px;">Truck Specs</h3>
-<ul style="line-height: 1.8;">
+<h3 style="border-bottom: 2px solid #333; padding-bottom: 5px; text-align: left;">Truck Specs</h3>
+<ul style="line-height: 1.8; text-align: left; padding-left: 20px;">
   <li><strong>Brand:</strong> [value]</li>
   <li><strong>Model:</strong> [value]</li>
   <li><strong>Hanger Width:</strong> [size]</li>
@@ -582,16 +582,16 @@ Questions? Message me! Thanks for looking! 🛹
   <li><strong>Quantity:</strong> [pair/single]</li>
 </ul>
 
-<h3 style="border-bottom: 2px solid #333; padding-bottom: 5px;">Condition</h3>
-<p>[Brief description]. Please review all photos carefully.</p>
+<h3 style="border-bottom: 2px solid #333; padding-bottom: 5px; text-align: left;">Condition</h3>
+<p style="text-align: left;">[Brief description]. Please review all photos carefully.</p>
 {footer}"""
     
     elif item_type == "DCK":
         return f"""{header}
-<p>[Write 2-3 sentences for vintage deck collectors. Mention artist, rarity.]</p>
+<p style="text-align: left;">[Write 2-3 sentences for vintage deck collectors. Mention artist, rarity.]</p>
 
-<h3 style="border-bottom: 2px solid #333; padding-bottom: 5px;">Deck Specs</h3>
-<ul style="line-height: 1.8;">
+<h3 style="border-bottom: 2px solid #333; padding-bottom: 5px; text-align: left;">Deck Specs</h3>
+<ul style="line-height: 1.8; text-align: left; padding-left: 20px;">
   <li><strong>Brand:</strong> [value]</li>
   <li><strong>Model/Series:</strong> [value]</li>
   <li><strong>Size:</strong> [width inches]</li>
@@ -599,23 +599,23 @@ Questions? Message me! Thanks for looking! 🛹
   <li><strong>Type:</strong> [OG/Reissue]</li>
 </ul>
 
-<h3 style="border-bottom: 2px solid #333; padding-bottom: 5px;">Condition</h3>
-<p>[Brief description]. Please review all photos carefully.</p>
+<h3 style="border-bottom: 2px solid #333; padding-bottom: 5px; text-align: left;">Condition</h3>
+<p style="text-align: left;">[Brief description]. Please review all photos carefully.</p>
 {footer}"""
     
     else:
         return f"""{header}
-<p>[Write 2-3 sentences for vintage skateboard collectors.]</p>
+<p style="text-align: left;">[Write 2-3 sentences for vintage skateboard collectors.]</p>
 
-<h3 style="border-bottom: 2px solid #333; padding-bottom: 5px;">Details</h3>
-<ul style="line-height: 1.8;">
+<h3 style="border-bottom: 2px solid #333; padding-bottom: 5px; text-align: left;">Details</h3>
+<ul style="line-height: 1.8; text-align: left; padding-left: 20px;">
   <li><strong>Brand:</strong> [value]</li>
   <li><strong>Type:</strong> [value]</li>
   <li><strong>Era:</strong> [decade if known]</li>
 </ul>
 
-<h3 style="border-bottom: 2px solid #333; padding-bottom: 5px;">Condition</h3>
-<p>[Brief description]. Please review all photos carefully.</p>
+<h3 style="border-bottom: 2px solid #333; padding-bottom: 5px; text-align: left;">Condition</h3>
+<p style="text-align: left;">[Brief description]. Please review all photos carefully.</p>
 {footer}"""
 
 
