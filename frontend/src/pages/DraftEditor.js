@@ -811,6 +811,11 @@ export default function DraftEditor() {
   const handleRegenerate = async () => {
     setRegenerating(true);
     try {
+      // First save current marketplace selection
+      await api.patch(`/drafts/${id}`, {
+        selected_marketplaces: selectedMarketplaces
+      });
+      
       toast.loading("Generating content...");
       await api.post(`/drafts/${id}/generate`);
       toast.dismiss();
