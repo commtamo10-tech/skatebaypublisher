@@ -513,26 +513,26 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
 # ============ DESCRIPTION TEMPLATES ============
 
 def get_description_template(item_type: str) -> str:
-    """Get description template structure based on item type - Minimal brutalist style matching app design"""
+    """Get description template structure based on item type - Clean minimal style with uniform font"""
     
-    # Super minimal style - black borders, white bg, clean fonts
-    header = """<div style="font-family: 'Courier New', monospace; max-width: 600px; padding: 0; text-align: left; background: #fff;">
+    # Clean minimal style - uniform 15px font, left aligned
+    header = """<div style="font-family: Arial, sans-serif; max-width: 600px; padding: 0; text-align: left; background: #fff;">
 """
 
     footer = """
 <!-- SHIPPING -->
 <div style="border: 2px solid #000; padding: 12px; margin-top: 15px; background: #f9f9f9;">
-<p style="margin: 0; font-size: 12px; font-weight: bold;">SHIPPING</p>
-<p style="margin: 5px 0 0 0; font-size: 12px;">Ships from Milan, Italy<br>Combined shipping available<br>International: duties not included</p>
+<p style="margin: 0; font-size: 15px; font-weight: bold;">SHIPPING</p>
+<p style="margin: 5px 0 0 0; font-size: 15px;">Ships from Milan, Italy<br>Combined shipping available<br>International: duties not included</p>
 </div>
 
-<p style="font-size: 11px; margin-top: 15px;">Questions? Message me! 🛹</p>
+<p style="font-size: 15px; margin-top: 15px;">Questions? Message me!</p>
 </div>
 """
     
     specs_header = """
 <div style="border: 2px solid #000; padding: 12px; margin: 15px 0; background: #fff;">
-<p style="margin: 0 0 10px 0; font-size: 12px; font-weight: bold; border-bottom: 1px solid #000; padding-bottom: 5px;">SPECS</p>
+<p style="margin: 0 0 10px 0; font-size: 15px; font-weight: bold; border-bottom: 1px solid #000; padding-bottom: 5px;">SPECS</p>
 """
     
     specs_footer = """
@@ -541,21 +541,21 @@ def get_description_template(item_type: str) -> str:
     
     condition_box = """
 <div style="border: 2px solid #000; padding: 12px; background: #fff;">
-<p style="margin: 0; font-size: 12px; font-weight: bold;">CONDITION</p>
-<p style="margin: 5px 0 0 0; font-size: 12px;">[Brief description]. Check all photos.</p>
+<p style="margin: 0; font-size: 15px; font-weight: bold;">CONDITION</p>
+<p style="margin: 5px 0 0 0; font-size: 15px;">[Brief description]. Check all photos.</p>
 </div>
 """
     
     if item_type == "APP":
         return f"""{header}
-<p style="font-size: 13px; line-height: 1.5; margin: 0 0 15px 0;">[Write 2-3 sentences for vintage streetwear collectors.]</p>
+<p style="font-size: 15px; line-height: 1.5; margin: 0 0 15px 0;">[Write 2-3 sentences for vintage streetwear collectors.]</p>
 
 {specs_header}
-<p style="margin: 3px 0; font-size: 12px;"><strong>Brand:</strong> [value]</p>
-<p style="margin: 3px 0; font-size: 12px;"><strong>Type:</strong> [T-shirt/Hoodie/etc.]</p>
-<p style="margin: 3px 0; font-size: 12px;"><strong>Size:</strong> [tag size]</p>
-<p style="margin: 3px 0; font-size: 12px;"><strong>Color:</strong> [value]</p>
-<p style="margin: 3px 0; font-size: 12px;"><strong>Era:</strong> [decade]</p>
+<p style="margin: 3px 0; font-size: 15px;"><strong>Brand:</strong> [value]</p>
+<p style="margin: 3px 0; font-size: 15px;"><strong>Type:</strong> [T-shirt/Hoodie/etc.]</p>
+<p style="margin: 3px 0; font-size: 15px;"><strong>Size:</strong> [tag size]</p>
+<p style="margin: 3px 0; font-size: 15px;"><strong>Color:</strong> [value]</p>
+<p style="margin: 3px 0; font-size: 15px;"><strong>Era:</strong> [decade]</p>
 {specs_footer}
 
 {condition_box}
@@ -563,15 +563,15 @@ def get_description_template(item_type: str) -> str:
     
     elif item_type == "WHL":
         return f"""{header}
-<p style="font-size: 13px; line-height: 1.5; margin: 0 0 15px 0;">[Write 2-3 sentences for vintage wheel collectors.]</p>
+<p style="font-size: 15px; line-height: 1.5; margin: 0 0 15px 0;">[Write 2-3 sentences for vintage wheel collectors.]</p>
 
 {specs_header}
-<p style="margin: 3px 0; font-size: 12px;"><strong>Brand:</strong> [value]</p>
-<p style="margin: 3px 0; font-size: 12px;"><strong>Model:</strong> [value]</p>
-<p style="margin: 3px 0; font-size: 12px;"><strong>Size:</strong> [diameter mm]</p>
-<p style="margin: 3px 0; font-size: 12px;"><strong>Durometer:</strong> [hardness A]</p>
-<p style="margin: 3px 0; font-size: 12px;"><strong>Color:</strong> [value]</p>
-<p style="margin: 3px 0; font-size: 12px;"><strong>Qty:</strong> [set of 4/pair/single]</p>
+<p style="margin: 3px 0; font-size: 15px;"><strong>Brand:</strong> [value]</p>
+<p style="margin: 3px 0; font-size: 15px;"><strong>Model:</strong> [value]</p>
+<p style="margin: 3px 0; font-size: 15px;"><strong>Size:</strong> [diameter mm]</p>
+<p style="margin: 3px 0; font-size: 15px;"><strong>Durometer:</strong> [hardness A]</p>
+<p style="margin: 3px 0; font-size: 15px;"><strong>Color:</strong> [value]</p>
+<p style="margin: 3px 0; font-size: 15px;"><strong>Qty:</strong> [set of 4/pair/single]</p>
 {specs_footer}
 
 {condition_box}
@@ -579,14 +579,14 @@ def get_description_template(item_type: str) -> str:
     
     elif item_type == "TRK":
         return f"""{header}
-<p style="font-size: 13px; line-height: 1.5; margin: 0 0 15px 0;">[Write 2-3 sentences for vintage truck collectors.]</p>
+<p style="font-size: 15px; line-height: 1.5; margin: 0 0 15px 0;">[Write 2-3 sentences for vintage truck collectors.]</p>
 
 {specs_header}
-<p style="margin: 3px 0; font-size: 12px;"><strong>Brand:</strong> [value]</p>
-<p style="margin: 3px 0; font-size: 12px;"><strong>Model:</strong> [value]</p>
-<p style="margin: 3px 0; font-size: 12px;"><strong>Hanger:</strong> [width]</p>
-<p style="margin: 3px 0; font-size: 12px;"><strong>Color:</strong> [value]</p>
-<p style="margin: 3px 0; font-size: 12px;"><strong>Qty:</strong> [pair/single]</p>
+<p style="margin: 3px 0; font-size: 15px;"><strong>Brand:</strong> [value]</p>
+<p style="margin: 3px 0; font-size: 15px;"><strong>Model:</strong> [value]</p>
+<p style="margin: 3px 0; font-size: 15px;"><strong>Hanger:</strong> [width]</p>
+<p style="margin: 3px 0; font-size: 15px;"><strong>Color:</strong> [value]</p>
+<p style="margin: 3px 0; font-size: 15px;"><strong>Qty:</strong> [pair/single]</p>
 {specs_footer}
 
 {condition_box}
@@ -594,10 +594,10 @@ def get_description_template(item_type: str) -> str:
     
     elif item_type == "DCK":
         return f"""{header}
-<p style="font-size: 13px; line-height: 1.5; margin: 0 0 15px 0;">[Write 2-3 sentences for vintage deck collectors.]</p>
+<p style="font-size: 15px; line-height: 1.5; margin: 0 0 15px 0;">[Write 2-3 sentences for vintage deck collectors.]</p>
 
 {specs_header}
-<p style="margin: 3px 0; font-size: 12px;"><strong>Brand:</strong> [value]</p>
+<p style="margin: 3px 0; font-size: 15px;"><strong>Brand:</strong> [value]</p>
 <p style="margin: 3px 0; font-size: 12px;"><strong>Model:</strong> [value]</p>
 <p style="margin: 3px 0; font-size: 12px;"><strong>Size:</strong> [width in]</p>
 <p style="margin: 3px 0; font-size: 12px;"><strong>Era:</strong> [decade]</p>
