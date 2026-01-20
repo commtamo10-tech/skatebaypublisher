@@ -2509,6 +2509,7 @@ class BootstrapResult(BaseModel):
 @api_router.post("/settings/ebay/bootstrap-marketplaces")
 async def bootstrap_marketplaces(
     marketplaces: List[str] = None,
+    force_recreate: bool = False,
     user = Depends(get_current_user)
 ):
     """
@@ -2520,9 +2521,11 @@ async def bootstrap_marketplaces(
     4. Creates payment policy
     5. Creates return policy (30 days, seller pays, domestic only)
     6. Saves all IDs to database
+    
+    Set force_recreate=True to create new policies even if existing ones are found.
     """
     logger.info("=" * 60)
-    logger.info("BOOTSTRAP MULTI-MARKETPLACE STARTED")
+    logger.info(f"BOOTSTRAP MULTI-MARKETPLACE STARTED (force_recreate={force_recreate})")
     logger.info("=" * 60)
     
     # Default to all supported marketplaces if none specified
