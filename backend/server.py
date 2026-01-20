@@ -3902,6 +3902,9 @@ async def publish_draft_multi_marketplace(
             # Get the correct Content-Language for this marketplace
             mp_language = mp_config.get("language", "en-US")
             
+            # Get the unique SKU for this marketplace
+            mp_sku = marketplace_skus[marketplace_id]
+            
             # Headers with marketplace ID and correct language for all offer-related calls
             mp_offer_headers = {
                 **base_headers,
@@ -3910,13 +3913,14 @@ async def publish_draft_multi_marketplace(
             }
             
             logger.info(f"Using Content-Language: {mp_language} for {marketplace_id}")
+            logger.info(f"Using SKU: {mp_sku} for {marketplace_id}")
             
             # Check if offer already exists for this SKU+marketplace
             existing_offer_id = None
             get_offers_resp = await http_client.get(
                 f"{api_url}/sell/inventory/v1/offer",
                 headers=mp_offer_headers,
-                params={"sku": sku, "marketplace_id": marketplace_id}
+                params={"sku": mp_sku, "marketplace_id": marketplace_id}
             )
             
             if get_offers_resp.status_code == 200:
