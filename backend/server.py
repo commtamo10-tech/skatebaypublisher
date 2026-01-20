@@ -1328,11 +1328,12 @@ async def delete_draft(draft_id: str, user = Depends(get_current_user)):
     listing_id = draft.get("listing_id")
     offer_id = draft.get("offer_id")
     multi_results = draft.get("multi_marketplace_results", {})
+    marketplace_listings = draft.get("marketplace_listings", {})
     
     ebay_errors = []
     
     # If published on eBay, try to end the listing
-    if listing_id or multi_results:
+    if listing_id or multi_results or marketplace_listings:
         logger.info(f"🗑️ Deleting eBay listing for draft {draft_id}, SKU: {sku}")
         
         try:
@@ -1347,55 +1348,75 @@ async def delete_draft(draft_id: str, user = Depends(get_current_user)):
             }
             
             async with httpx.AsyncClient(timeout=30.0) as http_client:
-                # Withdraw all offers for this SKU
-                # First, get all offers for this SKU
-                offers_resp = await http_client.get(
-                    f"{api_url}/sell/inventory/v1/offer",
-                    headers=headers,
-                    params={"sku": sku}
-                )
+                # Collect all SKUs to delete (base SKU + marketplace-specific SKUs)
+                skus_to_delete = set()
+                if sku:
+                    skus_to_delete.add(sku)
                 
-                if offers_resp.status_code == 200:
-                    offers = offers_resp.json().get("offers", [])
-                    for offer in offers:
-                        offer_id = offer.get("offerId")
-                        listing_status = offer.get("status")
+                # Add marketplace-specific SKUs
+                for mp_id, mp_data in marketplace_listings.items():
+                    mp_sku = mp_data.get("sku")
+                    if mp_sku:
+                        skus_to_delete.add(mp_sku)
+                        logger.info(f"  Found marketplace SKU: {mp_sku} ({mp_id})")
+                
+                logger.info(f"  SKUs to delete: {skus_to_delete}")
+                
+                # Process each SKU
+                for current_sku in skus_to_delete:
+                    logger.info(f"  Processing SKU: {current_sku}")
+                    
+                    # Get all offers for this SKU
+                    offers_resp = await http_client.get(
+                        f"{api_url}/sell/inventory/v1/offer",
+                        headers=headers,
+                        params={"sku": current_sku}
+                    )
+                    
+                    if offers_resp.status_code == 200:
+                        offers = offers_resp.json().get("offers", [])
+                        logger.info(f"    Found {len(offers)} offers for SKU {current_sku}")
                         
-                        if listing_status == "PUBLISHED":
-                            # Withdraw the offer (ends the listing)
-                            logger.info(f"  Withdrawing offer {offer_id}...")
-                            withdraw_resp = await http_client.post(
-                                f"{api_url}/sell/inventory/v1/offer/{offer_id}/withdraw",
+                        for offer in offers:
+                            offer_id = offer.get("offerId")
+                            listing_status = offer.get("status")
+                            marketplace = offer.get("marketplaceId", "?")
+                            
+                            if listing_status == "PUBLISHED":
+                                # Withdraw the offer (ends the listing)
+                                logger.info(f"    Withdrawing offer {offer_id} ({marketplace})...")
+                                withdraw_resp = await http_client.post(
+                                    f"{api_url}/sell/inventory/v1/offer/{offer_id}/withdraw",
+                                    headers=headers
+                                )
+                                if withdraw_resp.status_code in [200, 204]:
+                                    logger.info(f"    ✅ Offer {offer_id} withdrawn successfully")
+                                else:
+                                    error_msg = f"Failed to withdraw offer {offer_id}: {withdraw_resp.text[:200]}"
+                                    logger.warning(f"    ⚠️ {error_msg}")
+                                    ebay_errors.append(error_msg)
+                            
+                            # Delete the offer
+                            logger.info(f"    Deleting offer {offer_id}...")
+                            delete_offer_resp = await http_client.delete(
+                                f"{api_url}/sell/inventory/v1/offer/{offer_id}",
                                 headers=headers
                             )
-                            if withdraw_resp.status_code in [200, 204]:
-                                logger.info(f"  ✅ Offer {offer_id} withdrawn successfully")
+                            if delete_offer_resp.status_code in [200, 204]:
+                                logger.info(f"    ✅ Offer {offer_id} deleted")
                             else:
-                                error_msg = f"Failed to withdraw offer {offer_id}: {withdraw_resp.text[:200]}"
-                                logger.warning(f"  ⚠️ {error_msg}")
-                                ebay_errors.append(error_msg)
-                        
-                        # Delete the offer
-                        logger.info(f"  Deleting offer {offer_id}...")
-                        delete_offer_resp = await http_client.delete(
-                            f"{api_url}/sell/inventory/v1/offer/{offer_id}",
-                            headers=headers
-                        )
-                        if delete_offer_resp.status_code in [200, 204]:
-                            logger.info(f"  ✅ Offer {offer_id} deleted")
-                        else:
-                            logger.warning(f"  ⚠️ Could not delete offer: {delete_offer_resp.status_code}")
-                
-                # Delete the inventory item
-                logger.info(f"  Deleting inventory item {sku}...")
-                delete_inv_resp = await http_client.delete(
-                    f"{api_url}/sell/inventory/v1/inventory_item/{sku}",
-                    headers=headers
-                )
-                if delete_inv_resp.status_code in [200, 204]:
-                    logger.info(f"  ✅ Inventory item {sku} deleted")
-                else:
-                    logger.warning(f"  ⚠️ Could not delete inventory item: {delete_inv_resp.status_code}")
+                                logger.warning(f"    ⚠️ Could not delete offer: {delete_offer_resp.status_code}")
+                    
+                    # Delete the inventory item for this SKU
+                    logger.info(f"  Deleting inventory item {current_sku}...")
+                    delete_inv_resp = await http_client.delete(
+                        f"{api_url}/sell/inventory/v1/inventory_item/{current_sku}",
+                        headers=headers
+                    )
+                    if delete_inv_resp.status_code in [200, 204]:
+                        logger.info(f"  ✅ Inventory item {current_sku} deleted")
+                    else:
+                        logger.warning(f"  ⚠️ Could not delete inventory item: {delete_inv_resp.status_code}")
                     
         except HTTPException as e:
             logger.warning(f"  ⚠️ eBay not connected, skipping eBay deletion: {e.detail}")
