@@ -3931,11 +3931,14 @@ async def publish_draft_multi_marketplace(
             currency = mp_config["currency"]
             country_code = mp_config["country_code"]
             
-            # Get category - prefer draft's custom category, fallback to item_type mapping
-            # ALWAYS get category from mapping based on item_type and marketplace
-            # Don't use draft's category_id as it might be for a different marketplace
+            # Get category using Taxonomy API for this specific marketplace
             item_type = draft.get("item_type", "MISC")
-            category_id = get_category_for_item(item_type, marketplace_id)
+            title = draft.get("title", "skateboard")
+            
+            # Use Taxonomy API to get valid category for this marketplace
+            category_id = await get_valid_category_for_marketplace(
+                http_client, api_url, access_token, marketplace_id, item_type, title
+            )
             
             # Sanitize category_id - extract only numeric part (e.g., "16263 (Decks)" -> "16263")
             if category_id:
@@ -3944,8 +3947,8 @@ async def publish_draft_multi_marketplace(
                 if match:
                     category_id = match.group(1)
                 else:
-                    logger.warning(f"Invalid category_id format: {category_id}, using default")
-                    category_id = get_category_for_item("MISC", marketplace_id)
+                    logger.warning(f"Invalid category_id format: {category_id}, using default 159043")
+                    category_id = "159043"  # Universal fallback
             
             logger.info(f"Using category {category_id} for {marketplace_id} (item_type: {item_type})")
             
