@@ -1699,10 +1699,28 @@ async def republish_draft(draft_id: str, user = Depends(get_current_user)):
                             else:
                                 ebay_aspects[key] = [str(value)]
                     
-                    # Ensure Brand is present (required by eBay US)
+                    # Ensure required item specifics are present for ALL marketplaces
+                    # Brand is required by all marketplaces
                     if "Brand" not in ebay_aspects:
                         brand_value = draft.get("brand") or raw_aspects.get("brand") or "Unbranded"
                         ebay_aspects["Brand"] = [brand_value]
+                    
+                    # MPN is required by AU and some other marketplaces
+                    if "MPN" not in ebay_aspects:
+                        mpn_value = draft.get("mpn") or raw_aspects.get("mpn") or raw_aspects.get("MPN") or "Does Not Apply"
+                        ebay_aspects["MPN"] = [mpn_value]
+                    
+                    # EAN is required by ES and EU marketplaces (use "Does not apply" if not available)
+                    if "EAN" not in ebay_aspects:
+                        ean_value = draft.get("ean") or raw_aspects.get("ean") or raw_aspects.get("EAN") or "Does not apply"
+                        ebay_aspects["EAN"] = [ean_value]
+                    
+                    # UPC for US marketplace
+                    if "UPC" not in ebay_aspects:
+                        upc_value = draft.get("upc") or raw_aspects.get("upc") or raw_aspects.get("UPC") or "Does not apply"
+                        ebay_aspects["UPC"] = [upc_value]
+                    
+                    logger.info(f"    Item specifics for {mp_id}: Brand={ebay_aspects.get('Brand')}, MPN={ebay_aspects.get('MPN')}, EAN={ebay_aspects.get('EAN')}")
                     
                     # Convert image URLs to full URLs
                     backend_url = os.environ.get('REACT_APP_BACKEND_URL', 'https://skatebaypublisher.preview.emergentagent.com')
