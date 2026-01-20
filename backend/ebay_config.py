@@ -31,6 +31,7 @@ MARKETPLACE_CONFIG = {
         "currency": "USD",
         "country_code": "US",
         "language": "en-US",
+        "domain": "ebay.com",
         "price": {"value": 50.00, "currency": "USD"},
         "shipping_rate": SHIPPING_RATES["USA_CANADA"],
         "shipping_standard": {
@@ -51,6 +52,7 @@ MARKETPLACE_CONFIG = {
         "currency": "EUR",
         "country_code": "DE",
         "language": "de-DE",
+        "domain": "ebay.de",
         "price": {"value": 45.00, "currency": "EUR"},
         "shipping_rate": SHIPPING_RATES["EUROPE"],
         "shipping_standard": {
@@ -71,6 +73,7 @@ MARKETPLACE_CONFIG = {
         "currency": "EUR",
         "country_code": "ES",
         "language": "es-ES",
+        "domain": "ebay.es",
         "price": {"value": 45.00, "currency": "EUR"},
         "shipping_rate": SHIPPING_RATES["EUROPE"],
         "shipping_standard": {
