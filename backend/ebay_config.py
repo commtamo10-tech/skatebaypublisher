@@ -111,17 +111,50 @@ MARKETPLACE_CONFIG = {
 DEFAULT_MARKETPLACE_SETTINGS = MARKETPLACE_CONFIG
 
 # Category mapping by item type (eBay leaf category IDs)
-# 117034 = Skateboarding > Parts & Accessories > Wheels
-# 36631 = Skateboarding > Parts & Accessories > Trucks  
-# 16263 = Skateboarding > Decks
-# 36642 = Skateboarding > Clothing & Accessories
-# 16265 = Skateboarding > Other
+# Using more universal categories that work across marketplaces
+# 159043 = Sporting Goods > Skateboarding & Longboarding > Skateboard Parts
+# Note: Some marketplaces may have different category structures
 CATEGORY_BY_ITEM_TYPE = {
-    "WHL": {"EBAY_US": "36632", "EBAY_DE": "36632", "EBAY_ES": "36632", "EBAY_AU": "36632"},
-    "TRK": {"EBAY_US": "36631", "EBAY_DE": "36631", "EBAY_ES": "36631", "EBAY_AU": "36631"},
-    "DCK": {"EBAY_US": "16263", "EBAY_DE": "16263", "EBAY_ES": "16263", "EBAY_AU": "16263"},
-    "APP": {"EBAY_US": "36642", "EBAY_DE": "36642", "EBAY_ES": "36642", "EBAY_AU": "36642"},
-    "MISC": {"EBAY_US": "16265", "EBAY_DE": "16265", "EBAY_ES": "16265", "EBAY_AU": "16265"},
+    "WHL": {
+        "EBAY_US": "36632",   # Skateboard Wheels
+        "EBAY_DE": "74468",   # Sport > Skateboarding > Rollen
+        "EBAY_ES": "74468",   # Deportes > Skateboarding > Ruedas
+        "EBAY_AU": "36632",   # Skateboard Wheels
+        "EBAY_IT": "74468",   # Sport > Skateboard > Ruote
+        "EBAY_UK": "36632",   # Skateboard Wheels
+    },
+    "TRK": {
+        "EBAY_US": "36631",   # Skateboard Trucks
+        "EBAY_DE": "74467",   # Sport > Skateboarding > Achsen
+        "EBAY_ES": "74467",   # Deportes > Skateboarding > Ejes
+        "EBAY_AU": "36631",   # Skateboard Trucks
+        "EBAY_IT": "74467",   # Sport > Skateboard > Trucks
+        "EBAY_UK": "36631",   # Skateboard Trucks
+    },
+    "DCK": {
+        "EBAY_US": "16263",   # Skateboard Decks
+        "EBAY_DE": "36628",   # Sport > Skateboarding > Decks
+        "EBAY_ES": "36628",   # Deportes > Skateboarding > Tablas
+        "EBAY_AU": "16263",   # Skateboard Decks
+        "EBAY_IT": "36628",   # Sport > Skateboard > Tavole
+        "EBAY_UK": "16263",   # Skateboard Decks
+    },
+    "APP": {
+        "EBAY_US": "36642",   # Skateboard Clothing
+        "EBAY_DE": "159043",  # Sporting Goods > Other
+        "EBAY_ES": "159043",  # Sporting Goods > Other
+        "EBAY_AU": "36642",   # Skateboard Clothing
+        "EBAY_IT": "159043",  # Sporting Goods > Other
+        "EBAY_UK": "36642",   # Skateboard Clothing
+    },
+    "MISC": {
+        "EBAY_US": "159043",  # Sporting Goods > Other
+        "EBAY_DE": "159043",  # Sporting Goods > Other
+        "EBAY_ES": "159043",  # Sporting Goods > Other
+        "EBAY_AU": "159043",  # Sporting Goods > Other
+        "EBAY_IT": "159043",  # Sporting Goods > Other
+        "EBAY_UK": "159043",  # Sporting Goods > Other
+    },
 }
 
 
