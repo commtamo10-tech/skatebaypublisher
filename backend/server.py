@@ -1743,10 +1743,17 @@ async def republish_draft(draft_id: str, user = Depends(get_current_user)):
                         
                         # Step 2: Re-publish the offer to apply changes to the live listing
                         if mp_offer_id:
-                            logger.info(f"    Re-publishing offer {mp_offer_id}...")
+                            # CRITICAL: Use both X-EBAY-C-MARKETPLACE-ID and Content-Language
+                            # Content-Language is REQUIRED for EU/AU marketplaces (de-DE, es-ES, en-AU)
+                            publish_headers = {
+                                **headers, 
+                                "X-EBAY-C-MARKETPLACE-ID": mp_id,
+                                "Content-Language": content_lang  # This was missing! Required for non-US marketplaces
+                            }
+                            logger.info(f"    Re-publishing offer {mp_offer_id} with Content-Language: {content_lang}...")
                             publish_resp = await http_client.post(
                                 f"{api_url}/sell/inventory/v1/offer/{mp_offer_id}/publish",
-                                headers={**headers, "X-EBAY-C-MARKETPLACE-ID": mp_id}
+                                headers=publish_headers
                             )
                             if publish_resp.status_code in [200, 201]:
                                 logger.info(f"    ✅ Offer re-published for {mp_id}")
