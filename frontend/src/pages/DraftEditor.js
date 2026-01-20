@@ -996,7 +996,7 @@ export default function DraftEditor() {
               
               <div className="space-y-2">
                 <Label className="text-xs font-bold uppercase tracking-widest">Condition</Label>
-                <Select value={condition} onValueChange={setCondition} disabled={isPublished}>
+                <Select value={condition} onValueChange={setCondition}>
                   <SelectTrigger className="border-2 border-border" data-testid="condition-select">
                     <SelectValue />
                   </SelectTrigger>
