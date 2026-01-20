@@ -94,6 +94,7 @@ MARKETPLACE_CONFIG = {
         "currency": "AUD",
         "country_code": "AU",
         "language": "en-AU",
+        "domain": "ebay.com.au",
         "price": {"value": 80.00, "currency": "AUD"},
         "shipping_rate": SHIPPING_RATES["REST_OF_WORLD"],
         "shipping_standard": {
@@ -109,6 +110,11 @@ MARKETPLACE_CONFIG = {
         "merchant_location_key": None
     },
 }
+
+def get_marketplace_domain(marketplace_id: str) -> str:
+    """Get the correct eBay domain for a marketplace"""
+    config = MARKETPLACE_CONFIG.get(marketplace_id, {})
+    return config.get("domain", "ebay.com")
 
 # Alias for backward compatibility
 DEFAULT_MARKETPLACE_SETTINGS = MARKETPLACE_CONFIG
