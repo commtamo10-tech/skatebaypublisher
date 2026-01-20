@@ -3638,11 +3638,30 @@ async def publish_draft_multi_marketplace(
         else:
             image_urls.append(f"{FRONTEND_URL}/api/uploads/{url}")
     
-    # Build aspects
+    # Build aspects - ensure Brand is always present (required by eBay)
     aspects = {}
     for k, v in (draft.get("aspects") or {}).items():
         if v and str(v).strip():
             aspects[k] = [str(v)]
+    
+    # Ensure Brand is present (required by most eBay categories)
+    if "Brand" not in aspects:
+        # Try to get from draft fields
+        brand_value = draft.get("brand") or "Unbranded"
+        aspects["Brand"] = [brand_value]
+        logger.info(f"Added missing Brand aspect: {brand_value}")
+    
+    # Ensure Type is present for skateboard items
+    if "Type" not in aspects:
+        item_type = draft.get("item_type", "MISC")
+        type_mapping = {
+            "WHL": "Skateboard Wheels",
+            "TRK": "Skateboard Trucks", 
+            "DCK": "Skateboard Deck",
+            "APP": "Skateboard Apparel",
+            "MISC": "Skateboard Accessory"
+        }
+        aspects["Type"] = [type_mapping.get(item_type, "Skateboard Accessory")]
     
     sku = draft["sku"]
     results = {"sku": sku, "marketplaces": {}}
