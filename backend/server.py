@@ -35,6 +35,9 @@ from ebay_config import (
     get_marketplace_domain
 )
 
+# Import exchange rates module
+from exchange_rates import get_shipping_rates_for_marketplace, fetch_bce_rates
+
 # HTML Sanitization config for eBay descriptions
 # Allow div with inline styles for 90s sticker label design
 ALLOWED_TAGS = ['p', 'br', 'ul', 'ol', 'li', 'strong', 'em', 'b', 'i', 'h2', 'h3', 'h4', 'blockquote', 'hr', 'div', 'span']
