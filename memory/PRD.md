@@ -8,7 +8,39 @@ L'obiettivo si è evoluto in un'applicazione multi-marketplace (US, DE, ES, AU),
 
 ## What's Been Implemented (January 2025)
 
-### ✅ LATEST - Fulfillment Policy Clone & Update Strategy (Jan 20, 2025)
+### ✅ LATEST - Republish Fix: Content-Language Header (Jan 20, 2025)
+
+#### Problema Risolto
+La funzione "Ripubblica" aggiornava solo l'annuncio su `ebay.com`, mentre gli altri marketplace (DE, ES, AU) non venivano aggiornati nonostante i log indicassero successo.
+
+#### Causa Root
+Due bug nella funzione `republish_draft`:
+1. **Header Content-Language mancante**: La chiamata `publishOffer` non includeva l'header `Content-Language`, necessario per i marketplace EU/AU.
+2. **Chiave config errata**: Il codice usava `mp_config.get("content_language", ...)` ma `MARKETPLACE_CONFIG` usa la chiave `language`.
+
+#### Fix Applicato
+```python
+# Riga 1688 - Corretta chiave config
+content_lang = mp_config.get("language", "en-US")  # era 'content_language'
+
+# Righe 1748-1752 - Aggiunto Content-Language a publish_headers
+publish_headers = {
+    **headers, 
+    "X-EBAY-C-MARKETPLACE-ID": mp_id,
+    "Content-Language": content_lang  # NUOVO - richiesto per EU/AU
+}
+```
+
+#### File Modificati
+- `/app/backend/server.py` - Funzione `republish_draft` (righe 1648-1790)
+
+#### Test Eseguiti
+- Test file: `/app/tests/test_republish_headers.py`
+- Report: `/app/test_reports/iteration_7.json`
+
+---
+
+### ✅ Fulfillment Policy Clone & Update Strategy (Jan 20, 2025)
 
 #### Problema Risolto
 Il bootstrap delle fulfillment policy falliva con errori come "DOMESTIC_SHIPPING_REQUIRED" e "Please select a valid postage service" perché la creazione di policy da zero era troppo complessa.
