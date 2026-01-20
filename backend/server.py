@@ -1741,29 +1741,64 @@ async def republish_draft(draft_id: str, user = Depends(get_current_user)):
                     if inv_resp.status_code in [200, 201, 204]:
                         logger.info(f"    ✅ Inventory updated for {mp_id}")
                         
-                        # Step 2: Re-publish the offer to apply changes to the live listing
+                        # Step 2: Use updateOffer (PUT) to update the live listing
+                        # IMPORTANT: publishOffer (POST) CANNOT update existing listings!
+                        # Per eBay API docs, updateOffer is required to revise active listings.
                         if mp_offer_id:
-                            # CRITICAL: Use both X-EBAY-C-MARKETPLACE-ID and Content-Language
-                            # Content-Language is REQUIRED for EU/AU marketplaces (de-DE, es-ES, en-AU)
-                            publish_headers = {
+                            update_headers = {
                                 **headers, 
                                 "X-EBAY-C-MARKETPLACE-ID": mp_id,
-                                "Content-Language": content_lang  # This was missing! Required for non-US marketplaces
+                                "Content-Language": content_lang
                             }
-                            logger.info(f"    Re-publishing offer {mp_offer_id} with Content-Language: {content_lang}...")
-                            publish_resp = await http_client.post(
-                                f"{api_url}/sell/inventory/v1/offer/{mp_offer_id}/publish",
-                                headers=publish_headers
+                            
+                            # First get current offer to preserve required fields
+                            logger.info(f"    Getting current offer {mp_offer_id}...")
+                            get_offer_resp = await http_client.get(
+                                f"{api_url}/sell/inventory/v1/offer/{mp_offer_id}",
+                                headers=update_headers
                             )
-                            if publish_resp.status_code in [200, 201]:
-                                logger.info(f"    ✅ Offer re-published for {mp_id}")
-                                results[mp_id] = {"success": True, "message": "Updated and re-published"}
+                            
+                            if get_offer_resp.status_code == 200:
+                                current_offer = get_offer_resp.json()
+                                logger.info(f"    Current offer retrieved for {mp_id}")
+                                
+                                # Update only the listingDescription (title comes from inventory item)
+                                # Preserve all other required fields from current offer
+                                update_payload = {
+                                    "sku": current_offer.get("sku"),
+                                    "marketplaceId": current_offer.get("marketplaceId"),
+                                    "format": current_offer.get("format", "FIXED_PRICE"),
+                                    "pricingSummary": current_offer.get("pricingSummary"),
+                                    "availableQuantity": current_offer.get("availableQuantity", 1),
+                                    "categoryId": current_offer.get("categoryId"),
+                                    "countryCode": mp_config.get("country_code", "US"),
+                                    "merchantLocationKey": current_offer.get("merchantLocationKey"),
+                                    "listingPolicies": current_offer.get("listingPolicies"),
+                                    "listingDescription": draft.get("description", "")  # Update description!
+                                }
+                                
+                                logger.info(f"    Updating offer {mp_offer_id} with PUT (updateOffer)...")
+                                logger.info(f"    Content-Language: {content_lang}")
+                                
+                                update_resp = await http_client.put(
+                                    f"{api_url}/sell/inventory/v1/offer/{mp_offer_id}",
+                                    headers=update_headers,
+                                    json=update_payload
+                                )
+                                
+                                if update_resp.status_code in [200, 204]:
+                                    logger.info(f"    ✅ Offer updated for {mp_id} (listing revised)")
+                                    results[mp_id] = {"success": True, "message": "Updated and listing revised"}
+                                else:
+                                    error_text = update_resp.text[:500]
+                                    logger.warning(f"    ⚠️ updateOffer failed for {mp_id}: {update_resp.status_code} - {error_text}")
+                                    # Inventory was still updated, so partial success
+                                    results[mp_id] = {"success": True, "message": f"Inventory updated, offer update failed: {error_text[:100]}"}
                             else:
-                                # Try without re-publish - inventory is still updated
-                                logger.warning(f"    ⚠️ Offer re-publish returned {publish_resp.status_code}, but inventory was updated")
-                                results[mp_id] = {"success": True, "message": "Inventory updated (offer already published)"}
+                                logger.warning(f"    ⚠️ Could not get offer {mp_offer_id}: {get_offer_resp.status_code}")
+                                results[mp_id] = {"success": True, "message": "Inventory updated (could not update offer)"}
                         else:
-                            results[mp_id] = {"success": True, "message": "Updated"}
+                            results[mp_id] = {"success": True, "message": "Inventory updated (no offer_id)"}
                     else:
                         error_text = inv_resp.text[:300]
                         logger.warning(f"    ⚠️ Inventory update failed for {mp_id}: {error_text}")
