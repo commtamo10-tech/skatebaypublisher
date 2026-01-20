@@ -2684,14 +2684,17 @@ async def bootstrap_marketplaces(
                 
                 result.shipping_service_code = shipping_service_code
                 
-                # ========== STEP 3: Create Fulfillment Policy ==========
-                logger.info(f"Step 3: Creating fulfillment policy for {marketplace_id}...")
+                # ========== STEP 3: Create Fulfillment Policy with WORLDWIDE shipping ==========
+                logger.info(f"Step 3: Creating fulfillment policy for {marketplace_id} with worldwide shipping...")
                 
-                shipping_cost = mp_config["shipping_standard"]["cost"]["value"]
+                # Shipping rates (from Italy):
+                # - €10 Europe (including UK, Switzerland)
+                # - $25/€23 USA & Canada
+                # - $45/€42 Rest of World
                 
                 fulfillment_payload = {
-                    "name": f"International Shipping to {country_code} - {environment}",
-                    "description": f"Ships from Italy to {mp_config['name']}",
+                    "name": f"Worldwide Shipping from Italy - {marketplace_id} - {environment}",
+                    "description": f"Ships from Milan, Italy to {mp_config['name']} and worldwide. Europe €10, USA/Canada $25, Rest of World $45",
                     "marketplaceId": marketplace_id,
                     "categoryTypes": [{"name": "ALL_EXCLUDING_MOTORS_VEHICLES"}],
                     "handlingTime": {
@@ -2700,7 +2703,7 @@ async def bootstrap_marketplaces(
                     },
                     "shippingOptions": [
                         {
-                            "optionType": "DOMESTIC" if country_code == "IT" else "INTERNATIONAL",
+                            "optionType": "INTERNATIONAL",
                             "costType": "FLAT_RATE",
                             "shippingServices": [
                                 {
@@ -2708,17 +2711,59 @@ async def bootstrap_marketplaces(
                                     "shippingCarrierCode": "Other",
                                     "shippingServiceCode": shipping_service_code,
                                     "shippingCost": {
-                                        "value": str(shipping_cost),
-                                        "currency": currency
+                                        "value": "10.00",
+                                        "currency": "EUR"
                                     },
                                     "additionalShippingCost": {
-                                        "value": "0",
-                                        "currency": currency
+                                        "value": "5.00",
+                                        "currency": "EUR"
+                                    },
+                                    "freeShipping": False,
+                                    "shipToLocations": {
+                                        "regionIncluded": [
+                                            {"regionName": "Europe"}
+                                        ]
+                                    }
+                                },
+                                {
+                                    "sortOrder": 2,
+                                    "shippingCarrierCode": "Other",
+                                    "shippingServiceCode": shipping_service_code,
+                                    "shippingCost": {
+                                        "value": "25.00",
+                                        "currency": "USD"
+                                    },
+                                    "additionalShippingCost": {
+                                        "value": "10.00",
+                                        "currency": "USD"
+                                    },
+                                    "freeShipping": False,
+                                    "shipToLocations": {
+                                        "regionIncluded": [
+                                            {"regionName": "Americas"}
+                                        ]
+                                    }
+                                },
+                                {
+                                    "sortOrder": 3,
+                                    "shippingCarrierCode": "Other",
+                                    "shippingServiceCode": shipping_service_code,
+                                    "shippingCost": {
+                                        "value": "45.00",
+                                        "currency": "USD"
+                                    },
+                                    "additionalShippingCost": {
+                                        "value": "15.00",
+                                        "currency": "USD"
                                     },
                                     "freeShipping": False,
                                     "shipToLocations": {
                                         "regionIncluded": [
                                             {"regionName": "Worldwide"}
+                                        ],
+                                        "regionExcluded": [
+                                            {"regionName": "Europe"},
+                                            {"regionName": "Americas"}
                                         ]
                                     }
                                 }
