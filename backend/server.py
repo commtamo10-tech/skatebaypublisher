@@ -2687,14 +2687,14 @@ async def bootstrap_marketplaces(
                 # ========== STEP 3: Create Fulfillment Policy with WORLDWIDE shipping ==========
                 logger.info(f"Step 3: Creating fulfillment policy for {marketplace_id} with worldwide shipping...")
                 
-                # Shipping rates (from Italy):
+                # Shipping rates (from Italy) - FLAT RATE, same price for multiple items:
                 # - €10 Europe (including UK, Switzerland)
-                # - $25/€23 USA & Canada
-                # - $45/€42 Rest of World
+                # - $25 USA & Canada
+                # - $45 Rest of World
                 
                 fulfillment_payload = {
-                    "name": f"Worldwide Shipping from Italy - {marketplace_id} - {environment}",
-                    "description": f"Ships from Milan, Italy to {mp_config['name']} and worldwide. Europe €10, USA/Canada $25, Rest of World $45",
+                    "name": f"Worldwide Flat Shipping - {marketplace_id} - {environment}",
+                    "description": f"Ships from Milan, Italy. Europe €10, USA/Canada $25, Rest of World $45. Same price for combined orders.",
                     "marketplaceId": marketplace_id,
                     "categoryTypes": [{"name": "ALL_EXCLUDING_MOTORS_VEHICLES"}],
                     "handlingTime": {
@@ -2715,7 +2715,7 @@ async def bootstrap_marketplaces(
                                         "currency": "EUR"
                                     },
                                     "additionalShippingCost": {
-                                        "value": "5.00",
+                                        "value": "0.00",
                                         "currency": "EUR"
                                     },
                                     "freeShipping": False,
@@ -2734,7 +2734,7 @@ async def bootstrap_marketplaces(
                                         "currency": "USD"
                                     },
                                     "additionalShippingCost": {
-                                        "value": "10.00",
+                                        "value": "0.00",
                                         "currency": "USD"
                                     },
                                     "freeShipping": False,
@@ -2753,7 +2753,7 @@ async def bootstrap_marketplaces(
                                         "currency": "USD"
                                     },
                                     "additionalShippingCost": {
-                                        "value": "15.00",
+                                        "value": "0.00",
                                         "currency": "USD"
                                     },
                                     "freeShipping": False,
