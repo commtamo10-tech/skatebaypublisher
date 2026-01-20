@@ -1705,7 +1705,7 @@ async def republish_draft(draft_id: str, user = Depends(get_current_user)):
                         ebay_aspects["Brand"] = [brand_value]
                     
                     # Convert image URLs to full URLs
-                    backend_url = os.environ.get('REACT_APP_BACKEND_URL', 'https://skate-publisher.preview.emergentagent.com')
+                    backend_url = os.environ.get('REACT_APP_BACKEND_URL', 'https://skatebaypublisher.preview.emergentagent.com')
                     image_urls = []
                     for url in draft.get("image_urls", []):
                         if url.startswith("http"):
