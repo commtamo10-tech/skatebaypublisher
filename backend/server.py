@@ -4093,15 +4093,15 @@ async def publish_draft_multi_marketplace(
                 "imageUrls": image_urls
             }
             
-            # Add product identifiers (some categories require these)
+            # Add product identifiers (ALWAYS include them - eBay requires presence even if "Does not apply")
             upc_value = draft.get("upc") or aspects.get("UPC", ["Does not apply"])[0]
             ean_value = draft.get("ean") or aspects.get("EAN", ["Does not apply"])[0]
             
-            # Only add identifiers if they're not "Does not apply"
-            if upc_value and upc_value != "Does not apply":
-                product_payload["upc"] = [upc_value]
-            if ean_value and ean_value != "Does not apply":
-                product_payload["ean"] = [ean_value]
+            # Add as arrays (eBay API format)
+            product_payload["upc"] = [upc_value]
+            product_payload["ean"] = [ean_value]
+            
+            logger.info(f"  Product identifiers: UPC={upc_value}, EAN={ean_value}")
             
             inventory_payload = {
                 "product": product_payload,
