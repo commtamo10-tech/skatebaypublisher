@@ -1683,12 +1683,23 @@ async def republish_draft(draft_id: str, user = Depends(get_current_user)):
                 content_lang = mp_config.get("content_language", "en-US")
                 
                 try:
+                    # Convert aspects to eBay format (values must be arrays)
+                    raw_aspects = draft.get("aspects", {})
+                    ebay_aspects = {}
+                    for key, value in raw_aspects.items():
+                        if value and value != "Unknown":
+                            # eBay expects array of strings for each aspect
+                            if isinstance(value, list):
+                                ebay_aspects[key] = value
+                            else:
+                                ebay_aspects[key] = [str(value)]
+                    
                     # Step 1: Update inventory item with new title/description
                     inventory_payload = {
                         "product": {
                             "title": draft.get("title", ""),
                             "description": draft.get("description", ""),
-                            "aspects": draft.get("aspects", {}),
+                            "aspects": ebay_aspects,
                             "imageUrls": draft.get("image_urls", [])
                         },
                         "condition": draft.get("condition", "USED_EXCELLENT"),
