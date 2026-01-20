@@ -3686,77 +3686,59 @@ async def publish_draft_multi_marketplace(
             "Content-Type": "application/json"
         }
         
-        # Step 1: Create/Update Inventory Item for EACH marketplace
-        # eBay requires:
-        # 1. X-EBAY-C-MARKETPLACE-ID header for target marketplace
-        # 2. Content-Language header matching the marketplace language
-        # 3. Localized aspect names (e.g., "Marke" for German instead of "Brand")
-        # The inventory item must be created WITH the marketplace header to be "available" for offers
-        logger.info(f"Step 1: Creating inventory item for SKU {sku} on EACH marketplace")
+        # Step 1: Create/Update Inventory Item ONCE with all language variants of aspects
+        # eBay uses the same SKU across all marketplaces, so we create ONE inventory item
+        # with aspects in BOTH English and localized versions
+        logger.info(f"Step 1: Creating inventory item for SKU {sku}")
         
-        # Aspect name localization mapping
-        ASPECT_LOCALIZATION = {
-            "EBAY_DE": {
-                "Brand": "Marke",
-                "Type": "Typ",
-            },
-            "EBAY_ES": {
-                "Brand": "Marca",
-                "Type": "Tipo",
-            },
-            # US, AU, UK use English
-        }
+        # Create aspects with both English and localized names for maximum compatibility
+        all_aspects = dict(aspects)  # Start with English aspects
         
-        def localize_aspects(base_aspects: dict, marketplace_id: str) -> dict:
-            """Localize aspect names for a specific marketplace"""
-            localization = ASPECT_LOCALIZATION.get(marketplace_id, {})
-            localized = {}
-            for key, value in base_aspects.items():
-                # Try to localize the key, otherwise use original
-                localized_key = localization.get(key, key)
-                localized[localized_key] = value
-            return localized
-        
-        # Create inventory item for EACH marketplace with correct headers and localized aspects
-        for marketplace_id in request.marketplaces:
-            mp_config_for_inv = get_marketplace_config(marketplace_id, settings)
-            mp_language = mp_config_for_inv.get("language", "en-US") if mp_config_for_inv else "en-US"
+        # Add German localized aspects
+        if aspects.get("Brand"):
+            all_aspects["Marke"] = aspects["Brand"]
+        if aspects.get("Type"):
+            all_aspects["Typ"] = aspects["Type"]
             
-            # Localize aspects for this marketplace
-            localized_aspects = localize_aspects(aspects, marketplace_id)
-            logger.info(f"  Aspects for {marketplace_id}: {localized_aspects}")
-            
-            inventory_payload = {
-                "product": {
-                    "title": draft["title"],
-                    "description": draft.get("description", ""),
-                    "aspects": localized_aspects,
-                    "imageUrls": image_urls
-                },
-                "condition": draft.get("condition", "USED_GOOD"),
-                "availability": {
-                    "shipToLocationAvailability": {
-                        "quantity": 1
-                    }
+        # Add Spanish localized aspects  
+        if aspects.get("Brand"):
+            all_aspects["Marca"] = aspects["Brand"]
+        if aspects.get("Type"):
+            all_aspects["Tipo"] = aspects["Type"]
+        
+        logger.info(f"  All aspects (multi-language): {all_aspects}")
+        
+        inventory_payload = {
+            "product": {
+                "title": draft["title"],
+                "description": draft.get("description", ""),
+                "aspects": all_aspects,
+                "imageUrls": image_urls
+            },
+            "condition": draft.get("condition", "USED_GOOD"),
+            "availability": {
+                "shipToLocationAvailability": {
+                    "quantity": 1
                 }
             }
-            
-            inv_headers = {
-                **base_headers,
-                "X-EBAY-C-MARKETPLACE-ID": marketplace_id,
-                "Content-Language": mp_language
-            }
-            
-            logger.info(f"  Creating inventory item for {marketplace_id} (Content-Language: {mp_language})...")
-            inv_response = await http_client.put(
-                f"{api_url}/sell/inventory/v1/inventory_item/{sku}",
-                headers=inv_headers,
-                json=inventory_payload
-            )
-            
-            logger.info(f"  createOrReplaceInventoryItem ({marketplace_id}): status={inv_response.status_code}")
-            if inv_response.status_code not in [200, 204]:
-                logger.warning(f"  Inventory creation for {marketplace_id} failed: {inv_response.text[:300]}")
+        }
+        
+        # Create inventory item once with English headers (primary)
+        inv_headers = {
+            **base_headers,
+            "Content-Language": "en-US"
+        }
+        
+        logger.info(f"  Creating inventory item (Content-Language: en-US)...")
+        inv_response = await http_client.put(
+            f"{api_url}/sell/inventory/v1/inventory_item/{sku}",
+            headers=inv_headers,
+            json=inventory_payload
+        )
+        
+        logger.info(f"  createOrReplaceInventoryItem: status={inv_response.status_code}")
+        if inv_response.status_code not in [200, 204]:
+            logger.warning(f"  Inventory creation failed: {inv_response.text[:300]}")
         
         logger.info(f"Inventory item {sku} created/updated for all marketplaces")
         
