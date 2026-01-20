@@ -1860,13 +1860,17 @@ async def get_category_suggestions(
     Get category suggestions for a specific marketplace using eBay Taxonomy API.
     Returns list of suggested categories with IDs and names.
     """
-    settings = await db.settings.find_one({}, {"_id": 0})
+    settings = await db.settings.find_one({"_id": "app_settings"}, {"_id": 0})
     if not settings or not settings.get("ebay_connected"):
         raise HTTPException(status_code=400, detail="eBay not connected")
     
     environment = await get_ebay_environment()
     config = get_ebay_config(environment)
-    access_token = settings.get("ebay_access_token")
+    
+    try:
+        access_token = await get_ebay_access_token()
+    except HTTPException as e:
+        raise HTTPException(status_code=400, detail=f"eBay authentication error: {e.detail}")
     
     if not access_token:
         raise HTTPException(status_code=400, detail="No eBay access token")
