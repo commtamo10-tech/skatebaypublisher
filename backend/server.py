@@ -1775,7 +1775,7 @@ async def republish_draft(draft_id: str, user = Depends(get_current_user)):
                             "title": draft.get("title", ""),
                             "description": draft.get("description", ""),
                             "aspects": draft.get("aspects", {}),
-                            "imageUrls": [get_full_image_url(url) for url in draft.get("image_urls", [])]
+                            "imageUrls": draft.get("image_urls", [])
                         },
                         "condition": draft.get("condition", "USED_EXCELLENT"),
                         "availability": {
