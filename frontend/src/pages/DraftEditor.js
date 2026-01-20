@@ -602,6 +602,8 @@ export default function DraftEditor() {
   const [showMarketplaceSelector, setShowMarketplaceSelector] = useState(false);
   const [publishResults, setPublishResults] = useState(null);
   const [marketplaceData, setMarketplaceData] = useState([]);
+  const [categoryByMarketplace, setCategoryByMarketplace] = useState({});
+  const [loadingCategories, setLoadingCategories] = useState(false);
 
   // Fetch marketplace configuration on mount
   useEffect(() => {
@@ -622,6 +624,29 @@ export default function DraftEditor() {
     };
     fetchMarketplaces();
   }, []);
+
+  // Load category_by_marketplace from draft when draft changes
+  useEffect(() => {
+    if (draft?.category_by_marketplace) {
+      setCategoryByMarketplace(draft.category_by_marketplace);
+    }
+  }, [draft?.category_by_marketplace]);
+
+  // Function to auto-suggest categories for all marketplaces
+  const handleAutoCategories = async () => {
+    setLoadingCategories(true);
+    try {
+      const response = await api.post(`/drafts/${id}/auto-categories`);
+      const categories = response.data.category_by_marketplace || {};
+      setCategoryByMarketplace(categories);
+      toast.success("Categories suggested for all marketplaces!");
+      await fetchDraft();
+    } catch (error) {
+      toast.error("Failed to get category suggestions: " + (error.response?.data?.detail || error.message));
+    } finally {
+      setLoadingCategories(false);
+    }
+  };
 
   // Fallback static list (used when API unavailable)
   const MARKETPLACES = marketplaceData.length > 0 ? marketplaceData : [
