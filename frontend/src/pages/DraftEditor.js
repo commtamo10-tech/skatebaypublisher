@@ -944,6 +944,13 @@ export default function DraftEditor() {
                 data-testid="publish-btn">
                 <Send className="w-4 h-4 mr-2" />{publishing ? "Publishing..." : "Publish"}
               </Button>
+              {isPublished && (
+                <Button size="sm" onClick={handleRepublish} disabled={publishing}
+                  className="bg-orange-500 text-white border-2 border-border shadow-hard-sm hover:translate-y-[1px] hover:shadow-none transition-all uppercase font-bold text-xs tracking-wider"
+                  data-testid="republish-btn">
+                  <RefreshCw className="w-4 h-4 mr-2" />{publishing ? "Updating..." : "Ripubblica"}
+                </Button>
+              )}
             </div>
           </div>
         </div>
