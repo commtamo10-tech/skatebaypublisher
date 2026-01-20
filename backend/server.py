@@ -2750,6 +2750,9 @@ async def bootstrap_marketplaces(
                 if our_policy_id:
                     template_policy_id = our_policy_id
                     logger.info(f"    ✅ Using policy '{OUR_POLICY_NAME}' (ID: {our_policy_id})")
+                    # Don't update rates for user's custom policy - use as-is
+                    result.fulfillment_policy_id = our_policy_id
+                    logger.info(f"    Policy '{OUR_POLICY_NAME}' will be used as-is (rates configured by user)")
                 else:
                     # Fallback: look for any policy with INTERNATIONAL shipping
                     intl_policy = None
