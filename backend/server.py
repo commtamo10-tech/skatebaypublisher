@@ -1697,13 +1697,24 @@ async def republish_draft(draft_id: str, user = Depends(get_current_user)):
                             else:
                                 ebay_aspects[key] = [str(value)]
                     
+                    # Convert image URLs to full URLs
+                    backend_url = os.environ.get('REACT_APP_BACKEND_URL', 'https://skate-publisher.preview.emergentagent.com')
+                    image_urls = []
+                    for url in draft.get("image_urls", []):
+                        if url.startswith("http"):
+                            image_urls.append(url)
+                        elif url.startswith("/"):
+                            image_urls.append(f"{backend_url}{url}")
+                        else:
+                            image_urls.append(f"{backend_url}/api/uploads/{url}")
+                    
                     # Step 1: Update inventory item with new title/description
                     inventory_payload = {
                         "product": {
                             "title": draft.get("title", ""),
                             "description": draft.get("description", ""),
                             "aspects": ebay_aspects,
-                            "imageUrls": draft.get("image_urls", [])
+                            "imageUrls": image_urls
                         },
                         "condition": draft.get("condition", "USED_EXCELLENT"),
                         "availability": {
