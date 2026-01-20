@@ -3651,6 +3651,12 @@ async def publish_draft_multi_marketplace(
         aspects["Brand"] = [brand_value]
         logger.info(f"Added missing Brand aspect: {brand_value}")
     
+    # Ensure MPN is present (required by some marketplaces like AU)
+    if "MPN" not in aspects:
+        mpn_value = draft.get("mpn") or "Does not apply"
+        aspects["MPN"] = [mpn_value]
+        logger.info(f"Added missing MPN aspect: {mpn_value}")
+    
     # Ensure Type is present for skateboard items
     if "Type" not in aspects:
         item_type = draft.get("item_type", "MISC")
