@@ -418,32 +418,51 @@ export default function Settings() {
               <Globe className="w-5 h-5 inline mr-2" />
               Multi-Marketplace
             </h2>
-            <Button
-              onClick={handleBootstrapMarketplaces}
-              disabled={bootstrapping || !settings.ebay_connected}
-              className="bg-gradient-to-r from-blue-600 to-purple-600 text-white border-2 border-blue-700 shadow-hard hover:translate-y-[2px] hover:shadow-hard-sm transition-all uppercase font-bold tracking-wider text-sm"
-              data-testid="bootstrap-marketplaces-btn"
-            >
-              {bootstrapping ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Bootstrapping...
-                </>
-              ) : (
-                <>
-                  <Zap className="w-4 h-4 mr-2" />
-                  Bootstrap Marketplaces
-                </>
-              )}
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                onClick={() => handleBootstrapMarketplaces(false)}
+                disabled={bootstrapping || !settings.ebay_connected}
+                className="bg-gradient-to-r from-blue-600 to-purple-600 text-white border-2 border-blue-700 shadow-hard hover:translate-y-[2px] hover:shadow-hard-sm transition-all uppercase font-bold tracking-wider text-sm"
+                data-testid="bootstrap-marketplaces-btn"
+              >
+                {bootstrapping ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Working...
+                  </>
+                ) : (
+                  <>
+                    <Zap className="w-4 h-4 mr-2" />
+                    Bootstrap
+                  </>
+                )}
+              </Button>
+              <Button
+                onClick={() => handleBootstrapMarketplaces(true)}
+                disabled={bootstrapping || !settings.ebay_connected}
+                variant="outline"
+                className="border-2 border-amber-500 text-amber-700 hover:bg-amber-50 shadow-hard hover:translate-y-[2px] hover:shadow-hard-sm transition-all uppercase font-bold tracking-wider text-sm"
+                data-testid="regenerate-shipping-btn"
+              >
+                {bootstrapping ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Working...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    New Shipping Policies
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
           
           <p className="text-muted-foreground font-mono text-sm mb-4">
-            Auto-configure policies and locations for all supported marketplaces (US, DE, ES, AU).
+            <strong>Bootstrap:</strong> Auto-configure policies for all marketplaces (US, DE, ES, AU). Uses existing policies if found.
             <br />
-            <span className="text-xs">
-              Creates: inventory location, fulfillment policy, payment policy, return policy (30 days, seller pays, domestic only).
-            </span>
+            <strong>New Shipping Policies:</strong> Create new shipping policies with worldwide rates (€10 Europe, $25 USA/Canada, $45 Rest of World).
           </p>
           
           {/* Bootstrap Results */}
