@@ -1664,6 +1664,106 @@ async def sync_draft_marketplaces(draft_id: str, user = Depends(get_current_user
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@api_router.post("/drafts/{draft_id}/republish")
+async def republish_draft(draft_id: str, user = Depends(get_current_user)):
+    """Republish a published draft after modifications (updates existing listings on all marketplaces)"""
+    
+    draft = await db.drafts.find_one({"id": draft_id}, {"_id": 0})
+    if not draft:
+        raise HTTPException(status_code=404, detail="Draft not found")
+    
+    if draft.get("status") != "PUBLISHED":
+        raise HTTPException(status_code=400, detail="Draft is not published. Use publish-multi instead.")
+    
+    marketplace_listings = draft.get("marketplace_listings", {})
+    if not marketplace_listings:
+        raise HTTPException(status_code=400, detail="No marketplace listings found. Use sync-marketplaces first.")
+    
+    sku = draft.get("sku")
+    logger.info(f"🔄 Republishing draft {draft_id}, SKU: {sku}")
+    logger.info(f"  Marketplaces to update: {list(marketplace_listings.keys())}")
+    
+    try:
+        access_token = await get_ebay_access_token()
+        environment = await get_ebay_environment()
+        config = get_ebay_config(environment)
+        api_url = config["api_url"]
+        
+        headers = {
+            "Authorization": f"Bearer {access_token}",
+            "Content-Type": "application/json",
+            "Content-Language": "en-US"
+        }
+        
+        results = {}
+        
+        async with httpx.AsyncClient(timeout=60.0) as http_client:
+            for mp_id, mp_data in marketplace_listings.items():
+                mp_sku = mp_data.get("sku")
+                mp_offer_id = mp_data.get("offer_id")
+                
+                logger.info(f"  Updating {mp_id}: SKU={mp_sku}, offer_id={mp_offer_id}")
+                
+                mp_config = MARKETPLACE_CONFIG.get(mp_id, {})
+                content_lang = mp_config.get("content_language", "en-US")
+                
+                try:
+                    # Step 1: Update inventory item with new title/description
+                    inventory_payload = {
+                        "product": {
+                            "title": draft.get("title", ""),
+                            "description": draft.get("description", ""),
+                            "aspects": draft.get("aspects", {}),
+                            "imageUrls": [get_full_image_url(url) for url in draft.get("image_urls", [])]
+                        },
+                        "condition": draft.get("condition", "USED_EXCELLENT"),
+                        "availability": {
+                            "shipToLocationAvailability": {
+                                "quantity": 1
+                            }
+                        }
+                    }
+                    
+                    inv_headers = {**headers, "Content-Language": content_lang}
+                    inv_resp = await http_client.put(
+                        f"{api_url}/sell/inventory/v1/inventory_item/{mp_sku}",
+                        headers=inv_headers,
+                        json=inventory_payload
+                    )
+                    
+                    if inv_resp.status_code in [200, 201, 204]:
+                        logger.info(f"    ✅ Inventory updated for {mp_id}")
+                        results[mp_id] = {"success": True, "message": "Updated"}
+                    else:
+                        error_text = inv_resp.text[:300]
+                        logger.warning(f"    ⚠️ Inventory update failed for {mp_id}: {error_text}")
+                        results[mp_id] = {"success": False, "error": error_text}
+                        
+                except Exception as e:
+                    logger.error(f"    ❌ Error updating {mp_id}: {str(e)}")
+                    results[mp_id] = {"success": False, "error": str(e)}
+        
+        # Update draft timestamp
+        await db.drafts.update_one(
+            {"id": draft_id},
+            {"$set": {"updated_at": datetime.now(timezone.utc).isoformat()}}
+        )
+        
+        successful = sum(1 for r in results.values() if r.get("success"))
+        logger.info(f"✅ Republish complete: {successful}/{len(results)} marketplaces updated")
+        
+        return {
+            "message": f"Republished to {successful}/{len(results)} marketplaces",
+            "results": results
+        }
+        
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        logger.error(f"Error republishing: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @api_router.post("/drafts/{draft_id}/generate")
 async def generate_draft_content(draft_id: str, user = Depends(get_current_user)):
     """Generate title, description, aspects using LLM"""
