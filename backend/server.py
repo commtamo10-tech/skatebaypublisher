@@ -2695,6 +2695,18 @@ async def bootstrap_marketplaces(
                 # - $25 USA & Canada
                 # - $45 Rest of World
                 
+                # Domestic shipping service codes by marketplace
+                DOMESTIC_SHIPPING_SERVICES = {
+                    "EBAY_US": "USPSPriority",
+                    "EBAY_DE": "DE_DeutschePostBrief",
+                    "EBAY_ES": "ES_CorreosDeEspanaPaqueteAzul",
+                    "EBAY_AU": "AU_Regular",
+                    "EBAY_IT": "IT_Pacco",
+                    "EBAY_UK": "UK_RoyalMailSecondClassStandard"
+                }
+                
+                domestic_service = DOMESTIC_SHIPPING_SERVICES.get(marketplace_id, "Other")
+                
                 fulfillment_payload = {
                     "name": f"Worldwide Flat Shipping - {marketplace_id} - {environment}",
                     "description": f"Ships from Milan, Italy. Europe €10, USA/Canada $25, Rest of World $45. Same price for combined orders.",
@@ -2705,6 +2717,31 @@ async def bootstrap_marketplaces(
                         "unit": "DAY"
                     },
                     "shippingOptions": [
+                        {
+                            "optionType": "DOMESTIC",
+                            "costType": "FLAT_RATE",
+                            "shippingServices": [
+                                {
+                                    "sortOrder": 1,
+                                    "shippingCarrierCode": "Other",
+                                    "shippingServiceCode": domestic_service,
+                                    "shippingCost": {
+                                        "value": "10.00",
+                                        "currency": currency
+                                    },
+                                    "additionalShippingCost": {
+                                        "value": "0.00",
+                                        "currency": currency
+                                    },
+                                    "freeShipping": False,
+                                    "shipToLocations": {
+                                        "regionIncluded": [
+                                            {"regionName": "Nationwide"}
+                                        ]
+                                    }
+                                }
+                            ]
+                        },
                         {
                             "optionType": "INTERNATIONAL",
                             "costType": "FLAT_RATE",
