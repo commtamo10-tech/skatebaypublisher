@@ -1061,7 +1061,7 @@ export default function DraftEditor() {
                   </div>
                 </div>
               </div>
-              <Input value={title} onChange={handleTitleChange} disabled={isPublished}
+              <Input value={title} onChange={handleTitleChange}
                 className={`border-2 font-mono ${titleLength > 80 ? 'border-destructive bg-red-50' : titleLength >= 70 ? 'border-green-500' : 'border-border'}`}
                 placeholder="eBay listing title (max 80 chars)" data-testid="edit-title-input" />
               {titleLength > 80 && (
