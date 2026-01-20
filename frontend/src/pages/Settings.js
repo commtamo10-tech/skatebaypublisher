@@ -33,6 +33,25 @@ export default function Settings() {
   
   const [policies, setPolicies] = useState(null);
 
+  // Function to change eBay environment and save to backend
+  const changeEnvironment = async (newEnv) => {
+    try {
+      // Update local state immediately for UI feedback
+      setSettings({...settings, ebay_environment: newEnv, ebay_connected: false});
+      
+      // Save to backend
+      await api.patch("/settings", { ebay_environment: newEnv });
+      toast.success(`Switched to ${newEnv === "production" ? "Production" : "Sandbox"} environment`);
+      
+      // Refetch settings to get updated connection status
+      fetchSettings();
+    } catch (error) {
+      toast.error("Failed to change environment");
+      // Revert local state on error
+      fetchSettings();
+    }
+  };
+
   useEffect(() => {
     // Handle OAuth success
     if (searchParams.get("ebay_connected") === "true") {
