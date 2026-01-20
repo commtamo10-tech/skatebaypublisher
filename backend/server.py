@@ -1007,6 +1007,17 @@ async def get_ebay_access_token() -> str:
     new_data = response.json()
     await db.ebay_tokens.update_one(
         {"_id": token_collection_id},
+        {
+            "$set": {
+                "access_token": new_data["access_token"],
+                "refresh_token": new_data.get("refresh_token", tokens["refresh_token"]),
+                "token_expiry": (datetime.now(timezone.utc) + timedelta(seconds=new_data["expires_in"])).isoformat(),
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            }
+        }
+    )
+    
+    return new_data["access_token"]
 
 
 async def get_ebay_app_token() -> str:
@@ -1059,17 +1070,6 @@ async def get_ebay_app_token() -> str:
     )
     
     return token_data["access_token"]
-        {
-            "$set": {
-                "access_token": new_data["access_token"],
-                "refresh_token": new_data.get("refresh_token", tokens["refresh_token"]),
-                "token_expiry": (datetime.now(timezone.utc) + timedelta(seconds=new_data["expires_in"])).isoformat(),
-                "updated_at": datetime.now(timezone.utc).isoformat()
-            }
-        }
-    )
-    
-    return new_data["access_token"]
 
 
 async def get_ebay_api_url() -> str:
