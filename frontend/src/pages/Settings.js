@@ -290,7 +290,7 @@ export default function Settings() {
           
           <div className="flex items-center gap-4">
             <button
-              onClick={() => setSettings({...settings, ebay_environment: "sandbox", ebay_connected: false})}
+              onClick={() => changeEnvironment("sandbox")}
               className={`px-6 py-3 font-bold uppercase tracking-wider text-sm border-2 transition-all ${
                 settings.ebay_environment === "sandbox"
                   ? "bg-amber-500 text-white border-amber-600 shadow-hard"
@@ -301,7 +301,7 @@ export default function Settings() {
               🧪 Sandbox
             </button>
             <button
-              onClick={() => setSettings({...settings, ebay_environment: "production", ebay_connected: false})}
+              onClick={() => changeEnvironment("production")}
               className={`px-6 py-3 font-bold uppercase tracking-wider text-sm border-2 transition-all ${
                 settings.ebay_environment === "production"
                   ? "bg-green-600 text-white border-green-700 shadow-hard"
