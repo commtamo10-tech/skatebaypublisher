@@ -1171,17 +1171,16 @@ export default function DraftEditor() {
               </div>
               
               {/* Add custom aspect */}
-              {!isPublished && (
-                <div className="flex gap-2 pt-2 border-t-2 border-border">
-                  <Input value={newAspectKey} onChange={(e) => setNewAspectKey(e.target.value)}
-                    placeholder="Custom field..." className="w-36 border-2 border-border font-mono text-sm" data-testid="new-aspect-key" />
-                  <Input value={newAspectValue} onChange={(e) => setNewAspectValue(e.target.value)}
-                    placeholder="Value" className="flex-1 border-2 border-border font-mono text-sm" data-testid="new-aspect-value" />
-                  <Button variant="outline" size="sm" onClick={addAspect} disabled={!newAspectKey || !newAspectValue}
-                    className="border-2 border-border shadow-hard-sm" data-testid="add-aspect-btn">
-                    <Plus className="w-4 h-4" />
-                  </Button>
-                </div>
+              <div className="flex gap-2 pt-2 border-t-2 border-border">
+                <Input value={newAspectKey} onChange={(e) => setNewAspectKey(e.target.value)}
+                  placeholder="Custom field..." className="w-36 border-2 border-border font-mono text-sm" data-testid="new-aspect-key" />
+                <Input value={newAspectValue} onChange={(e) => setNewAspectValue(e.target.value)}
+                  placeholder="Value" className="flex-1 border-2 border-border font-mono text-sm" data-testid="new-aspect-value" />
+                <Button variant="outline" size="sm" onClick={addAspect} disabled={!newAspectKey || !newAspectValue}
+                  className="border-2 border-border shadow-hard-sm" data-testid="add-aspect-btn">
+                  <Plus className="w-4 h-4" />
+                </Button>
+              </div>
               )}
               
               <p className="text-xs text-muted-foreground mt-3 font-mono">
