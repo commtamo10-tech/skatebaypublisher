@@ -1912,11 +1912,11 @@ async def get_category_suggestions(
     Get category suggestions for a specific marketplace using eBay Taxonomy API.
     Returns list of suggested categories with IDs and names.
     """
-    # Get valid access token (this checks token validity)
+    # Get Application Access Token for Taxonomy API (uses client_credentials)
     try:
-        access_token = await get_ebay_access_token()
+        access_token = await get_ebay_app_token()
     except HTTPException as e:
-        raise HTTPException(status_code=400, detail=f"eBay not connected: {e.detail}")
+        raise HTTPException(status_code=400, detail=f"eBay authentication error: {e.detail}")
     
     environment = await get_ebay_environment()
     config = get_ebay_config(environment)
