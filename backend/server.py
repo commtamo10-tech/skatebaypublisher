@@ -4833,6 +4833,7 @@ async def publish_draft_multi_marketplace(
             }
     
     update_data["marketplace_listings"] = marketplace_listings
+    logger.info(f"Saving marketplace_listings: {marketplace_listings}")
     
     await db.drafts.update_one({"id": draft_id}, {"$set": update_data})
     
