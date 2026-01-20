@@ -1443,7 +1443,129 @@ async def delete_draft(draft_id: str, user = Depends(get_current_user)):
     return response
 
 
-# ============ LLM GENERATION ============
+@api_router.delete("/drafts/{draft_id}/marketplace/{marketplace_id}")
+async def delete_draft_marketplace(draft_id: str, marketplace_id: str, user = Depends(get_current_user)):
+    """Delete a single marketplace listing from eBay without deleting the draft"""
+    
+    # Get draft first
+    draft = await db.drafts.find_one({"id": draft_id}, {"_id": 0})
+    if not draft:
+        raise HTTPException(status_code=404, detail="Draft not found")
+    
+    marketplace_listings = draft.get("marketplace_listings", {})
+    multi_results = draft.get("multi_marketplace_results", {})
+    
+    if marketplace_id not in marketplace_listings:
+        raise HTTPException(status_code=404, detail=f"Marketplace {marketplace_id} not found in this draft")
+    
+    mp_data = marketplace_listings[marketplace_id]
+    mp_sku = mp_data.get("sku")
+    mp_offer_id = mp_data.get("offer_id")
+    
+    logger.info(f"🗑️ Deleting single marketplace listing: {marketplace_id} for draft {draft_id}, SKU: {mp_sku}")
+    
+    ebay_errors = []
+    
+    try:
+        access_token = await get_ebay_access_token()
+        environment = await get_ebay_environment()
+        config = get_ebay_config(environment)
+        api_url = config["api_url"]
+        
+        headers = {
+            "Authorization": f"Bearer {access_token}",
+            "Content-Type": "application/json"
+        }
+        
+        async with httpx.AsyncClient(timeout=30.0) as http_client:
+            # Get all offers for this SKU
+            offers_resp = await http_client.get(
+                f"{api_url}/sell/inventory/v1/offer",
+                headers=headers,
+                params={"sku": mp_sku}
+            )
+            
+            if offers_resp.status_code == 200:
+                offers = offers_resp.json().get("offers", [])
+                logger.info(f"  Found {len(offers)} offers for SKU {mp_sku}")
+                
+                for offer in offers:
+                    offer_id = offer.get("offerId")
+                    listing_status = offer.get("status")
+                    
+                    if listing_status == "PUBLISHED":
+                        # Withdraw the offer
+                        logger.info(f"  Withdrawing offer {offer_id}...")
+                        withdraw_resp = await http_client.post(
+                            f"{api_url}/sell/inventory/v1/offer/{offer_id}/withdraw",
+                            headers=headers
+                        )
+                        if withdraw_resp.status_code in [200, 204]:
+                            logger.info(f"  ✅ Offer {offer_id} withdrawn successfully")
+                        else:
+                            error_msg = f"Failed to withdraw offer {offer_id}: {withdraw_resp.text[:200]}"
+                            logger.warning(f"  ⚠️ {error_msg}")
+                            ebay_errors.append(error_msg)
+                    
+                    # Delete the offer
+                    logger.info(f"  Deleting offer {offer_id}...")
+                    delete_offer_resp = await http_client.delete(
+                        f"{api_url}/sell/inventory/v1/offer/{offer_id}",
+                        headers=headers
+                    )
+                    if delete_offer_resp.status_code in [200, 204]:
+                        logger.info(f"  ✅ Offer {offer_id} deleted")
+                    else:
+                        logger.warning(f"  ⚠️ Could not delete offer: {delete_offer_resp.status_code}")
+            
+            # Delete the inventory item for this marketplace SKU
+            logger.info(f"  Deleting inventory item {mp_sku}...")
+            delete_inv_resp = await http_client.delete(
+                f"{api_url}/sell/inventory/v1/inventory_item/{mp_sku}",
+                headers=headers
+            )
+            if delete_inv_resp.status_code in [200, 204]:
+                logger.info(f"  ✅ Inventory item {mp_sku} deleted")
+            else:
+                logger.warning(f"  ⚠️ Could not delete inventory item: {delete_inv_resp.status_code}")
+                
+    except HTTPException as e:
+        logger.warning(f"  ⚠️ eBay not connected: {e.detail}")
+        ebay_errors.append(f"eBay not connected: {e.detail}")
+    except Exception as e:
+        logger.error(f"  ❌ Error deleting from eBay: {str(e)}")
+        ebay_errors.append(str(e))
+    
+    # Update draft to remove this marketplace from listings
+    del marketplace_listings[marketplace_id]
+    if marketplace_id in multi_results:
+        del multi_results[marketplace_id]
+    
+    # Update draft status if no more listings
+    update_data = {
+        "marketplace_listings": marketplace_listings,
+        "multi_marketplace_results": multi_results,
+        "updated_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    if not marketplace_listings:
+        # No more marketplaces - set status back to DRAFT
+        update_data["status"] = "DRAFT"
+        update_data["listing_id"] = None
+        update_data["offer_id"] = None
+    
+    await db.drafts.update_one({"id": draft_id}, {"$set": update_data})
+    
+    response = {
+        "message": f"Listing removed from {marketplace_id}",
+        "remaining_marketplaces": list(marketplace_listings.keys()),
+        "ebay_deleted": len(ebay_errors) == 0
+    }
+    if ebay_errors:
+        response["ebay_errors"] = ebay_errors
+    
+    logger.info(f"✅ Marketplace {marketplace_id} deleted from draft {draft_id}. Remaining: {list(marketplace_listings.keys())}")
+    return response
 
 @api_router.post("/drafts/{draft_id}/generate")
 async def generate_draft_content(draft_id: str, user = Depends(get_current_user)):
