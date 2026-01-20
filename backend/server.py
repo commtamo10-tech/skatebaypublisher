@@ -510,104 +510,196 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
 # ============ DESCRIPTION TEMPLATES ============
 
 def get_description_template(item_type: str) -> str:
-    """Get description template structure based on item type"""
+    """Get description template structure based on item type - 90s Skateboard Style"""
+    
+    # 90s Skateboard style header with inline CSS
+    style_header = """
+<div style="font-family: Arial, Helvetica, sans-serif; max-width: 800px; margin: 0 auto;">
+
+<!-- 90s STYLE HEADER BANNER -->
+<div style="background: linear-gradient(135deg, #FF6B00 0%, #FFD700 50%, #00CED1 100%); padding: 15px; text-align: center; border: 4px solid #000; margin-bottom: 20px;">
+  <span style="font-size: 28px; font-weight: bold; color: #000; text-shadow: 2px 2px 0 #fff; letter-spacing: 2px;">★ VINTAGE SKATEBOARD SHOP ★</span>
+</div>
+"""
+
+    style_footer = """
+<!-- SHIPPING INFO BOX -->
+<div style="background: #1a1a1a; color: #00FF00; padding: 15px; border: 3px solid #00FF00; margin-top: 20px; font-family: 'Courier New', monospace;">
+  <p style="margin: 5px 0;">📦 Ships from Milan, Italy</p>
+  <p style="margin: 5px 0;">🌍 Combined shipping available—message before purchase!</p>
+  <p style="margin: 5px 0;">⚠️ International buyers: import duties/taxes not included</p>
+</div>
+
+<!-- CONTACT -->
+<div style="text-align: center; margin-top: 15px; padding: 10px; background: #FFD700; border: 3px solid #000;">
+  <span style="font-size: 16px; font-weight: bold;">Questions? Message me! Thanks for looking! 🛹</span>
+</div>
+
+</div>
+"""
     
     if item_type == "APP":
-        return """
-(A) COLLECTOR INTRO (2-3 sentences):
-Write for vintage streetwear/skateboard collectors. Mention it's a vintage/old school piece if era is known.
-Invite buyers to check photos and tag/label carefully.
+        return f"""
+{style_header}
 
-(B) QUICK SUMMARY:
-<p><strong>Summary:</strong> [Paraphrase of title - clean, professional]</p>
+(A) COLLECTOR INTRO - Write 2-3 sentences for vintage streetwear collectors. Use excitement, mention the era/brand heritage.
 
-<p><strong>Key Details:</strong></p>
-<ul>
-  [Only include fields that are known - OMIT any unknown fields entirely]
-  <li><strong>Brand:</strong> [value]</li>
-  <li><strong>Item Type:</strong> [T-shirt/Hoodie/Jacket/Pants/Cap/etc.]</li>
-  <li><strong>Department:</strong> [Men/Women/Unisex]</li>
-  <li><strong>Size:</strong> [tag size]</li>
-  <li><strong>Measurements:</strong> [Chest, Length, Shoulder, Sleeve if known]</li>
-  <li><strong>Color:</strong> [value]</li>
-  <li><strong>Material:</strong> [fabric composition if known]</li>
-  <li><strong>Style/Fit:</strong> [Regular/Oversized/Slim if known]</li>
-  <li><strong>Country:</strong> [if known]</li>
-</ul>
+<!-- ITEM TITLE BOX -->
+<div style="background: #000; color: #FFD700; padding: 12px; border-left: 5px solid #FF6B00; margin: 15px 0;">
+  <span style="font-size: 20px; font-weight: bold;">[ITEM TITLE/SUMMARY]</span>
+</div>
 
-(C) CONDITION NOTES:
-<p><strong>Condition:</strong> [Brief honest description]. Please review all photos carefully as they are part of the description.</p>
-[If defects exist, list them. Otherwise omit defects section]
+<!-- DETAILS SECTION -->
+<div style="background: #f5f5f5; padding: 15px; border: 2px solid #333; margin: 15px 0;">
+  <p style="font-size: 18px; font-weight: bold; color: #FF6B00; margin-bottom: 10px; border-bottom: 2px solid #FF6B00; padding-bottom: 5px;">📋 DETAILS</p>
+  <table style="width: 100%; border-collapse: collapse;">
+    [Only include rows for fields that are KNOWN - omit unknown fields]
+    <tr><td style="padding: 5px; font-weight: bold; width: 40%;">Brand:</td><td style="padding: 5px;">[value]</td></tr>
+    <tr style="background: #eee;"><td style="padding: 5px; font-weight: bold;">Type:</td><td style="padding: 5px;">[T-shirt/Hoodie/etc.]</td></tr>
+    <tr><td style="padding: 5px; font-weight: bold;">Size:</td><td style="padding: 5px;">[tag size]</td></tr>
+    <tr style="background: #eee;"><td style="padding: 5px; font-weight: bold;">Measurements:</td><td style="padding: 5px;">[if known]</td></tr>
+    <tr><td style="padding: 5px; font-weight: bold;">Color:</td><td style="padding: 5px;">[value]</td></tr>
+    <tr style="background: #eee;"><td style="padding: 5px; font-weight: bold;">Material:</td><td style="padding: 5px;">[if known]</td></tr>
+  </table>
+</div>
 
-(D) CLOSING + SHIPPING (MANDATORY - include exactly):
+<!-- CONDITION BOX -->
+<div style="background: #fff3cd; padding: 12px; border: 2px solid #856404; margin: 15px 0;">
+  <p style="font-weight: bold; color: #856404; margin: 0;">⚡ CONDITION: [Brief description]</p>
+  <p style="margin: 5px 0 0 0; font-size: 14px;">Please review all photos carefully—they are part of the description.</p>
+</div>
+
+{style_footer}
 """
     
     elif item_type == "WHL":
-        return """
-(A) COLLECTOR INTRO (2-3 sentences):
-Write for vintage skateboard wheel collectors. Mention era/brand heritage if known.
+        return f"""
+{style_header}
 
-(B) QUICK SUMMARY:
-<p><strong>Summary:</strong> [Paraphrase of title]</p>
+(A) COLLECTOR INTRO - Write 2-3 sentences for vintage wheel collectors. Mention brand heritage, era significance.
 
-<p><strong>Key Details:</strong></p>
-<ul>
-  [Only include fields that are known]
-  <li><strong>Brand:</strong> [value]</li>
-  <li><strong>Model:</strong> [value]</li>
-  <li><strong>Size:</strong> [diameter in mm]</li>
-  <li><strong>Durometer:</strong> [hardness rating]</li>
-  <li><strong>Color:</strong> [value]</li>
-  <li><strong>Era:</strong> [decade if known]</li>
-  <li><strong>Quantity:</strong> [set of 4, pair, single]</li>
-</ul>
+<!-- ITEM TITLE BOX -->
+<div style="background: #000; color: #00CED1; padding: 12px; border-left: 5px solid #FF6B00; margin: 15px 0;">
+  <span style="font-size: 20px; font-weight: bold;">🛞 [ITEM TITLE/SUMMARY]</span>
+</div>
 
-(C) CONDITION NOTES:
-<p><strong>Condition:</strong> [Brief description]. Please review all photos carefully as they are part of the description.</p>
+<!-- DETAILS SECTION -->
+<div style="background: #f5f5f5; padding: 15px; border: 2px solid #333; margin: 15px 0;">
+  <p style="font-size: 18px; font-weight: bold; color: #FF6B00; margin-bottom: 10px; border-bottom: 2px solid #FF6B00; padding-bottom: 5px;">📋 WHEEL SPECS</p>
+  <table style="width: 100%; border-collapse: collapse;">
+    [Only include rows for fields that are KNOWN]
+    <tr><td style="padding: 8px; font-weight: bold; width: 40%; background: #FFD700;">Brand:</td><td style="padding: 8px; background: #fff;">[value]</td></tr>
+    <tr><td style="padding: 8px; font-weight: bold; background: #eee;">Model:</td><td style="padding: 8px;">[value]</td></tr>
+    <tr><td style="padding: 8px; font-weight: bold; background: #FFD700;">Size:</td><td style="padding: 8px; background: #fff;">[diameter mm]</td></tr>
+    <tr><td style="padding: 8px; font-weight: bold; background: #eee;">Durometer:</td><td style="padding: 8px;">[hardness A]</td></tr>
+    <tr><td style="padding: 8px; font-weight: bold; background: #FFD700;">Color:</td><td style="padding: 8px; background: #fff;">[value]</td></tr>
+    <tr><td style="padding: 8px; font-weight: bold; background: #eee;">Era:</td><td style="padding: 8px;">[decade]</td></tr>
+    <tr><td style="padding: 8px; font-weight: bold; background: #FFD700;">Quantity:</td><td style="padding: 8px; background: #fff;">[set of 4/pair/single]</td></tr>
+  </table>
+</div>
 
-(D) CLOSING + SHIPPING (MANDATORY)
+<!-- CONDITION BOX -->
+<div style="background: #d4edda; padding: 12px; border: 2px solid #28a745; margin: 15px 0;">
+  <p style="font-weight: bold; color: #155724; margin: 0;">⚡ CONDITION: [Brief description]</p>
+  <p style="margin: 5px 0 0 0; font-size: 14px;">Please review all photos carefully—they are part of the description.</p>
+</div>
+
+{style_footer}
 """
     
     elif item_type == "TRK":
-        return """
-(A) COLLECTOR INTRO (2-3 sentences):
-Write for vintage skateboard truck collectors.
+        return f"""
+{style_header}
 
-(B) QUICK SUMMARY:
-<p><strong>Summary:</strong> [Paraphrase of title]</p>
+(A) COLLECTOR INTRO - Write 2-3 sentences for vintage truck collectors.
 
-<p><strong>Key Details:</strong></p>
-<ul>
-  [Only include fields that are known]
-  <li><strong>Brand:</strong> [value]</li>
-  <li><strong>Model:</strong> [value]</li>
-  <li><strong>Size:</strong> [hanger width if known]</li>
-  <li><strong>Era:</strong> [decade if known]</li>
-  <li><strong>Color:</strong> [value]</li>
-  <li><strong>Quantity:</strong> [pair or single]</li>
-</ul>
+<!-- ITEM TITLE BOX -->
+<div style="background: #000; color: #FF6B00; padding: 12px; border-left: 5px solid #00CED1; margin: 15px 0;">
+  <span style="font-size: 20px; font-weight: bold;">🔧 [ITEM TITLE/SUMMARY]</span>
+</div>
 
-(C) CONDITION NOTES:
-<p><strong>Condition:</strong> [Brief description]. Please review all photos carefully as they are part of the description.</p>
+<!-- DETAILS SECTION -->
+<div style="background: #f5f5f5; padding: 15px; border: 2px solid #333; margin: 15px 0;">
+  <p style="font-size: 18px; font-weight: bold; color: #FF6B00; margin-bottom: 10px; border-bottom: 2px solid #FF6B00; padding-bottom: 5px;">📋 TRUCK SPECS</p>
+  <table style="width: 100%; border-collapse: collapse;">
+    [Only include rows for fields that are KNOWN]
+    <tr><td style="padding: 8px; font-weight: bold; width: 40%; background: #00CED1;">Brand:</td><td style="padding: 8px; background: #fff;">[value]</td></tr>
+    <tr><td style="padding: 8px; font-weight: bold; background: #eee;">Model:</td><td style="padding: 8px;">[value]</td></tr>
+    <tr><td style="padding: 8px; font-weight: bold; background: #00CED1;">Hanger Width:</td><td style="padding: 8px; background: #fff;">[size]</td></tr>
+    <tr><td style="padding: 8px; font-weight: bold; background: #eee;">Era:</td><td style="padding: 8px;">[decade]</td></tr>
+    <tr><td style="padding: 8px; font-weight: bold; background: #00CED1;">Color:</td><td style="padding: 8px; background: #fff;">[value]</td></tr>
+    <tr><td style="padding: 8px; font-weight: bold; background: #eee;">Quantity:</td><td style="padding: 8px;">[pair/single]</td></tr>
+  </table>
+</div>
 
-(D) CLOSING + SHIPPING (MANDATORY)
+<!-- CONDITION BOX -->
+<div style="background: #cce5ff; padding: 12px; border: 2px solid #004085; margin: 15px 0;">
+  <p style="font-weight: bold; color: #004085; margin: 0;">⚡ CONDITION: [Brief description]</p>
+  <p style="margin: 5px 0 0 0; font-size: 14px;">Please review all photos carefully—they are part of the description.</p>
+</div>
+
+{style_footer}
 """
     
     elif item_type == "DCK":
-        return """
-(A) COLLECTOR INTRO (2-3 sentences):
-Write for vintage skateboard deck collectors.
+        return f"""
+{style_header}
 
-(B) QUICK SUMMARY:
-<p><strong>Summary:</strong> [Paraphrase of title]</p>
+(A) COLLECTOR INTRO - Write 2-3 sentences for vintage deck collectors. Mention artist, brand history, rarity.
 
-<p><strong>Key Details:</strong></p>
-<ul>
-  [Only include fields that are known]
-  <li><strong>Brand:</strong> [value]</li>
-  <li><strong>Model/Series:</strong> [value]</li>
-  <li><strong>Size:</strong> [width in inches]</li>
-  <li><strong>Era:</strong> [decade if known]</li>
+<!-- ITEM TITLE BOX -->
+<div style="background: #000; color: #FF1493; padding: 12px; border-left: 5px solid #FFD700; margin: 15px 0;">
+  <span style="font-size: 20px; font-weight: bold;">🛹 [ITEM TITLE/SUMMARY]</span>
+</div>
+
+<!-- DETAILS SECTION -->
+<div style="background: #f5f5f5; padding: 15px; border: 2px solid #333; margin: 15px 0;">
+  <p style="font-size: 18px; font-weight: bold; color: #FF6B00; margin-bottom: 10px; border-bottom: 2px solid #FF6B00; padding-bottom: 5px;">📋 DECK SPECS</p>
+  <table style="width: 100%; border-collapse: collapse;">
+    [Only include rows for fields that are KNOWN]
+    <tr><td style="padding: 8px; font-weight: bold; width: 40%; background: #FF1493; color: #fff;">Brand:</td><td style="padding: 8px; background: #fff;">[value]</td></tr>
+    <tr><td style="padding: 8px; font-weight: bold; background: #eee;">Model/Series:</td><td style="padding: 8px;">[value]</td></tr>
+    <tr><td style="padding: 8px; font-weight: bold; background: #FF1493; color: #fff;">Size:</td><td style="padding: 8px; background: #fff;">[width inches]</td></tr>
+    <tr><td style="padding: 8px; font-weight: bold; background: #eee;">Era:</td><td style="padding: 8px;">[decade]</td></tr>
+    <tr><td style="padding: 8px; font-weight: bold; background: #FF1493; color: #fff;">Type:</td><td style="padding: 8px; background: #fff;">[OG/Reissue]</td></tr>
+    <tr><td style="padding: 8px; font-weight: bold; background: #eee;">Artist:</td><td style="padding: 8px;">[if known]</td></tr>
+  </table>
+</div>
+
+<!-- CONDITION BOX -->
+<div style="background: #f8d7da; padding: 12px; border: 2px solid #721c24; margin: 15px 0;">
+  <p style="font-weight: bold; color: #721c24; margin: 0;">⚡ CONDITION: [Brief description]</p>
+  <p style="margin: 5px 0 0 0; font-size: 14px;">Please review all photos carefully—they are part of the description.</p>
+</div>
+
+{style_footer}
+"""
+    
+    else:
+        # Default template
+        return f"""
+{style_header}
+
+(A) COLLECTOR INTRO - Write 2-3 sentences for vintage skateboard collectors.
+
+<!-- ITEM TITLE BOX -->
+<div style="background: #000; color: #FFD700; padding: 12px; border-left: 5px solid #FF6B00; margin: 15px 0;">
+  <span style="font-size: 20px; font-weight: bold;">[ITEM TITLE/SUMMARY]</span>
+</div>
+
+<!-- DETAILS SECTION -->
+<div style="background: #f5f5f5; padding: 15px; border: 2px solid #333; margin: 15px 0;">
+  <p style="font-size: 18px; font-weight: bold; color: #FF6B00; margin-bottom: 10px;">📋 DETAILS</p>
+  <p>[List all known details about the item]</p>
+</div>
+
+<!-- CONDITION -->
+<div style="background: #fff3cd; padding: 12px; border: 2px solid #856404; margin: 15px 0;">
+  <p style="font-weight: bold; color: #856404; margin: 0;">⚡ CONDITION: [Description]</p>
+</div>
+
+{style_footer}
+"""
   <li><strong>Artist:</strong> [if known]</li>
   <li><strong>Type:</strong> [OG/Reissue if known]</li>
 </ul>
