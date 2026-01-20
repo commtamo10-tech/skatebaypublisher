@@ -4085,13 +4085,26 @@ async def publish_draft_multi_marketplace(
             logger.info(f"  SKU for {marketplace_id}: {unique_sku}")
             logger.info(f"  Aspects: {localized_aspects}")
             
+            # Build product payload with UPC/EAN as product identifiers
+            product_payload = {
+                "title": draft["title"],
+                "description": draft.get("description", ""),
+                "aspects": localized_aspects,
+                "imageUrls": image_urls
+            }
+            
+            # Add product identifiers (some categories require these)
+            upc_value = draft.get("upc") or aspects.get("UPC", ["Does not apply"])[0]
+            ean_value = draft.get("ean") or aspects.get("EAN", ["Does not apply"])[0]
+            
+            # Only add identifiers if they're not "Does not apply"
+            if upc_value and upc_value != "Does not apply":
+                product_payload["upc"] = [upc_value]
+            if ean_value and ean_value != "Does not apply":
+                product_payload["ean"] = [ean_value]
+            
             inventory_payload = {
-                "product": {
-                    "title": draft["title"],
-                    "description": draft.get("description", ""),
-                    "aspects": localized_aspects,
-                    "imageUrls": image_urls
-                },
+                "product": product_payload,
                 "condition": draft.get("condition", "USED_GOOD"),
                 "availability": {
                     "shipToLocationAvailability": {
