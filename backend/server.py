@@ -4461,12 +4461,16 @@ async def publish_draft_multi_marketplace(
                 publish_data = publish_response.json() if publish_response.text else {}
                 listing_id = publish_data.get("listingId")
                 
+                # Get correct domain for this marketplace
+                mp_domain = get_marketplace_domain(marketplace_id)
+                sandbox_prefix = "sandbox." if use_sandbox else ""
+                
                 result_data = {
                     "success": True,
                     "offer_id": offer_id,
                     "listing_id": listing_id,
                     "price": f"{price} {currency}",
-                    "listing_url": f"https://www.{'sandbox.' if use_sandbox else ''}ebay.com/itm/{listing_id}" if listing_id else None
+                    "listing_url": f"https://www.{sandbox_prefix}{mp_domain}/itm/{listing_id}" if listing_id else None
                 }
                 
                 # Add retry info if there were retries
