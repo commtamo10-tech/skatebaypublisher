@@ -2705,7 +2705,18 @@ async def bootstrap_marketplaces(
                     "EBAY_UK": "UK_RoyalMailSecondClassStandard"
                 }
                 
+                # Country names for domestic shipping by marketplace
+                DOMESTIC_REGIONS = {
+                    "EBAY_US": "US",
+                    "EBAY_DE": "DE",
+                    "EBAY_ES": "ES",
+                    "EBAY_AU": "AU",
+                    "EBAY_IT": "IT",
+                    "EBAY_UK": "GB"
+                }
+                
                 domestic_service = DOMESTIC_SHIPPING_SERVICES.get(marketplace_id, "Other")
+                domestic_region = DOMESTIC_REGIONS.get(marketplace_id, country_code)
                 
                 fulfillment_payload = {
                     "name": f"Worldwide Flat Shipping - {marketplace_id} - {environment}",
@@ -2736,7 +2747,7 @@ async def bootstrap_marketplaces(
                                     "freeShipping": False,
                                     "shipToLocations": {
                                         "regionIncluded": [
-                                            {"regionName": "Nationwide"}
+                                            {"regionName": domestic_region, "regionType": "COUNTRY"}
                                         ]
                                     }
                                 }
