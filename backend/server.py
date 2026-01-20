@@ -109,6 +109,115 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(level
 logger = logging.getLogger(__name__)
 
 
+# ============ TAXONOMY LAYER - Category Validation per Marketplace ============
+
+# Marketplace to Category Tree ID mapping (eBay Taxonomy API)
+MARKETPLACE_CATEGORY_TREE = {
+    "EBAY_US": "0",
+    "EBAY_DE": "77",
+    "EBAY_ES": "186",
+    "EBAY_AU": "15",
+    "EBAY_IT": "101",
+    "EBAY_UK": "3",
+}
+
+# Cache for category suggestions to avoid repeated API calls
+_category_cache = {}
+
+async def get_category_suggestion_for_marketplace(
+    http_client: httpx.AsyncClient,
+    api_url: str,
+    access_token: str,
+    marketplace_id: str,
+    query: str
+) -> Optional[str]:
+    """
+    Get category suggestion from eBay Taxonomy API for a specific marketplace.
+    Uses getCategorySuggestions to find the best category for the item.
+    """
+    cache_key = f"{marketplace_id}:{query}"
+    if cache_key in _category_cache:
+        logger.info(f"  Using cached category for {marketplace_id}: {_category_cache[cache_key]}")
+        return _category_cache[cache_key]
+    
+    category_tree_id = MARKETPLACE_CATEGORY_TREE.get(marketplace_id)
+    if not category_tree_id:
+        logger.warning(f"  No category tree ID for {marketplace_id}")
+        return None
+    
+    headers = {
+        "Authorization": f"Bearer {access_token}",
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+    }
+    
+    # Use Commerce Taxonomy API to get category suggestions
+    taxonomy_url = f"{api_url}/commerce/taxonomy/v1/category_tree/{category_tree_id}/get_category_suggestions"
+    
+    try:
+        logger.info(f"  Fetching category suggestion for '{query}' on {marketplace_id}...")
+        resp = await http_client.get(
+            taxonomy_url,
+            headers=headers,
+            params={"q": query}
+        )
+        
+        if resp.status_code == 200:
+            data = resp.json()
+            suggestions = data.get("categorySuggestions", [])
+            if suggestions:
+                # Get the first (best) suggestion
+                best_category = suggestions[0].get("category", {})
+                category_id = best_category.get("categoryId")
+                category_name = best_category.get("categoryName", "Unknown")
+                logger.info(f"  Found category for {marketplace_id}: {category_id} ({category_name})")
+                _category_cache[cache_key] = category_id
+                return category_id
+        else:
+            logger.warning(f"  Taxonomy API error for {marketplace_id}: {resp.status_code} - {resp.text[:200]}")
+    except Exception as e:
+        logger.error(f"  Error getting category suggestion: {e}")
+    
+    return None
+
+async def get_valid_category_for_marketplace(
+    http_client: httpx.AsyncClient,
+    api_url: str,
+    access_token: str,
+    marketplace_id: str,
+    item_type: str,
+    title: str
+) -> str:
+    """
+    Get a valid category ID for a specific marketplace.
+    First tries to get a suggestion from eBay Taxonomy API,
+    falls back to hardcoded mapping if API fails.
+    """
+    # Build search query based on item type and title
+    type_queries = {
+        "WHL": "skateboard wheels",
+        "TRK": "skateboard trucks",
+        "DCK": "skateboard deck",
+        "APP": "skateboard clothing",
+        "MISC": "skateboard accessories"
+    }
+    query = type_queries.get(item_type, "skateboard")
+    
+    # Try to get category from Taxonomy API
+    suggested_category = await get_category_suggestion_for_marketplace(
+        http_client, api_url, access_token, marketplace_id, query
+    )
+    
+    if suggested_category:
+        return suggested_category
+    
+    # Fallback to hardcoded categories
+    from ebay_config import get_category_for_item
+    fallback = get_category_for_item(item_type, marketplace_id)
+    logger.info(f"  Using fallback category for {marketplace_id}: {fallback}")
+    return fallback
+
+
 # ============ RETRY HELPER WITH EXPONENTIAL BACKOFF ============
 
 async def retry_with_backoff(
