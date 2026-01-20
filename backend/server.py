@@ -2507,6 +2507,7 @@ class BootstrapResult(BaseModel):
     return_policy_id: Optional[str] = None
     shipping_service_code: Optional[str] = None
     error: Optional[str] = None
+    errors: List[str] = []
 
 
 @api_router.post("/settings/ebay/bootstrap-marketplaces")
