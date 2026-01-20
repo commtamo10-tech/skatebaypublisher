@@ -1165,7 +1165,6 @@ export default function DraftEditor() {
                             className="w-8 h-8 flex items-center justify-center bg-destructive text-white border-2 border-border hover:bg-destructive/80">
                             <X className="w-4 h-4" />
                           </button>
-                        )}
                       </div>
                     );
                   })}
