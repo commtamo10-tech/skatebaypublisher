@@ -1159,10 +1159,9 @@ export default function DraftEditor() {
                             </Badge>
                           )}
                         </div>
-                        <Input value={value} onChange={(e) => handleAspectChange(key, e.target.value)} disabled={isPublished}
+                        <Input value={value} onChange={(e) => handleAspectChange(key, e.target.value)}
                           className="flex-1 border-2 border-border font-mono text-sm h-8" data-testid={`aspect-${key}`} />
-                        {!isPublished && (
-                          <button onClick={() => removeAspect(key)}
+                        <button onClick={() => removeAspect(key)}
                             className="w-8 h-8 flex items-center justify-center bg-destructive text-white border-2 border-border hover:bg-destructive/80">
                             <X className="w-4 h-4" />
                           </button>
