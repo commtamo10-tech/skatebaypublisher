@@ -573,6 +573,7 @@ export default function DraftEditor() {
         condition,
         category_id: categoryId,
         price: parseFloat(price) || 0,
+        selected_marketplaces: selectedMarketplaces,
         ...coreDetails
       });
       toast.success("Draft saved");
