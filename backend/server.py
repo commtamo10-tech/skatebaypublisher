@@ -2691,36 +2691,14 @@ async def bootstrap_marketplaces(
                 logger.info(f"Step 3: Creating fulfillment policy for {marketplace_id} with worldwide shipping...")
                 
                 # Shipping rates (from Italy) - FLAT RATE, same price for multiple items:
-                # - €10 Europe (including UK, Switzerland)
+                # - €10 Europe 
                 # - $25 USA & Canada
                 # - $45 Rest of World
-                
-                # Domestic shipping service codes by marketplace
-                DOMESTIC_SHIPPING_SERVICES = {
-                    "EBAY_US": "USPSPriority",
-                    "EBAY_DE": "DE_DeutschePostBrief",
-                    "EBAY_ES": "ES_CorreosDeEspanaPaqueteAzul",
-                    "EBAY_AU": "AU_Regular",
-                    "EBAY_IT": "IT_Pacco",
-                    "EBAY_UK": "UK_RoyalMailSecondClassStandard"
-                }
-                
-                # Country names for domestic shipping by marketplace
-                DOMESTIC_REGIONS = {
-                    "EBAY_US": "US",
-                    "EBAY_DE": "DE",
-                    "EBAY_ES": "ES",
-                    "EBAY_AU": "AU",
-                    "EBAY_IT": "IT",
-                    "EBAY_UK": "GB"
-                }
-                
-                domestic_service = DOMESTIC_SHIPPING_SERVICES.get(marketplace_id, "Other")
-                domestic_region = DOMESTIC_REGIONS.get(marketplace_id, country_code)
+                # Using INTERNATIONAL ONLY policy (no domestic required since shipping from Italy)
                 
                 fulfillment_payload = {
                     "name": f"Worldwide Flat Shipping - {marketplace_id} - {environment}",
-                    "description": f"Ships from Milan, Italy. Europe €10, USA/Canada $25, Rest of World $45. Same price for combined orders.",
+                    "description": f"Ships from Milan, Italy worldwide. Europe €10, USA/Canada $25, Rest of World $45.",
                     "marketplaceId": marketplace_id,
                     "categoryTypes": [{"name": "ALL_EXCLUDING_MOTORS_VEHICLES"}],
                     "handlingTime": {
@@ -2729,38 +2707,13 @@ async def bootstrap_marketplaces(
                     },
                     "shippingOptions": [
                         {
-                            "optionType": "DOMESTIC",
-                            "costType": "FLAT_RATE",
-                            "shippingServices": [
-                                {
-                                    "sortOrder": 1,
-                                    "shippingCarrierCode": "Other",
-                                    "shippingServiceCode": domestic_service,
-                                    "shippingCost": {
-                                        "value": "10.00",
-                                        "currency": currency
-                                    },
-                                    "additionalShippingCost": {
-                                        "value": "0.00",
-                                        "currency": currency
-                                    },
-                                    "freeShipping": False,
-                                    "shipToLocations": {
-                                        "regionIncluded": [
-                                            {"regionName": domestic_region, "regionType": "COUNTRY"}
-                                        ]
-                                    }
-                                }
-                            ]
-                        },
-                        {
                             "optionType": "INTERNATIONAL",
                             "costType": "FLAT_RATE",
                             "shippingServices": [
                                 {
                                     "sortOrder": 1,
                                     "shippingCarrierCode": "Other",
-                                    "shippingServiceCode": shipping_service_code,
+                                    "shippingServiceCode": "OtherInternational",
                                     "shippingCost": {
                                         "value": "10.00",
                                         "currency": "EUR"
@@ -2772,49 +2725,7 @@ async def bootstrap_marketplaces(
                                     "freeShipping": False,
                                     "shipToLocations": {
                                         "regionIncluded": [
-                                            {"regionName": "Europe"}
-                                        ]
-                                    }
-                                },
-                                {
-                                    "sortOrder": 2,
-                                    "shippingCarrierCode": "Other",
-                                    "shippingServiceCode": shipping_service_code,
-                                    "shippingCost": {
-                                        "value": "25.00",
-                                        "currency": "USD"
-                                    },
-                                    "additionalShippingCost": {
-                                        "value": "0.00",
-                                        "currency": "USD"
-                                    },
-                                    "freeShipping": False,
-                                    "shipToLocations": {
-                                        "regionIncluded": [
-                                            {"regionName": "Americas"}
-                                        ]
-                                    }
-                                },
-                                {
-                                    "sortOrder": 3,
-                                    "shippingCarrierCode": "Other",
-                                    "shippingServiceCode": shipping_service_code,
-                                    "shippingCost": {
-                                        "value": "45.00",
-                                        "currency": "USD"
-                                    },
-                                    "additionalShippingCost": {
-                                        "value": "0.00",
-                                        "currency": "USD"
-                                    },
-                                    "freeShipping": False,
-                                    "shipToLocations": {
-                                        "regionIncluded": [
                                             {"regionName": "Worldwide"}
-                                        ],
-                                        "regionExcluded": [
-                                            {"regionName": "Europe"},
-                                            {"regionName": "Americas"}
                                         ]
                                     }
                                 }
