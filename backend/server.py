@@ -2690,8 +2690,9 @@ async def bootstrap_marketplaces(
                 
                 result.shipping_service_code = shipping_service_code
                 
-                # ========== STEP 3: Create Fulfillment Policy with WORLDWIDE shipping ==========
-                logger.info(f"Step 3: Creating fulfillment policy for {marketplace_id} with worldwide shipping...")
+                # ========== STEP 3: Get/Clone Fulfillment Policy ==========
+                # Strategy: Use existing policy from user's store, don't create new with invented values
+                logger.info(f"Step 3: Getting fulfillment policy for {marketplace_id}...")
                 
                 # Get shipping rates converted to marketplace currency
                 shipping_rates = await get_shipping_rates_for_marketplace(marketplace_id)
@@ -2702,151 +2703,41 @@ async def bootstrap_marketplaces(
                 logger.info(f"    Americas: {shipping_rates['americas']['value']} {mp_currency}")
                 logger.info(f"    Rest of World: {shipping_rates['rest_of_world']['value']} {mp_currency}")
                 
-                # Build fulfillment policy with rates in marketplace currency
-                fulfillment_payload = {
-                    "name": f"Worldwide Flat Shipping - {marketplace_id} - {environment}",
-                    "description": f"Ships from Milan, Italy worldwide. Dynamic rates based on region.",
-                    "marketplaceId": marketplace_id,
-                    "categoryTypes": [{"name": "ALL_EXCLUDING_MOTORS_VEHICLES"}],
-                    "handlingTime": {
-                        "value": DEFAULT_HANDLING_TIME,
-                        "unit": "DAY"
-                    },
-                    "shippingOptions": [
-                        {
-                            "optionType": "INTERNATIONAL",
-                            "costType": "FLAT_RATE",
-                            "shippingServices": [
-                                {
-                                    "sortOrder": 1,
-                                    "shippingCarrierCode": "Other",
-                                    "shippingServiceCode": "OtherInternational",
-                                    "shippingCost": {
-                                        "value": shipping_rates["europe"]["value"],
-                                        "currency": mp_currency
-                                    },
-                                    "additionalShippingCost": {
-                                        "value": "0.00",
-                                        "currency": mp_currency
-                                    },
-                                    "freeShipping": False,
-                                    "shipToLocations": {
-                                        "regionIncluded": [
-                                            {"regionName": "Europe"}
-                                        ]
-                                    }
-                                },
-                                {
-                                    "sortOrder": 2,
-                                    "shippingCarrierCode": "Other",
-                                    "shippingServiceCode": "OtherInternational",
-                                    "shippingCost": {
-                                        "value": shipping_rates["americas"]["value"],
-                                        "currency": mp_currency
-                                    },
-                                    "additionalShippingCost": {
-                                        "value": "0.00",
-                                        "currency": mp_currency
-                                    },
-                                    "freeShipping": False,
-                                    "shipToLocations": {
-                                        "regionIncluded": [
-                                            {"regionName": "Americas"}
-                                        ]
-                                    }
-                                },
-                                {
-                                    "sortOrder": 3,
-                                    "shippingCarrierCode": "Other",
-                                    "shippingServiceCode": "OtherInternational",
-                                    "shippingCost": {
-                                        "value": shipping_rates["rest_of_world"]["value"],
-                                        "currency": mp_currency
-                                    },
-                                    "additionalShippingCost": {
-                                        "value": "0.00",
-                                        "currency": mp_currency
-                                    },
-                                    "freeShipping": False,
-                                    "shipToLocations": {
-                                        "regionIncluded": [
-                                            {"regionName": "Worldwide"}
-                                        ],
-                                        "regionExcluded": [
-                                            {"regionName": "Europe"},
-                                            {"regionName": "Americas"}
-                                        ]
-                                    }
-                                }
-                            ]
-                        }
-                    ],
-                    "globalShipping": False
-                }
-                
-                # For sandbox, use simpler payload
-                if use_sandbox:
-                    fulfillment_payload = {
-                        "name": f"Flat Rate Shipping {country_code} - Sandbox - {secrets.token_hex(4)}",
-                        "marketplaceId": marketplace_id,
-                        "categoryTypes": [{"name": "ALL_EXCLUDING_MOTORS_VEHICLES"}],
-                        "handlingTime": {
-                            "value": DEFAULT_HANDLING_TIME,
-                            "unit": "DAY"
-                        },
-                        "shippingOptions": [
-                            {
-                                "optionType": "DOMESTIC",
-                                "costType": "FLAT_RATE",
-                                "shippingServices": [
-                                    {
-                                        "sortOrder": 1,
-                                        "shippingServiceCode": shipping_service_code,
-                                        "shippingCost": {
-                                            "value": str(shipping_cost),
-                                            "currency": currency
-                                        },
-                                        "freeShipping": False
-                                    }
-                                ]
-                            }
-                        ]
-                    }
-                
-                # First try to get existing policies for this marketplace
-                # Skip using existing if force_recreate is True
-                
+                # Get ALL existing fulfillment policies for this marketplace
                 existing_resp = await http_client.get(
                     f"{api_url}/sell/account/v1/fulfillment_policy",
                     headers={**headers, "X-EBAY-C-MARKETPLACE-ID": marketplace_id},
                     params={"marketplace_id": marketplace_id}
                 )
                 
-                if existing_resp.status_code == 200 and not force_recreate:
-                    existing_policies = existing_resp.json().get("fulfillmentPolicies", [])
-                    if existing_policies:
-                        result.fulfillment_policy_id = existing_policies[0].get("fulfillmentPolicyId")
-                        logger.info(f"  Using existing fulfillment: {result.fulfillment_policy_id}")
+                logger.info(f"  Get fulfillment policies: status={existing_resp.status_code}")
                 
-                # Create new if none exists OR if force_recreate
-                if not result.fulfillment_policy_id:
-                    fulfillment_resp = await http_client.post(
-                        f"{api_url}/sell/account/v1/fulfillment_policy",
-                        headers={**headers, "X-EBAY-C-MARKETPLACE-ID": marketplace_id},
-                        json=fulfillment_payload
-                    )
-                    logger.info(f"  Create fulfillment: status={fulfillment_resp.status_code}")
-                    logger.info(f"  Response: {fulfillment_resp.text[:300]}")
+                if existing_resp.status_code == 200:
+                    existing_policies = existing_resp.json().get("fulfillmentPolicies", [])
+                    logger.info(f"  Found {len(existing_policies)} existing fulfillment policies")
                     
-                    if fulfillment_resp.status_code == 201:
-                        fulfillment_data = fulfillment_resp.json()
-                        result.fulfillment_policy_id = fulfillment_data.get("fulfillmentPolicyId")
-                        logger.info(f"  Fulfillment ID: {result.fulfillment_policy_id}")
-                    elif fulfillment_resp.status_code == 400:
-                        err_text = fulfillment_resp.text
-                        logger.warning(f"  Fulfillment creation failed: {err_text[:300]}")
+                    if existing_policies:
+                        # Use the first existing policy
+                        existing_policy = existing_policies[0]
+                        policy_id = existing_policy.get("fulfillmentPolicyId")
+                        policy_name = existing_policy.get("name", "Unknown")
+                        result.fulfillment_policy_id = policy_id
+                        logger.info(f"  ✅ Using existing fulfillment policy: {policy_id} ({policy_name})")
+                        
+                        # Log policy details for debugging
+                        shipping_opts = existing_policy.get("shippingOptions", [])
+                        for opt in shipping_opts:
+                            opt_type = opt.get("optionType", "?")
+                            services = opt.get("shippingServices", [])
+                            logger.info(f"    {opt_type}: {len(services)} service(s)")
                     else:
-                        logger.error(f"  Fulfillment error: {fulfillment_resp.text[:300]}")
+                        logger.warning(f"  ⚠️ No fulfillment policies found for {marketplace_id}")
+                        logger.warning(f"  Please create a fulfillment policy manually in eBay Seller Hub for this marketplace")
+                        result.errors.append(f"No fulfillment policy exists for {marketplace_id}. Create one in eBay Seller Hub first.")
+                else:
+                    error_text = existing_resp.text[:500]
+                    logger.error(f"  Failed to get fulfillment policies: {error_text}")
+                    result.errors.append(f"Failed to get fulfillment policies: {existing_resp.status_code}")
                 
                 # ========== STEP 4: Create Payment Policy ==========
                 logger.info(f"Step 4: Creating payment policy for {marketplace_id}...")
