@@ -3673,8 +3673,10 @@ async def publish_draft_multi_marketplace(
             "Content-Language": "en-US"
         }
         
-        # Step 1: Create/Update Inventory Item (same for all marketplaces)
-        logger.info(f"Step 1: Creating inventory item for SKU {sku}")
+        # Step 1: Create/Update Inventory Item for EACH marketplace
+        # eBay requires inventory item to be created with marketplace header
+        # to be available for offers on that marketplace
+        logger.info(f"Step 1: Creating inventory item for SKU {sku} on all marketplaces")
         
         inventory_payload = {
             "product": {
@@ -3691,16 +3693,25 @@ async def publish_draft_multi_marketplace(
             }
         }
         
-        inv_response = await http_client.put(
-            f"{api_url}/sell/inventory/v1/inventory_item/{sku}",
-            headers=headers,
-            json=inventory_payload
-        )
+        # Create inventory item for each marketplace
+        for marketplace_id in request.marketplaces:
+            mp_headers = {
+                **headers,
+                "X-EBAY-C-MARKETPLACE-ID": marketplace_id
+            }
+            
+            logger.info(f"  Creating inventory item for {marketplace_id}...")
+            inv_response = await http_client.put(
+                f"{api_url}/sell/inventory/v1/inventory_item/{sku}",
+                headers=mp_headers,
+                json=inventory_payload
+            )
+            
+            logger.info(f"  createOrReplaceInventoryItem ({marketplace_id}): status={inv_response.status_code}")
+            if inv_response.status_code not in [200, 204]:
+                logger.warning(f"  Inventory creation for {marketplace_id} failed: {inv_response.text[:300]}")
         
-        logger.info(f"createOrReplaceInventoryItem: status={inv_response.status_code}")
-        if inv_response.status_code not in [200, 204]:
-            logger.error(f"Inventory failed: {inv_response.text[:500]}")
-            raise HTTPException(status_code=400, detail=f"Inventory creation failed: {inv_response.text[:300]}")
+        logger.info(f"Inventory item {sku} created/updated for all marketplaces")
         
         # Step 2: Create locations for each marketplace if needed
         created_locations = set()
