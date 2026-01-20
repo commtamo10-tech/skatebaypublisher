@@ -3857,9 +3857,12 @@ async def publish_draft_multi_marketplace(
             logger.info(f"Using policies for {marketplace_id}: fulfillment={fulfillment_policy_id}, payment={payment_policy_id}, return={return_policy_id}")
             logger.info(f"Using location: {merchant_location_key}")
             
+            # Get the unique SKU for this marketplace
+            mp_sku = marketplace_skus[marketplace_id]
+            
             # Build offer payload with marketplace-specific policies
             offer_payload = {
-                "sku": sku,
+                "sku": mp_sku,
                 "marketplaceId": marketplace_id,
                 "format": "FIXED_PRICE",
                 "pricingSummary": {
