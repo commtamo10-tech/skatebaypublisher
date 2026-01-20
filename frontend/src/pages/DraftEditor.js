@@ -753,12 +753,21 @@ export default function DraftEditor() {
     }
   };
 
-  const toggleMarketplace = (mpId) => {
-    setSelectedMarketplaces(prev => 
-      prev.includes(mpId) 
-        ? prev.filter(id => id !== mpId)
-        : [...prev, mpId]
-    );
+  const toggleMarketplace = async (mpId) => {
+    const newSelection = selectedMarketplaces.includes(mpId) 
+      ? selectedMarketplaces.filter(id => id !== mpId)
+      : [...selectedMarketplaces, mpId];
+    
+    setSelectedMarketplaces(newSelection);
+    
+    // Save to backend
+    try {
+      await api.patch(`/drafts/${id}`, {
+        selected_marketplaces: newSelection
+      });
+    } catch (error) {
+      console.error("Failed to save marketplace selection:", error);
+    }
   };
 
   const handlePreview = async () => {
