@@ -3667,15 +3667,16 @@ async def publish_draft_multi_marketplace(
     results = {"sku": sku, "marketplaces": {}}
     
     async with httpx.AsyncClient(timeout=60.0) as http_client:
-        headers = {
+        # Base headers - Content-Language will be set per marketplace
+        base_headers = {
             "Authorization": f"Bearer {access_token}",
-            "Content-Type": "application/json",
-            "Content-Language": "en-US"
+            "Content-Type": "application/json"
         }
         
         # Step 1: Create/Update Inventory Item for EACH marketplace
-        # eBay requires inventory item to be created with marketplace header
-        # to be available for offers on that marketplace
+        # eBay requires:
+        # 1. X-EBAY-C-MARKETPLACE-ID header for target marketplace
+        # 2. Content-Language header matching the marketplace language
         logger.info(f"Step 1: Creating inventory item for SKU {sku} on all marketplaces")
         
         inventory_payload = {
@@ -3693,14 +3694,19 @@ async def publish_draft_multi_marketplace(
             }
         }
         
-        # Create inventory item for each marketplace
+        # Create inventory item for each marketplace with correct language
         for marketplace_id in request.marketplaces:
+            # Get marketplace config to retrieve the correct language
+            mp_config_for_inv = get_marketplace_config(marketplace_id, settings)
+            mp_language = mp_config_for_inv.get("language", "en-US") if mp_config_for_inv else "en-US"
+            
             mp_headers = {
-                **headers,
-                "X-EBAY-C-MARKETPLACE-ID": marketplace_id
+                **base_headers,
+                "X-EBAY-C-MARKETPLACE-ID": marketplace_id,
+                "Content-Language": mp_language
             }
             
-            logger.info(f"  Creating inventory item for {marketplace_id}...")
+            logger.info(f"  Creating inventory item for {marketplace_id} with Content-Language: {mp_language}...")
             inv_response = await http_client.put(
                 f"{api_url}/sell/inventory/v1/inventory_item/{sku}",
                 headers=mp_headers,
