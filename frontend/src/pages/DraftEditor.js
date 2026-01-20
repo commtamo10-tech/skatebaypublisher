@@ -1134,7 +1134,6 @@ export default function DraftEditor() {
                       <Input 
                         value={value} 
                         onChange={(e) => handleAspectChange(key, e.target.value)} 
-                        disabled={isPublished}
                         className="flex-1 border-2 border-border font-mono text-sm h-8" 
                         placeholder={key === "Size" ? (draft.item_type === "WHL" ? "e.g., 63mm" : draft.item_type === "DCK" ? "e.g., 10in" : "") : ""}
                         data-testid={`aspect-${key}`} 
