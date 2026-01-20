@@ -1047,7 +1047,7 @@ export default function DraftEditor() {
                   )}
                 </div>
                 <div className="flex items-center gap-3">
-                  <button onClick={handleRegenerateTitle} disabled={isPublished}
+                  <button onClick={handleRegenerateTitle}
                     className="text-xs text-primary hover:underline flex items-center gap-1 disabled:opacity-50"
                     data-testid="regenerate-title-btn">
                     <Wand2 className="w-3 h-3" />Regenerate
