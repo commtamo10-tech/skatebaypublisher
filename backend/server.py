@@ -31,7 +31,8 @@ from ebay_config import (
     get_category_for_item,
     validate_marketplace_config,
     FALLBACK_SHIPPING_SERVICES,
-    DEFAULT_HANDLING_TIME
+    DEFAULT_HANDLING_TIME,
+    get_marketplace_domain
 )
 
 # HTML Sanitization config for eBay descriptions
