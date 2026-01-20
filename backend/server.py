@@ -2746,12 +2746,14 @@ async def bootstrap_marketplaces(
                 existing_policies = existing_resp.json().get("fulfillmentPolicies", [])
                 logger.info(f"    Found {len(existing_policies)} existing fulfillment policies")
                 
-                # If we found WORLDWIDE_SHIPPING_10, use it directly
+                # If we found WORLDWIDE_SHIPPING_10, use it directly WITHOUT modifying rates
+                skip_rate_update = False
                 if our_policy_id:
                     template_policy_id = our_policy_id
                     logger.info(f"    ✅ Using policy '{OUR_POLICY_NAME}' (ID: {our_policy_id})")
                     # Don't update rates for user's custom policy - use as-is
                     result.fulfillment_policy_id = our_policy_id
+                    skip_rate_update = True
                     logger.info(f"    Policy '{OUR_POLICY_NAME}' will be used as-is (rates configured by user)")
                 else:
                     # Fallback: look for any policy with INTERNATIONAL shipping
