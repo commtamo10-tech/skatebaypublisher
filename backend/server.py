@@ -3904,12 +3904,6 @@ async def publish_draft_multi_marketplace(
             
             offer_id = None
             
-            # Headers with marketplace ID for all offer-related calls
-            mp_offer_headers = {
-                **headers,
-                "X-EBAY-C-MARKETPLACE-ID": marketplace_id
-            }
-            
             # Create or Update offer
             if existing_offer_id:
                 # Delete existing unpublished offer to ensure clean state
