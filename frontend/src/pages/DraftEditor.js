@@ -922,12 +922,12 @@ export default function DraftEditor() {
                 data-testid="preview-btn">
                 <Eye className="w-4 h-4 mr-2" />Preview
               </Button>
-              <Button variant="outline" size="sm" onClick={handleRegenerate} disabled={regenerating || isPublished}
+              <Button variant="outline" size="sm" onClick={handleRegenerate} disabled={regenerating}
                 className="border-2 border-border shadow-hard-sm hover:translate-y-[1px] hover:shadow-none transition-all uppercase font-bold text-xs tracking-wider"
                 data-testid="regenerate-btn">
                 <RefreshCw className={`w-4 h-4 mr-2 ${regenerating ? 'animate-spin' : ''}`} />Regenerate
               </Button>
-              <Button variant="outline" size="sm" onClick={handleSave} disabled={saving || isPublished}
+              <Button variant="outline" size="sm" onClick={handleSave} disabled={saving}
                 className="border-2 border-border shadow-hard-sm hover:translate-y-[1px] hover:shadow-none transition-all uppercase font-bold text-xs tracking-wider"
                 data-testid="save-btn">
                 <Save className="w-4 h-4 mr-2" />Save
