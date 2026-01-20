@@ -1007,6 +1007,58 @@ async def get_ebay_access_token() -> str:
     new_data = response.json()
     await db.ebay_tokens.update_one(
         {"_id": token_collection_id},
+
+
+async def get_ebay_app_token() -> str:
+    """Get an Application Access Token for APIs that don't require user context (e.g., Taxonomy)"""
+    environment = await get_ebay_environment()
+    app_token_id = f"ebay_app_token_{environment}"
+    
+    # Check if we have a valid cached app token
+    cached = await db.ebay_tokens.find_one({"_id": app_token_id})
+    if cached:
+        expiry = datetime.fromisoformat(cached.get("token_expiry", "2000-01-01T00:00:00+00:00").replace("Z", "+00:00"))
+        if expiry > datetime.now(timezone.utc):
+            return cached["access_token"]
+    
+    # Get new app token using client credentials
+    config = get_ebay_config(environment)
+    credentials = base64.b64encode(f"{config['client_id']}:{config['client_secret']}".encode()).decode()
+    
+    async with httpx.AsyncClient() as http_client:
+        response = await http_client.post(
+            config["token_url"],
+            headers={
+                "Authorization": f"Basic {credentials}",
+                "Content-Type": "application/x-www-form-urlencoded"
+            },
+            data={
+                "grant_type": "client_credentials",
+                "scope": "https://api.ebay.com/oauth/api_scope"
+            }
+        )
+    
+    if response.status_code != 200:
+        logger.error(f"Failed to get app token: {response.status_code} - {response.text}")
+        raise HTTPException(status_code=500, detail="Failed to get eBay application token")
+    
+    token_data = response.json()
+    
+    # Cache the app token
+    await db.ebay_tokens.update_one(
+        {"_id": app_token_id},
+        {
+            "$set": {
+                "access_token": token_data["access_token"],
+                "token_expiry": (datetime.now(timezone.utc) + timedelta(seconds=token_data.get("expires_in", 7200))).isoformat(),
+                "environment": environment,
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            }
+        },
+        upsert=True
+    )
+    
+    return token_data["access_token"]
         {
             "$set": {
                 "access_token": new_data["access_token"],
