@@ -411,6 +411,9 @@ class DraftResponse(BaseModel):
     size: Optional[str] = None
     color: Optional[str] = None
     era: Optional[str] = None
+    # Multi-marketplace support
+    marketplace_listings: Optional[Dict[str, Dict[str, Any]]] = None
+    multi_marketplace_results: Optional[Dict[str, Any]] = None
 
 class SettingsUpdate(BaseModel):
     fulfillment_policy_id: Optional[str] = None
