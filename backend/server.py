@@ -4448,6 +4448,20 @@ async def publish_draft_multi_marketplace(
         update_data["listing_id"] = first_success.get("listing_id")
         update_data["offer_id"] = first_success.get("offer_id")
     
+    # Save detailed mapping: marketplace → {sku, offerId, listingId}
+    marketplace_listings = {}
+    for mp_id, mp_result in results["marketplaces"].items():
+        if mp_result.get("success"):
+            mp_suffix = mp_id.replace("EBAY_", "").lower()
+            marketplace_listings[mp_id] = {
+                "sku": f"{sku}-{mp_suffix}",
+                "offer_id": mp_result.get("offer_id"),
+                "listing_id": mp_result.get("listing_id"),
+                "listing_url": mp_result.get("listing_url")
+            }
+    
+    update_data["marketplace_listings"] = marketplace_listings
+    
     await db.drafts.update_one({"id": draft_id}, {"$set": update_data})
     
     logger.info("=" * 60)
