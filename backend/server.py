@@ -598,10 +598,10 @@ def get_description_template(item_type: str) -> str:
 
 {specs_header}
 <p style="margin: 3px 0; font-size: 15px;"><strong>Brand:</strong> [value]</p>
-<p style="margin: 3px 0; font-size: 12px;"><strong>Model:</strong> [value]</p>
-<p style="margin: 3px 0; font-size: 12px;"><strong>Size:</strong> [width in]</p>
-<p style="margin: 3px 0; font-size: 12px;"><strong>Era:</strong> [decade]</p>
-<p style="margin: 3px 0; font-size: 12px;"><strong>Type:</strong> [OG/Reissue]</p>
+<p style="margin: 3px 0; font-size: 15px;"><strong>Model:</strong> [value]</p>
+<p style="margin: 3px 0; font-size: 15px;"><strong>Size:</strong> [width in]</p>
+<p style="margin: 3px 0; font-size: 15px;"><strong>Era:</strong> [decade]</p>
+<p style="margin: 3px 0; font-size: 15px;"><strong>Type:</strong> [OG/Reissue]</p>
 {specs_footer}
 
 {condition_box}
@@ -609,12 +609,12 @@ def get_description_template(item_type: str) -> str:
     
     else:
         return f"""{header}
-<p style="font-size: 13px; line-height: 1.5; margin: 0 0 15px 0;">[Write 2-3 sentences for vintage skateboard collectors.]</p>
+<p style="font-size: 15px; line-height: 1.5; margin: 0 0 15px 0;">[Write 2-3 sentences for vintage skateboard collectors.]</p>
 
 {specs_header}
-<p style="margin: 3px 0; font-size: 12px;"><strong>Brand:</strong> [value]</p>
-<p style="margin: 3px 0; font-size: 12px;"><strong>Type:</strong> [value]</p>
-<p style="margin: 3px 0; font-size: 12px;"><strong>Era:</strong> [decade]</p>
+<p style="margin: 3px 0; font-size: 15px;"><strong>Brand:</strong> [value]</p>
+<p style="margin: 3px 0; font-size: 15px;"><strong>Type:</strong> [value]</p>
+<p style="margin: 3px 0; font-size: 15px;"><strong>Era:</strong> [decade]</p>
 {specs_footer}
 
 {condition_box}
