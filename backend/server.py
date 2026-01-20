@@ -2706,7 +2706,8 @@ async def bootstrap_marketplaces(
                 logger.info(f"    Americas: {shipping_rates['americas']['value']} {mp_currency}")
                 logger.info(f"    Rest of World: {shipping_rates['rest_of_world']['value']} {mp_currency}")
                 
-                OUR_POLICY_NAME = "AUTO_INTL_V2"
+                # Policy name to search for - user-created with worldwide shipping
+                OUR_POLICY_NAME = "WORLDWIDE_SHIPPING_10"
                 template_policy_id = None
                 our_policy_id = None
                 
@@ -2722,9 +2723,11 @@ async def bootstrap_marketplaces(
                 if get_by_name_resp.status_code == 200:
                     our_policy = get_by_name_resp.json()
                     our_policy_id = our_policy.get("fulfillmentPolicyId")
-                    logger.info(f"    ✅ Found our policy: {our_policy_id}")
+                    logger.info(f"    ✅ Found policy '{OUR_POLICY_NAME}': {our_policy_id}")
                 else:
-                    logger.info(f"    Policy {OUR_POLICY_NAME} not found, will clone from existing")
+                    logger.warning(f"    ⚠️ Policy '{OUR_POLICY_NAME}' not found for {marketplace_id}")
+                    logger.warning(f"    Please create a policy named '{OUR_POLICY_NAME}' in eBay Seller Hub")
+                    result.errors.append(f"Policy '{OUR_POLICY_NAME}' not found for {marketplace_id}. Create it in eBay Seller Hub first.")
                 
                 # Step 3b: Get all existing fulfillment policies to find a template
                 logger.info(f"  3b. Getting all fulfillment policies for {marketplace_id}...")
