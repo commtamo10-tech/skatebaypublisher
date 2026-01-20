@@ -1699,6 +1699,11 @@ async def republish_draft(draft_id: str, user = Depends(get_current_user)):
                             else:
                                 ebay_aspects[key] = [str(value)]
                     
+                    # Ensure Brand is present (required by eBay US)
+                    if "Brand" not in ebay_aspects:
+                        brand_value = draft.get("brand") or raw_aspects.get("brand") or "Unbranded"
+                        ebay_aspects["Brand"] = [brand_value]
+                    
                     # Convert image URLs to full URLs
                     backend_url = os.environ.get('REACT_APP_BACKEND_URL', 'https://skate-publisher.preview.emergentagent.com')
                     image_urls = []
