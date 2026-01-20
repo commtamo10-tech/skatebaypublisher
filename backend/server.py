@@ -1646,7 +1646,7 @@ async def sync_draft_marketplaces(draft_id: str, user = Depends(get_current_user
 
 @api_router.post("/drafts/{draft_id}/republish")
 async def republish_draft(draft_id: str, user = Depends(get_current_user)):
-    """Republish a published draft after modifications (updates existing listings on all marketplaces)"""
+    """Republish a published draft after modifications - EXACT SAME LOGIC as publish-multi"""
     
     draft = await db.drafts.find_one({"id": draft_id}, {"_id": 0})
     if not draft:
@@ -1657,7 +1657,7 @@ async def republish_draft(draft_id: str, user = Depends(get_current_user)):
     
     marketplace_listings = draft.get("marketplace_listings", {})
     if not marketplace_listings:
-        raise HTTPException(status_code=400, detail="No marketplace listings found. Use sync-marketplaces first.")
+        raise HTTPException(status_code=400, detail="No marketplace listings found.")
     
     sku = draft.get("sku")
     logger.info(f"🔄 Republishing draft {draft_id}, SKU: {sku}")
@@ -1669,11 +1669,78 @@ async def republish_draft(draft_id: str, user = Depends(get_current_user)):
         config = get_ebay_config(environment)
         api_url = config["api_url"]
         
-        headers = {
-            "Authorization": f"Bearer {access_token}",
-            "Content-Type": "application/json",
-            "Content-Language": "en-US"
+        # Get settings for marketplace config
+        settings = await db.settings.find_one({"id": "app_settings"}, {"_id": 0})
+        
+        # === EXACT SAME LOGIC AS PUBLISH-MULTI ===
+        
+        # Convert aspects to arrays (same as publish-multi)
+        raw_aspects = draft.get("aspects", {})
+        aspects = {}
+        for key, value in raw_aspects.items():
+            if value and value != "Unknown":
+                if isinstance(value, list):
+                    aspects[key] = value
+                else:
+                    aspects[key] = [str(value)]
+        
+        # Ensure Brand is present
+        if "Brand" not in aspects:
+            brand_value = draft.get("brand") or "Unbranded"
+            aspects["Brand"] = [brand_value]
+        
+        # Ensure MPN is present
+        if "MPN" not in aspects:
+            mpn_value = draft.get("mpn") or "Does Not Apply"
+            aspects["MPN"] = [mpn_value]
+        
+        # Ensure UPC is present
+        if "UPC" not in aspects:
+            upc_value = draft.get("upc") or "Does not apply"
+            aspects["UPC"] = [upc_value]
+        
+        # Ensure EAN is present
+        if "EAN" not in aspects:
+            ean_value = draft.get("ean") or "Does not apply"
+            aspects["EAN"] = [ean_value]
+        
+        # Ensure Type is present
+        if "Type" not in aspects:
+            item_type = draft.get("item_type", "MISC")
+            type_mapping = {
+                "WHL": "Skateboard Wheels",
+                "TRK": "Skateboard Trucks", 
+                "DCK": "Skateboard Deck",
+                "APP": "Skateboard Apparel",
+                "MISC": "Skateboard Accessory"
+            }
+            aspects["Type"] = [type_mapping.get(item_type, "Skateboard Accessory")]
+        
+        # Convert image URLs (same as publish-multi)
+        backend_url = os.environ.get('REACT_APP_BACKEND_URL', '')
+        image_urls = []
+        for url in draft.get("image_urls", []):
+            if url.startswith("http"):
+                image_urls.append(url)
+            elif url.startswith("/"):
+                image_urls.append(f"{backend_url}{url}")
+            else:
+                image_urls.append(f"{backend_url}/api/uploads/{url}")
+        
+        # Aspect localization mapping (SAME AS PUBLISH-MULTI)
+        ASPECT_LOCALIZATION = {
+            "EBAY_DE": {"Brand": "Marke", "Type": "Typ"},
+            "EBAY_ES": {"Brand": "Marca", "Type": "Tipo"},
         }
+        
+        def localize_aspects(base_aspects: dict, marketplace_id: str) -> dict:
+            """Localize aspect names for a specific marketplace"""
+            localization = ASPECT_LOCALIZATION.get(marketplace_id, {})
+            localized = {}
+            for key, value in base_aspects.items():
+                localized_key = localization.get(key, key)
+                localized[localized_key] = value
+            return localized
         
         results = {}
         
@@ -1684,64 +1751,33 @@ async def republish_draft(draft_id: str, user = Depends(get_current_user)):
                 
                 logger.info(f"  Updating {mp_id}: SKU={mp_sku}, offer_id={mp_offer_id}")
                 
-                mp_config = MARKETPLACE_CONFIG.get(mp_id, {})
-                content_lang = mp_config.get("language", "en-US")  # Fixed: use 'language' key from MARKETPLACE_CONFIG
+                mp_config = get_marketplace_config(mp_id, settings)
+                content_lang = mp_config.get("language", "en-US") if mp_config else "en-US"
                 
                 try:
-                    # Convert aspects to eBay format (values must be arrays)
-                    raw_aspects = draft.get("aspects", {})
-                    ebay_aspects = {}
-                    for key, value in raw_aspects.items():
-                        if value and value != "Unknown":
-                            # eBay expects array of strings for each aspect
-                            if isinstance(value, list):
-                                ebay_aspects[key] = value
-                            else:
-                                ebay_aspects[key] = [str(value)]
+                    # LOCALIZE ASPECTS (same as publish-multi!)
+                    localized_aspects = localize_aspects(aspects, mp_id)
+                    logger.info(f"    Localized aspects for {mp_id}: {list(localized_aspects.keys())}")
                     
-                    # Ensure required item specifics are present for ALL marketplaces
-                    # Brand is required by all marketplaces
-                    if "Brand" not in ebay_aspects:
-                        brand_value = draft.get("brand") or raw_aspects.get("brand") or "Unbranded"
-                        ebay_aspects["Brand"] = [brand_value]
+                    # Build product payload (EXACT SAME as publish-multi)
+                    product_payload = {
+                        "title": draft.get("title", ""),
+                        "description": draft.get("description", ""),
+                        "aspects": localized_aspects,
+                        "imageUrls": image_urls
+                    }
                     
-                    # MPN is required by AU and some other marketplaces
-                    if "MPN" not in ebay_aspects:
-                        mpn_value = draft.get("mpn") or raw_aspects.get("mpn") or raw_aspects.get("MPN") or "Does Not Apply"
-                        ebay_aspects["MPN"] = [mpn_value]
+                    # Add product identifiers (SAME AS PUBLISH-MULTI)
+                    upc_value = draft.get("upc") or aspects.get("UPC", ["Does not apply"])[0]
+                    ean_value = draft.get("ean") or aspects.get("EAN", ["Does not apply"])[0]
+                    product_payload["upc"] = [upc_value]
+                    product_payload["ean"] = [ean_value]
                     
-                    # EAN is required by ES and EU marketplaces (use "Does not apply" if not available)
-                    if "EAN" not in ebay_aspects:
-                        ean_value = draft.get("ean") or raw_aspects.get("ean") or raw_aspects.get("EAN") or "Does not apply"
-                        ebay_aspects["EAN"] = [ean_value]
+                    logger.info(f"    Product identifiers: UPC={upc_value}, EAN={ean_value}")
                     
-                    # UPC for US marketplace
-                    if "UPC" not in ebay_aspects:
-                        upc_value = draft.get("upc") or raw_aspects.get("upc") or raw_aspects.get("UPC") or "Does not apply"
-                        ebay_aspects["UPC"] = [upc_value]
-                    
-                    logger.info(f"    Item specifics for {mp_id}: Brand={ebay_aspects.get('Brand')}, MPN={ebay_aspects.get('MPN')}, EAN={ebay_aspects.get('EAN')}")
-                    
-                    # Convert image URLs to full URLs
-                    backend_url = os.environ.get('REACT_APP_BACKEND_URL', 'https://skatebaypublisher.preview.emergentagent.com')
-                    image_urls = []
-                    for url in draft.get("image_urls", []):
-                        if url.startswith("http"):
-                            image_urls.append(url)
-                        elif url.startswith("/"):
-                            image_urls.append(f"{backend_url}{url}")
-                        else:
-                            image_urls.append(f"{backend_url}/api/uploads/{url}")
-                    
-                    # Step 1: Update inventory item with new title/description
                     inventory_payload = {
-                        "product": {
-                            "title": draft.get("title", ""),
-                            "description": draft.get("description", ""),
-                            "aspects": ebay_aspects,
-                            "imageUrls": image_urls
-                        },
-                        "condition": draft.get("condition", "USED_EXCELLENT"),
+                        "product": product_payload,
+                        "condition": draft.get("condition", "USED_GOOD"),
                         "availability": {
                             "shipToLocationAvailability": {
                                 "quantity": 1
@@ -1749,7 +1785,14 @@ async def republish_draft(draft_id: str, user = Depends(get_current_user)):
                         }
                     }
                     
-                    inv_headers = {**headers, "Content-Language": content_lang}
+                    inv_headers = {
+                        "Authorization": f"Bearer {access_token}",
+                        "Content-Type": "application/json",
+                        "Content-Language": content_lang
+                    }
+                    
+                    logger.info(f"    Updating inventory item {mp_sku} with Content-Language: {content_lang}")
+                    
                     inv_resp = await http_client.put(
                         f"{api_url}/sell/inventory/v1/inventory_item/{mp_sku}",
                         headers=inv_headers,
@@ -1758,68 +1801,10 @@ async def republish_draft(draft_id: str, user = Depends(get_current_user)):
                     
                     if inv_resp.status_code in [200, 201, 204]:
                         logger.info(f"    ✅ Inventory updated for {mp_id}")
-                        
-                        # Step 2: Use updateOffer (PUT) to update the live listing
-                        # IMPORTANT: publishOffer (POST) CANNOT update existing listings!
-                        # Per eBay API docs, updateOffer is required to revise active listings.
-                        if mp_offer_id:
-                            update_headers = {
-                                **headers, 
-                                "X-EBAY-C-MARKETPLACE-ID": mp_id,
-                                "Content-Language": content_lang
-                            }
-                            
-                            # First get current offer to preserve required fields
-                            logger.info(f"    Getting current offer {mp_offer_id}...")
-                            get_offer_resp = await http_client.get(
-                                f"{api_url}/sell/inventory/v1/offer/{mp_offer_id}",
-                                headers=update_headers
-                            )
-                            
-                            if get_offer_resp.status_code == 200:
-                                current_offer = get_offer_resp.json()
-                                logger.info(f"    Current offer retrieved for {mp_id}")
-                                
-                                # Update only the listingDescription (title comes from inventory item)
-                                # Preserve all other required fields from current offer
-                                update_payload = {
-                                    "sku": current_offer.get("sku"),
-                                    "marketplaceId": current_offer.get("marketplaceId"),
-                                    "format": current_offer.get("format", "FIXED_PRICE"),
-                                    "pricingSummary": current_offer.get("pricingSummary"),
-                                    "availableQuantity": current_offer.get("availableQuantity", 1),
-                                    "categoryId": current_offer.get("categoryId"),
-                                    "countryCode": mp_config.get("country_code", "US"),
-                                    "merchantLocationKey": current_offer.get("merchantLocationKey"),
-                                    "listingPolicies": current_offer.get("listingPolicies"),
-                                    "listingDescription": draft.get("description", "")  # Update description!
-                                }
-                                
-                                logger.info(f"    Updating offer {mp_offer_id} with PUT (updateOffer)...")
-                                logger.info(f"    Content-Language: {content_lang}")
-                                
-                                update_resp = await http_client.put(
-                                    f"{api_url}/sell/inventory/v1/offer/{mp_offer_id}",
-                                    headers=update_headers,
-                                    json=update_payload
-                                )
-                                
-                                if update_resp.status_code in [200, 204]:
-                                    logger.info(f"    ✅ Offer updated for {mp_id} (listing revised)")
-                                    results[mp_id] = {"success": True, "message": "Updated and listing revised"}
-                                else:
-                                    error_text = update_resp.text[:500]
-                                    logger.warning(f"    ⚠️ updateOffer failed for {mp_id}: {update_resp.status_code} - {error_text}")
-                                    # Inventory was still updated, so partial success
-                                    results[mp_id] = {"success": True, "message": f"Inventory updated, offer update failed: {error_text[:100]}"}
-                            else:
-                                logger.warning(f"    ⚠️ Could not get offer {mp_offer_id}: {get_offer_resp.status_code}")
-                                results[mp_id] = {"success": True, "message": "Inventory updated (could not update offer)"}
-                        else:
-                            results[mp_id] = {"success": True, "message": "Inventory updated (no offer_id)"}
+                        results[mp_id] = {"success": True, "message": "Updated"}
                     else:
-                        error_text = inv_resp.text[:300]
-                        logger.warning(f"    ⚠️ Inventory update failed for {mp_id}: {error_text}")
+                        error_text = inv_resp.text[:500]
+                        logger.warning(f"    ⚠️ Inventory update failed for {mp_id}: {inv_resp.status_code} - {error_text}")
                         results[mp_id] = {"success": False, "error": error_text}
                         
                 except Exception as e:
