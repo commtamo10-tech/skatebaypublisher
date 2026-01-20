@@ -1848,7 +1848,195 @@ OUTPUT FORMAT (JSON):
         raise HTTPException(status_code=500, detail=f"Auto-fill failed: {str(e)}")
 
 
-# ============ EBAY INVENTORY API ============
+# ============ TAXONOMY API - Category Management per Marketplace ============
+
+@api_router.get("/taxonomy/categories/{marketplace_id}")
+async def get_category_suggestions(
+    marketplace_id: str,
+    q: str = Query(..., description="Search query for category suggestions"),
+    user = Depends(get_current_user)
+):
+    """
+    Get category suggestions for a specific marketplace using eBay Taxonomy API.
+    Returns list of suggested categories with IDs and names.
+    """
+    settings = await db.settings.find_one({}, {"_id": 0})
+    if not settings or not settings.get("ebay_connected"):
+        raise HTTPException(status_code=400, detail="eBay not connected")
+    
+    environment = await get_ebay_environment()
+    config = get_ebay_config(environment)
+    access_token = settings.get("ebay_access_token")
+    
+    if not access_token:
+        raise HTTPException(status_code=400, detail="No eBay access token")
+    
+    api_url = config["api_url"]
+    category_tree_id = MARKETPLACE_CATEGORY_TREE.get(marketplace_id)
+    
+    if not category_tree_id:
+        raise HTTPException(status_code=400, detail=f"Unknown marketplace: {marketplace_id}")
+    
+    async with httpx.AsyncClient(timeout=30.0) as http_client:
+        headers = {
+            "Authorization": f"Bearer {access_token}",
+            "Content-Type": "application/json",
+            "Accept": "application/json"
+        }
+        
+        taxonomy_url = f"{api_url}/commerce/taxonomy/v1/category_tree/{category_tree_id}/get_category_suggestions"
+        
+        try:
+            resp = await http_client.get(
+                taxonomy_url,
+                headers=headers,
+                params={"q": q}
+            )
+            
+            if resp.status_code == 200:
+                data = resp.json()
+                suggestions = []
+                for item in data.get("categorySuggestions", []):
+                    cat = item.get("category", {})
+                    suggestions.append({
+                        "categoryId": cat.get("categoryId"),
+                        "categoryName": cat.get("categoryName"),
+                        "categoryTreeNodeLevel": item.get("categoryTreeNodeLevel", 0)
+                    })
+                return {"marketplace": marketplace_id, "suggestions": suggestions}
+            else:
+                logger.warning(f"Taxonomy API error: {resp.status_code} - {resp.text[:300]}")
+                return {"marketplace": marketplace_id, "suggestions": [], "error": f"API error: {resp.status_code}"}
+        except Exception as e:
+            logger.error(f"Taxonomy API exception: {e}")
+            return {"marketplace": marketplace_id, "suggestions": [], "error": str(e)}
+
+
+@api_router.get("/taxonomy/aspects/{marketplace_id}/{category_id}")
+async def get_category_aspects(
+    marketplace_id: str,
+    category_id: str,
+    user = Depends(get_current_user)
+):
+    """
+    Get required and recommended item aspects for a category on a specific marketplace.
+    """
+    settings = await db.settings.find_one({}, {"_id": 0})
+    if not settings or not settings.get("ebay_connected"):
+        raise HTTPException(status_code=400, detail="eBay not connected")
+    
+    environment = await get_ebay_environment()
+    config = get_ebay_config(environment)
+    access_token = settings.get("ebay_access_token")
+    
+    api_url = config["api_url"]
+    category_tree_id = MARKETPLACE_CATEGORY_TREE.get(marketplace_id)
+    
+    if not category_tree_id:
+        raise HTTPException(status_code=400, detail=f"Unknown marketplace: {marketplace_id}")
+    
+    async with httpx.AsyncClient(timeout=30.0) as http_client:
+        headers = {
+            "Authorization": f"Bearer {access_token}",
+            "Content-Type": "application/json",
+            "Accept": "application/json"
+        }
+        
+        aspects_url = f"{api_url}/commerce/taxonomy/v1/category_tree/{category_tree_id}/get_item_aspects_for_category"
+        
+        try:
+            resp = await http_client.get(
+                aspects_url,
+                headers=headers,
+                params={"category_id": category_id}
+            )
+            
+            if resp.status_code == 200:
+                data = resp.json()
+                aspects = []
+                for aspect in data.get("aspects", []):
+                    aspects.append({
+                        "localizedAspectName": aspect.get("localizedAspectName"),
+                        "aspectConstraint": aspect.get("aspectConstraint", {}),
+                        "aspectValues": [v.get("localizedValue") for v in aspect.get("aspectValues", [])[:20]]
+                    })
+                return {
+                    "marketplace": marketplace_id,
+                    "categoryId": category_id,
+                    "aspects": aspects
+                }
+            else:
+                return {"marketplace": marketplace_id, "categoryId": category_id, "aspects": [], "error": f"API error: {resp.status_code}"}
+        except Exception as e:
+            logger.error(f"Aspects API exception: {e}")
+            return {"marketplace": marketplace_id, "categoryId": category_id, "aspects": [], "error": str(e)}
+
+
+@api_router.post("/drafts/{draft_id}/auto-categories")
+async def auto_suggest_categories(draft_id: str, user = Depends(get_current_user)):
+    """
+    Auto-suggest categories for all target marketplaces based on draft item_type and title.
+    Returns suggested categoryId for each marketplace.
+    """
+    draft = await db.drafts.find_one({"id": draft_id}, {"_id": 0})
+    if not draft:
+        raise HTTPException(status_code=404, detail="Draft not found")
+    
+    settings = await db.settings.find_one({}, {"_id": 0})
+    if not settings or not settings.get("ebay_connected"):
+        raise HTTPException(status_code=400, detail="eBay not connected")
+    
+    environment = await get_ebay_environment()
+    config = get_ebay_config(environment)
+    access_token = settings.get("ebay_access_token")
+    api_url = config["api_url"]
+    
+    item_type = draft.get("item_type", "MISC")
+    title = draft.get("title", "skateboard")
+    
+    # Build search query based on item type
+    type_queries = {
+        "WHL": "skateboard wheels",
+        "TRK": "skateboard trucks",
+        "DCK": "skateboard deck",
+        "APP": "skateboard clothing apparel",
+        "MISC": "skateboard accessories parts"
+    }
+    query = type_queries.get(item_type, "skateboard")
+    
+    # Get enabled marketplaces
+    enabled_marketplaces = []
+    mp_settings = settings.get("marketplaces", {})
+    for mp_id, mp_data in mp_settings.items():
+        if mp_data.get("fulfillment_policy_id"):  # Has policy = enabled
+            enabled_marketplaces.append(mp_id)
+    
+    if not enabled_marketplaces:
+        enabled_marketplaces = ["EBAY_US", "EBAY_DE", "EBAY_ES", "EBAY_AU"]
+    
+    results = {}
+    
+    async with httpx.AsyncClient(timeout=30.0) as http_client:
+        for marketplace_id in enabled_marketplaces:
+            category_id = await get_category_suggestion_for_marketplace(
+                http_client, api_url, access_token, marketplace_id, query
+            )
+            if category_id:
+                results[marketplace_id] = category_id
+            else:
+                # Use fallback
+                results[marketplace_id] = get_category_for_item(item_type, marketplace_id)
+    
+    # Save to draft
+    await db.drafts.update_one(
+        {"id": draft_id},
+        {"$set": {"category_by_marketplace": results, "updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    
+    return {"draft_id": draft_id, "category_by_marketplace": results}
+
+
+
 
 @api_router.post("/drafts/{draft_id}/publish")
 async def publish_draft(draft_id: str, user = Depends(get_current_user)):
