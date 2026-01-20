@@ -78,6 +78,30 @@ export default function Dashboard() {
     }
   };
 
+  const handleDeleteMarketplace = async (draftId, marketplaceId, e) => {
+    e.stopPropagation();
+    const marketplaceNames = {
+      'EBAY_US': 'eBay.com',
+      'EBAY_DE': 'eBay.de', 
+      'EBAY_ES': 'eBay.es',
+      'EBAY_AU': 'eBay.com.au'
+    };
+    const mpName = marketplaceNames[marketplaceId] || marketplaceId;
+    
+    if (!window.confirm(`Vuoi cancellare l'annuncio da ${mpName}?`)) {
+      return;
+    }
+    
+    try {
+      await api.delete(`/drafts/${draftId}/marketplace/${marketplaceId}`);
+      toast.success(`Annuncio rimosso da ${mpName}`);
+      await fetchData();
+    } catch (error) {
+      console.error("Delete marketplace error:", error);
+      toast.error("Errore: " + (error.response?.data?.detail || "Impossibile cancellare"));
+    }
+  };
+
   const StatCard = ({ label, value, icon: Icon, color }) => (
     <div className="bg-card border-2 border-border p-4 shadow-hard">
       <div className="flex items-center justify-between">
