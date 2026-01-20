@@ -3846,12 +3846,18 @@ async def publish_draft_multi_marketplace(
             }, indent=2))
             logger.info("=" * 60)
             
+            # Headers with marketplace ID for all offer-related calls
+            mp_offer_headers = {
+                **headers,
+                "X-EBAY-C-MARKETPLACE-ID": marketplace_id
+            }
+            
             # Check if offer already exists for this SKU+marketplace
             existing_offer_id = None
             get_offers_resp = await http_client.get(
                 f"{api_url}/sell/inventory/v1/offer",
-                headers=headers,
-                params={"sku": sku}
+                headers=mp_offer_headers,
+                params={"sku": sku, "marketplace_id": marketplace_id}
             )
             
             if get_offers_resp.status_code == 200:
