@@ -990,7 +990,7 @@ export default function DraftEditor() {
               
               <div className="space-y-2">
                 <Label className="text-xs font-bold uppercase tracking-widest">Price (USD)</Label>
-                <Input type="number" step="0.01" value={price} onChange={(e) => setPrice(e.target.value)} disabled={isPublished}
+                <Input type="number" step="0.01" value={price} onChange={(e) => setPrice(e.target.value)}
                   className="border-2 border-border font-mono" data-testid="edit-price-input" />
               </div>
               
