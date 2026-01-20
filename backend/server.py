@@ -382,8 +382,9 @@ class DraftUpdate(BaseModel):
     size: Optional[str] = None
     color: Optional[str] = None
     era: Optional[str] = None
-    # NEW: Category per marketplace
+    # Multi-marketplace
     category_by_marketplace: Optional[Dict[str, str]] = None  # {EBAY_US: "123", EBAY_DE: "456", ...}
+    selected_marketplaces: Optional[List[str]] = None  # ["EBAY_US", "EBAY_DE", ...]
 
 class DraftResponse(BaseModel):
     id: str
