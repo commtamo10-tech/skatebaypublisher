@@ -117,7 +117,7 @@ EBAY_PROD_RUNAME=...
 
 ## Credentials for Testing
 - **Password**: admin123
-- **API**: https://eboard-publish.preview.emergentagent.com
+- **API**: https://skate-publisher.preview.emergentagent.com
 - **eBay**: Sandbox (connected)
 
 ---
