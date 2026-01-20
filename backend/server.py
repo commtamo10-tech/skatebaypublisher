@@ -3690,28 +3690,56 @@ async def publish_draft_multi_marketplace(
         # eBay requires:
         # 1. X-EBAY-C-MARKETPLACE-ID header for target marketplace
         # 2. Content-Language header matching the marketplace language
+        # 3. Localized aspect names (e.g., "Marke" for German instead of "Brand")
         # The inventory item must be created WITH the marketplace header to be "available" for offers
         logger.info(f"Step 1: Creating inventory item for SKU {sku} on EACH marketplace")
         
-        inventory_payload = {
-            "product": {
-                "title": draft["title"],
-                "description": draft.get("description", ""),
-                "aspects": aspects,
-                "imageUrls": image_urls
+        # Aspect name localization mapping
+        ASPECT_LOCALIZATION = {
+            "EBAY_DE": {
+                "Brand": "Marke",
+                "Type": "Typ",
             },
-            "condition": draft.get("condition", "USED_GOOD"),
-            "availability": {
-                "shipToLocationAvailability": {
-                    "quantity": 1
-                }
-            }
+            "EBAY_ES": {
+                "Brand": "Marca",
+                "Type": "Tipo",
+            },
+            # US, AU, UK use English
         }
         
-        # Create inventory item for EACH marketplace with correct headers
+        def localize_aspects(base_aspects: dict, marketplace_id: str) -> dict:
+            """Localize aspect names for a specific marketplace"""
+            localization = ASPECT_LOCALIZATION.get(marketplace_id, {})
+            localized = {}
+            for key, value in base_aspects.items():
+                # Try to localize the key, otherwise use original
+                localized_key = localization.get(key, key)
+                localized[localized_key] = value
+            return localized
+        
+        # Create inventory item for EACH marketplace with correct headers and localized aspects
         for marketplace_id in request.marketplaces:
             mp_config_for_inv = get_marketplace_config(marketplace_id, settings)
             mp_language = mp_config_for_inv.get("language", "en-US") if mp_config_for_inv else "en-US"
+            
+            # Localize aspects for this marketplace
+            localized_aspects = localize_aspects(aspects, marketplace_id)
+            logger.info(f"  Aspects for {marketplace_id}: {localized_aspects}")
+            
+            inventory_payload = {
+                "product": {
+                    "title": draft["title"],
+                    "description": draft.get("description", ""),
+                    "aspects": localized_aspects,
+                    "imageUrls": image_urls
+                },
+                "condition": draft.get("condition", "USED_GOOD"),
+                "availability": {
+                    "shipToLocationAvailability": {
+                        "quantity": 1
+                    }
+                }
+            }
             
             inv_headers = {
                 **base_headers,
