@@ -2750,17 +2750,32 @@ async def bootstrap_marketplaces(
                     result.errors.append(f"No fulfillment policy exists for {marketplace_id}. Create one in eBay Seller Hub first.")
                     continue
                 
-                # Log all available policies
+                # Log all available policies and look for one with INTERNATIONAL shipping
+                template_policy = None
+                intl_policy = None
+                
                 for p in existing_policies:
                     p_name = p.get("name", "Unknown")
                     p_id = p.get("fulfillmentPolicyId", "?")
-                    logger.info(f"      Policy: {p_name} (ID: {p_id})")
+                    shipping_opts = p.get("shippingOptions", [])
+                    has_intl = any(opt.get("optionType") == "INTERNATIONAL" for opt in shipping_opts)
+                    intl_marker = " [HAS INTL]" if has_intl else ""
+                    logger.info(f"      Policy: {p_name} (ID: {p_id}){intl_marker}")
+                    
+                    # Prefer policy with international shipping
+                    if has_intl and not intl_policy:
+                        intl_policy = p
+                        logger.info(f"      👆 Found policy with INTERNATIONAL shipping!")
                 
-                # If we don't have our policy yet, use the first existing one as template
+                # If we don't have our policy yet, prefer one with international, else use first
                 if not our_policy_id:
-                    template_policy = existing_policies[0]
+                    if intl_policy:
+                        template_policy = intl_policy
+                        logger.info(f"    ✅ Using template WITH INTERNATIONAL: {template_policy.get('name')}")
+                    else:
+                        template_policy = existing_policies[0]
+                        logger.warning(f"    ⚠️ No policy with INTERNATIONAL found, using first: {template_policy.get('name')}")
                     template_policy_id = template_policy.get("fulfillmentPolicyId")
-                    logger.info(f"    Using template policy: {template_policy.get('name')} (ID: {template_policy_id})")
                 else:
                     template_policy_id = our_policy_id
                 
