@@ -2775,6 +2775,7 @@ async def bootstrap_marketplaces(
                     else:
                         template_policy = existing_policies[0]
                         logger.warning(f"    ⚠️ No policy with INTERNATIONAL found, using first: {template_policy.get('name')}")
+                        result.errors.append(f"⚠️ {marketplace_id}: No policy with international shipping found. Only domestic rates will be applied. Create a policy with international shipping in eBay Seller Hub for worldwide rates.")
                     template_policy_id = template_policy.get("fulfillmentPolicyId")
                 else:
                     template_policy_id = our_policy_id
