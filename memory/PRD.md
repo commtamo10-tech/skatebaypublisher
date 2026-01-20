@@ -117,7 +117,7 @@ EBAY_PROD_RUNAME=...
 
 ## Credentials for Testing
 - **Password**: admin123
-- **API**: https://vintage-lister.preview.emergentagent.com
+- **API**: https://eboard-publish.preview.emergentagent.com
 - **eBay**: Sandbox (connected)
 
 ---

@@ -9,7 +9,7 @@ Assicurati che in `/app/backend/.env` siano configurate le credenziali eBay:
 ```
 EBAY_CLIENT_ID=Pasquale-VintageS-SBX-xxx
 EBAY_CLIENT_SECRET=SBX-xxx
-EBAY_REDIRECT_URI=https://vintage-lister.preview.emergentagent.com/api/ebay/auth/callback
+EBAY_REDIRECT_URI=https://eboard-publish.preview.emergentagent.com/api/ebay/auth/callback
 EBAY_RUNAME=Pasquale_Crispi-Pasquale-Vintag-xxx
 ```
 
