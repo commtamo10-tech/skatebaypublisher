@@ -1685,7 +1685,7 @@ async def republish_draft(draft_id: str, user = Depends(get_current_user)):
                 logger.info(f"  Updating {mp_id}: SKU={mp_sku}, offer_id={mp_offer_id}")
                 
                 mp_config = MARKETPLACE_CONFIG.get(mp_id, {})
-                content_lang = mp_config.get("content_language", "en-US")
+                content_lang = mp_config.get("language", "en-US")  # Fixed: use 'language' key from MARKETPLACE_CONFIG
                 
                 try:
                     # Convert aspects to eBay format (values must be arrays)
