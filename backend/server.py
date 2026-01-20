@@ -414,6 +414,8 @@ class DraftResponse(BaseModel):
     # Multi-marketplace support
     marketplace_listings: Optional[Dict[str, Dict[str, Any]]] = None
     multi_marketplace_results: Optional[Dict[str, Any]] = None
+    selected_marketplaces: Optional[List[str]] = None
+    category_by_marketplace: Optional[Dict[str, str]] = None
 
 class SettingsUpdate(BaseModel):
     fulfillment_policy_id: Optional[str] = None
