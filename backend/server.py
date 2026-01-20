@@ -4121,24 +4121,42 @@ async def publish_draft_multi_marketplace(
             currency = mp_config["currency"]
             country_code = mp_config["country_code"]
             
-            # Get category using Taxonomy API for this specific marketplace
+            # Get category - PRIORITY:
+            # 1. category_by_marketplace (user-defined per marketplace)
+            # 2. Taxonomy API suggestion
+            # 3. Fallback to item_type mapping
             item_type = draft.get("item_type", "MISC")
-            title = draft.get("title", "skateboard")
+            category_by_mp = draft.get("category_by_marketplace", {})
             
-            # Use Taxonomy API to get valid category for this marketplace
-            category_id = await get_valid_category_for_marketplace(
-                http_client, api_url, access_token, marketplace_id, item_type, title
-            )
+            category_id = category_by_mp.get(marketplace_id)
             
-            # Sanitize category_id - extract only numeric part (e.g., "16263 (Decks)" -> "16263")
-            if category_id:
-                import re
-                match = re.match(r'^(\d+)', str(category_id))
-                if match:
-                    category_id = match.group(1)
-                else:
-                    logger.warning(f"Invalid category_id format: {category_id}, using default 159043")
-                    category_id = "159043"  # Universal fallback
+            if not category_id:
+                # Try Taxonomy API
+                title = draft.get("title", "skateboard")
+                category_id = await get_valid_category_for_marketplace(
+                    http_client, api_url, access_token, marketplace_id, item_type, title
+                )
+            
+            # Validate category exists
+            if not category_id:
+                results["marketplaces"][marketplace_id] = {
+                    "success": False,
+                    "error": f"Categoria mancante per {marketplace_id}. Vai in 'Auto-Categories' per suggerire categorie automaticamente."
+                }
+                logger.warning(f"Missing category for {marketplace_id}, skipping")
+                continue
+            
+            # Sanitize category_id - extract only numeric part
+            import re
+            match = re.match(r'^(\d+)', str(category_id))
+            if match:
+                category_id = match.group(1)
+            else:
+                results["marketplaces"][marketplace_id] = {
+                    "success": False,
+                    "error": f"Formato categoria non valido per {marketplace_id}: {category_id}"
+                }
+                continue
             
             logger.info(f"Using category {category_id} for {marketplace_id} (item_type: {item_type})")
             
