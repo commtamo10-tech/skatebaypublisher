@@ -630,7 +630,11 @@ export default function DraftEditor() {
     if (draft?.category_by_marketplace) {
       setCategoryByMarketplace(draft.category_by_marketplace);
     }
-  }, [draft?.category_by_marketplace]);
+    // Also load selected marketplaces from draft
+    if (draft?.selected_marketplaces && draft.selected_marketplaces.length > 0) {
+      setSelectedMarketplaces(draft.selected_marketplaces);
+    }
+  }, [draft?.category_by_marketplace, draft?.selected_marketplaces]);
 
   // Function to auto-suggest categories for all marketplaces
   const handleAutoCategories = async () => {
