@@ -4018,6 +4018,12 @@ async def publish_draft_multi_marketplace(
         aspects["UPC"] = [upc_value]
         logger.info(f"Added missing UPC aspect: {upc_value}")
     
+    # Ensure EAN is present (required by ES marketplace)
+    if "EAN" not in aspects:
+        ean_value = draft.get("ean") or "Does not apply"
+        aspects["EAN"] = [ean_value]
+        logger.info(f"Added missing EAN aspect: {ean_value}")
+    
     # Ensure Type is present for skateboard items
     if "Type" not in aspects:
         item_type = draft.get("item_type", "MISC")
