@@ -1081,7 +1081,7 @@ export default function DraftEditor() {
                     <Badge variant="outline" className="text-[9px] border-amber-400 text-amber-600">Manual</Badge>
                   )}
                 </div>
-                <button onClick={handleRegenerateDescription} disabled={isPublished}
+                <button onClick={handleRegenerateDescription}
                   className="text-xs text-primary hover:underline flex items-center gap-1 disabled:opacity-50"
                   data-testid="regenerate-description-btn">
                   <Wand2 className="w-3 h-3" />Regenerate
