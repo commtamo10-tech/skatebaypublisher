@@ -3638,7 +3638,7 @@ async def publish_draft_multi_marketplace(
         else:
             image_urls.append(f"{FRONTEND_URL}/api/uploads/{url}")
     
-    # Build aspects - ensure Brand is always present (required by eBay)
+    # Build aspects - ensure required fields are always present
     aspects = {}
     for k, v in (draft.get("aspects") or {}).items():
         if v and str(v).strip():
@@ -3646,7 +3646,6 @@ async def publish_draft_multi_marketplace(
     
     # Ensure Brand is present (required by most eBay categories)
     if "Brand" not in aspects:
-        # Try to get from draft fields
         brand_value = draft.get("brand") or "Unbranded"
         aspects["Brand"] = [brand_value]
         logger.info(f"Added missing Brand aspect: {brand_value}")
@@ -3656,6 +3655,12 @@ async def publish_draft_multi_marketplace(
         mpn_value = draft.get("mpn") or "Does not apply"
         aspects["MPN"] = [mpn_value]
         logger.info(f"Added missing MPN aspect: {mpn_value}")
+    
+    # Ensure UPC is present (required by AU marketplace)
+    if "UPC" not in aspects:
+        upc_value = draft.get("upc") or "Does not apply"
+        aspects["UPC"] = [upc_value]
+        logger.info(f"Added missing UPC aspect: {upc_value}")
     
     # Ensure Type is present for skateboard items
     if "Type" not in aspects:
@@ -3668,6 +3673,8 @@ async def publish_draft_multi_marketplace(
             "MISC": "Skateboard Accessory"
         }
         aspects["Type"] = [type_mapping.get(item_type, "Skateboard Accessory")]
+    
+    logger.info(f"Final aspects: {aspects}")
     
     sku = draft["sku"]
     results = {"sku": sku, "marketplaces": {}}
