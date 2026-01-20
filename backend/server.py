@@ -2729,62 +2729,17 @@ async def bootstrap_marketplaces(
                     logger.warning(f"    Please create a policy named '{OUR_POLICY_NAME}' in eBay Seller Hub")
                     result.errors.append(f"Policy '{OUR_POLICY_NAME}' not found for {marketplace_id}. Create it in eBay Seller Hub first.")
                 
-                # Step 3b: Get all existing fulfillment policies to find a template
-                logger.info(f"  3b. Getting all fulfillment policies for {marketplace_id}...")
-                existing_resp = await http_client.get(
-                    f"{api_url}/sell/account/v1/fulfillment_policy",
-                    headers={**headers, "X-EBAY-C-MARKETPLACE-ID": marketplace_id},
-                    params={"marketplace_id": marketplace_id}
-                )
-                logger.info(f"    getFulfillmentPolicies: status={existing_resp.status_code}")
-                
-                if existing_resp.status_code != 200:
-                    error_text = existing_resp.text[:500]
-                    logger.error(f"    Failed to get fulfillment policies: {error_text}")
-                    result.errors.append(f"Failed to get fulfillment policies: {existing_resp.status_code} - {error_text}")
-                    continue
-                
-                existing_policies = existing_resp.json().get("fulfillmentPolicies", [])
-                logger.info(f"    Found {len(existing_policies)} existing fulfillment policies")
-                
-                if not existing_policies:
-                    logger.error(f"    ⚠️ No fulfillment policies found for {marketplace_id}")
-                    logger.error(f"    Please create a fulfillment policy manually in eBay Seller Hub first")
-                    result.errors.append(f"No fulfillment policy exists for {marketplace_id}. Create one in eBay Seller Hub first.")
-                    continue
-                
-                # Log all available policies and look for one with INTERNATIONAL shipping
-                template_policy = None
-                intl_policy = None
-                
-                for p in existing_policies:
-                    p_name = p.get("name", "Unknown")
-                    p_id = p.get("fulfillmentPolicyId", "?")
-                    shipping_opts = p.get("shippingOptions", [])
-                    has_intl = any(opt.get("optionType") == "INTERNATIONAL" for opt in shipping_opts)
-                    intl_marker = " [HAS INTL]" if has_intl else ""
-                    logger.info(f"      Policy: {p_name} (ID: {p_id}){intl_marker}")
-                    
-                    # Prefer policy with international shipping
-                    if has_intl and not intl_policy:
-                        intl_policy = p
-                        logger.info(f"      👆 Found policy with INTERNATIONAL shipping!")
-                
-                # If we don't have our policy yet, prefer one with international, else use first
-                if not our_policy_id:
-                    if intl_policy:
-                        template_policy = intl_policy
-                        logger.info(f"    ✅ Using template WITH INTERNATIONAL: {template_policy.get('name')}")
-                    else:
-                        template_policy = existing_policies[0]
-                        logger.warning(f"    ⚠️ No policy with INTERNATIONAL found, using first: {template_policy.get('name')}")
-                        result.errors.append(f"⚠️ {marketplace_id}: No policy with international shipping found. Only domestic rates will be applied. Create a policy with international shipping in eBay Seller Hub for worldwide rates.")
-                    template_policy_id = template_policy.get("fulfillmentPolicyId")
-                else:
+                # If we found our policy by name, use it directly
+                if our_policy_id:
                     template_policy_id = our_policy_id
+                    logger.info(f"    Using policy '{OUR_POLICY_NAME}' (ID: {our_policy_id})")
+                else:
+                    # Policy not found - skip this marketplace but continue with others
+                    logger.error(f"    ❌ Cannot configure {marketplace_id} without '{OUR_POLICY_NAME}' policy")
+                    continue
                 
-                # Step 3c: Get FULL policy object (required for update)
-                logger.info(f"  3c. Getting full policy object: {template_policy_id}")
+                # Step 3b: Get FULL policy object (required for update)
+                logger.info(f"  3b. Getting full policy object: {template_policy_id}")
                 full_policy_resp = await http_client.get(
                     f"{api_url}/sell/account/v1/fulfillment_policy/{template_policy_id}",
                     headers={**headers, "X-EBAY-C-MARKETPLACE-ID": marketplace_id}
