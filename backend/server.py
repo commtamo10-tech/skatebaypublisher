@@ -2820,25 +2820,50 @@ async def bootstrap_marketplaces(
                     updated_policy["name"] = OUR_POLICY_NAME
                     updated_policy["description"] = f"Auto-managed international shipping rates for {mp_config['name']}"
                 
-                # Get the shippingOptions and update costs ONLY (keep services intact!)
+                # Get the shippingOptions and update costs based on destination regions
+                # Target rates: €10 Europe, $25 Americas, $45 Rest of World (converted to marketplace currency)
                 shipping_options = updated_policy.get("shippingOptions", [])
                 
                 if shipping_options:
                     for opt in shipping_options:
                         opt_type = opt.get("optionType", "UNKNOWN")
                         services = opt.get("shippingServices", [])
+                        ship_to = opt.get("shipToLocations", {})
+                        region_included = ship_to.get("regionIncluded", [])
                         
-                        # Determine rate based on option type
+                        # Determine which rate to use based on option type and destination
+                        # DOMESTIC = seller's home region (use Europe rate €10)
+                        # INTERNATIONAL = check shipToLocations to determine rate
                         if opt_type == "DOMESTIC":
-                            # Use Europe rate for domestic (closest region)
+                            # Domestic shipping - use Europe rate (€10 converted)
                             new_cost = shipping_rates['europe']['value']
+                            rate_name = "Europe (domestic)"
                         elif opt_type == "INTERNATIONAL":
-                            # Use Rest of World rate for international
-                            new_cost = shipping_rates['rest_of_world']['value']
+                            # Check what regions are included
+                            region_names = [r.get("regionName", "") for r in region_included]
+                            region_str = ", ".join(region_names) if region_names else "Worldwide"
+                            
+                            # If Americas (North/South America), use Americas rate ($25)
+                            # If Europe, use Europe rate (€10)
+                            # Otherwise, use Rest of World rate ($45)
+                            is_americas = any(r in ["North_America", "South_America", "Americas", "NORTH_AMERICA", "SOUTH_AMERICA"] for r in region_names)
+                            is_europe = any(r in ["Europe", "EUROPE", "European_Union"] for r in region_names)
+                            
+                            if is_americas:
+                                new_cost = shipping_rates['americas']['value']
+                                rate_name = f"Americas ({region_str})"
+                            elif is_europe:
+                                new_cost = shipping_rates['europe']['value']
+                                rate_name = f"Europe ({region_str})"
+                            else:
+                                # Rest of World or Worldwide
+                                new_cost = shipping_rates['rest_of_world']['value']
+                                rate_name = f"Rest of World ({region_str})"
                         else:
-                            new_cost = shipping_rates['americas']['value']
+                            new_cost = shipping_rates['rest_of_world']['value']
+                            rate_name = "Unknown type"
                         
-                        logger.info(f"      {opt_type}: updating {len(services)} service(s) to {new_cost} {mp_currency}")
+                        logger.info(f"      {opt_type} -> {rate_name}: {len(services)} service(s) to {new_cost} {mp_currency}")
                         
                         # Update cost for each service, keeping the original service codes!
                         for svc in services:
