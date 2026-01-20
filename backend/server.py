@@ -4317,12 +4317,14 @@ async def publish_draft_multi_marketplace(
                         if existing_listing_id:
                             # Already published! Skip and return existing result
                             logger.info(f"⏭️ SKIPPING {marketplace_id} - Already published with listing ID: {existing_listing_id}")
+                            mp_domain = get_marketplace_domain(marketplace_id)
+                            sandbox_prefix = "sandbox." if use_sandbox else ""
                             results["marketplaces"][marketplace_id] = {
                                 "success": True,
                                 "offer_id": existing_offer_id,
                                 "listing_id": existing_listing_id,
                                 "price": f"{price} {currency}",
-                                "listing_url": f"https://www.{'sandbox.' if use_sandbox else ''}ebay.com/itm/{existing_listing_id}",
+                                "listing_url": f"https://www.{sandbox_prefix}{mp_domain}/itm/{existing_listing_id}",
                                 "note": "Already published (skipped)"
                             }
                             break
@@ -4339,12 +4341,14 @@ async def publish_draft_multi_marketplace(
             if existing_results.get(marketplace_id, {}).get("listing_id"):
                 existing_listing_id = existing_results[marketplace_id]["listing_id"]
                 logger.info(f"⏭️ SKIPPING {marketplace_id} - Found existing listing in draft: {existing_listing_id}")
+                mp_domain = get_marketplace_domain(marketplace_id)
+                sandbox_prefix = "sandbox." if use_sandbox else ""
                 results["marketplaces"][marketplace_id] = {
                     "success": True,
                     "offer_id": existing_results[marketplace_id].get("offer_id"),
                     "listing_id": existing_listing_id,
                     "price": f"{price} {currency}",
-                    "listing_url": f"https://www.{'sandbox.' if use_sandbox else ''}ebay.com/itm/{existing_listing_id}",
+                    "listing_url": f"https://www.{sandbox_prefix}{mp_domain}/itm/{existing_listing_id}",
                     "note": "Already published (from draft history)"
                 }
                 continue
