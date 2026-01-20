@@ -2801,27 +2801,27 @@ async def bootstrap_marketplaces(
                     
                     full_policy = full_policy_resp.json()
                     logger.info(f"    Full policy loaded: {full_policy.get('name')}")
-                
-                # Log the full policy structure for debugging
-                shipping_opts_debug = full_policy.get("shippingOptions", [])
-                logger.info(f"    Policy has {len(shipping_opts_debug)} shippingOptions:")
-                for i, opt in enumerate(shipping_opts_debug):
-                    opt_type = opt.get("optionType", "?")
-                    services = opt.get("shippingServices", [])
-                    ship_to = opt.get("shipToLocations", {})
-                    region_included = ship_to.get("regionIncluded", [])
-                    region_excluded = ship_to.get("regionExcluded", [])
-                    logger.info(f"      [{i}] {opt_type}: {len(services)} services")
-                    logger.info(f"          shipToLocations.regionIncluded: {[r.get('regionName', r) for r in region_included]}")
-                    if region_excluded:
-                        logger.info(f"          shipToLocations.regionExcluded: {[r.get('regionName', r) for r in region_excluded]}")
-                    for svc in services:
-                        svc_code = svc.get("shippingServiceCode", "?")
-                        cost = svc.get("shippingCost", {})
-                        logger.info(f"          - {svc_code}: {cost.get('value', '?')} {cost.get('currency', '?')}")
-                
-                # Step 3c: Clone and modify the policy
-                logger.info(f"  3c. Modifying policy with new shipping rates...")
+                    
+                    # Log the full policy structure for debugging
+                    shipping_opts_debug = full_policy.get("shippingOptions", [])
+                    logger.info(f"    Policy has {len(shipping_opts_debug)} shippingOptions:")
+                    for i, opt in enumerate(shipping_opts_debug):
+                        opt_type = opt.get("optionType", "?")
+                        services = opt.get("shippingServices", [])
+                        ship_to = opt.get("shipToLocations", {})
+                        region_included = ship_to.get("regionIncluded", [])
+                        region_excluded = ship_to.get("regionExcluded", [])
+                        logger.info(f"      [{i}] {opt_type}: {len(services)} services")
+                        logger.info(f"          shipToLocations.regionIncluded: {[r.get('regionName', r) for r in region_included]}")
+                        if region_excluded:
+                            logger.info(f"          shipToLocations.regionExcluded: {[r.get('regionName', r) for r in region_excluded]}")
+                        for svc in services:
+                            svc_code = svc.get("shippingServiceCode", "?")
+                            cost = svc.get("shippingCost", {})
+                            logger.info(f"          - {svc_code}: {cost.get('value', '?')} {cost.get('currency', '?')}")
+                    
+                    # Step 3d: Clone and modify the policy
+                    logger.info(f"  3d. Modifying policy with new shipping rates...")
                 
                 # Clone the policy object for modification
                 updated_policy = dict(full_policy)
