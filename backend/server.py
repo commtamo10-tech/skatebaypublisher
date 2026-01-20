@@ -2781,22 +2781,26 @@ async def bootstrap_marketplaces(
                         result.errors.append(f"No fulfillment policy exists for {marketplace_id}. Create '{OUR_POLICY_NAME}' in eBay Seller Hub.")
                         continue
                 
-                # Step 3c: Get FULL policy object (required for update)
-                logger.info(f"  3c. Getting full policy object: {template_policy_id}")
-                full_policy_resp = await http_client.get(
-                    f"{api_url}/sell/account/v1/fulfillment_policy/{template_policy_id}",
-                    headers={**headers, "X-EBAY-C-MARKETPLACE-ID": marketplace_id}
-                )
-                logger.info(f"    getFulfillmentPolicy: status={full_policy_resp.status_code}")
-                
-                if full_policy_resp.status_code != 200:
-                    error_text = full_policy_resp.text[:500]
-                    logger.error(f"    Failed to get full policy: {error_text}")
-                    result.errors.append(f"Failed to get full policy {template_policy_id}: {error_text}")
-                    continue
-                
-                full_policy = full_policy_resp.json()
-                logger.info(f"    Full policy loaded: {full_policy.get('name')}")
+                # Skip rate update for user's custom WORLDWIDE_SHIPPING_10 policy
+                if skip_rate_update:
+                    logger.info(f"    Skipping rate update - using policy as configured by user")
+                else:
+                    # Step 3c: Get FULL policy object (required for update)
+                    logger.info(f"  3c. Getting full policy object: {template_policy_id}")
+                    full_policy_resp = await http_client.get(
+                        f"{api_url}/sell/account/v1/fulfillment_policy/{template_policy_id}",
+                        headers={**headers, "X-EBAY-C-MARKETPLACE-ID": marketplace_id}
+                    )
+                    logger.info(f"    getFulfillmentPolicy: status={full_policy_resp.status_code}")
+                    
+                    if full_policy_resp.status_code != 200:
+                        error_text = full_policy_resp.text[:500]
+                        logger.error(f"    Failed to get full policy: {error_text}")
+                        result.errors.append(f"Failed to get full policy {template_policy_id}: {error_text}")
+                        continue
+                    
+                    full_policy = full_policy_resp.json()
+                    logger.info(f"    Full policy loaded: {full_policy.get('name')}")
                 
                 # Log the full policy structure for debugging
                 shipping_opts_debug = full_policy.get("shippingOptions", [])
