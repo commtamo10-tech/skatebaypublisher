@@ -3898,13 +3898,19 @@ async def publish_draft_multi_marketplace(
             
             offer_id = None
             
+            # Headers with marketplace ID for all offer-related calls
+            mp_offer_headers = {
+                **headers,
+                "X-EBAY-C-MARKETPLACE-ID": marketplace_id
+            }
+            
             # Create or Update offer
             if existing_offer_id:
                 # Delete existing unpublished offer to ensure clean state
                 logger.info(f"Deleting existing unpublished offer {existing_offer_id}...")
                 delete_resp = await http_client.delete(
                     f"{api_url}/sell/inventory/v1/offer/{existing_offer_id}",
-                    headers=headers
+                    headers=mp_offer_headers
                 )
                 logger.info(f"Delete offer response: {delete_resp.status_code}")
                 if delete_resp.status_code in [200, 204]:
@@ -3916,7 +3922,7 @@ async def publish_draft_multi_marketplace(
                     # updateOffer is "replace" - must include ALL required fields
                     offer_response = await http_client.put(
                         f"{api_url}/sell/inventory/v1/offer/{existing_offer_id}",
-                        headers=headers,
+                        headers=mp_offer_headers,
                         json=offer_payload
                     )
                     logger.info(f"updateOffer: status={offer_response.status_code}")
