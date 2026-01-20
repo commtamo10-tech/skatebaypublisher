@@ -2803,19 +2803,22 @@ async def bootstrap_marketplaces(
                     }
                 
                 # First try to get existing policies for this marketplace
+                # Skip using existing if force_recreate is True
+                force_recreate = request.force_recreate if hasattr(request, 'force_recreate') and request.force_recreate else False
+                
                 existing_resp = await http_client.get(
                     f"{api_url}/sell/account/v1/fulfillment_policy",
                     headers={**headers, "X-EBAY-C-MARKETPLACE-ID": marketplace_id},
                     params={"marketplace_id": marketplace_id}
                 )
                 
-                if existing_resp.status_code == 200:
+                if existing_resp.status_code == 200 and not force_recreate:
                     existing_policies = existing_resp.json().get("fulfillmentPolicies", [])
                     if existing_policies:
                         result.fulfillment_policy_id = existing_policies[0].get("fulfillmentPolicyId")
                         logger.info(f"  Using existing fulfillment: {result.fulfillment_policy_id}")
                 
-                # Create new if none exists
+                # Create new if none exists OR if force_recreate
                 if not result.fulfillment_policy_id:
                     fulfillment_resp = await http_client.post(
                         f"{api_url}/sell/account/v1/fulfillment_policy",
