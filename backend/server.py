@@ -2868,56 +2868,71 @@ async def bootstrap_marketplaces(
                                     # Rest of World or Worldwide
                                     new_cost = shipping_rates['rest_of_world']['value']
                                     rate_name = f"Rest of World ({region_str})"
-                        else:
-                            new_cost = shipping_rates['rest_of_world']['value']
-                            rate_name = "Unknown type"
-                        
-                        logger.info(f"      {opt_type} -> {rate_name}: {len(services)} service(s) to {new_cost} {mp_currency}")
-                        
-                        # Update cost for each service, keeping the original service codes!
-                        for svc in services:
-                            original_code = svc.get("shippingServiceCode", "?")
-                            svc["shippingCost"] = {
-                                "value": str(new_cost),
-                                "currency": mp_currency
-                            }
-                            # Also update additionalShippingCost if present
-                            if "additionalShippingCost" in svc:
-                                svc["additionalShippingCost"] = {
-                                    "value": "0.00",
+                            else:
+                                new_cost = shipping_rates['rest_of_world']['value']
+                                rate_name = "Unknown type"
+                            
+                            logger.info(f"      {opt_type} -> {rate_name}: {len(services)} service(s) to {new_cost} {mp_currency}")
+                            
+                            # Update cost for each service, keeping the original service codes!
+                            for svc in services:
+                                original_code = svc.get("shippingServiceCode", "?")
+                                svc["shippingCost"] = {
+                                    "value": str(new_cost),
                                     "currency": mp_currency
                                 }
-                            logger.info(f"        Service: {original_code} -> {new_cost} {mp_currency}")
+                                # Also update additionalShippingCost if present
+                                if "additionalShippingCost" in svc:
+                                    svc["additionalShippingCost"] = {
+                                        "value": "0.00",
+                                        "currency": mp_currency
+                                    }
+                                logger.info(f"        Service: {original_code} -> {new_cost} {mp_currency}")
+                        
+                        updated_policy["shippingOptions"] = shipping_options
+                    else:
+                        logger.warning(f"    ⚠️ No shippingOptions in template policy!")
                     
-                    updated_policy["shippingOptions"] = shipping_options
-                else:
-                    logger.warning(f"    ⚠️ No shippingOptions in template policy!")
-                
-                # Remove read-only fields that can't be sent in update
-                fields_to_remove = ["fulfillmentPolicyId", "warnings", "errors"]
-                for field in fields_to_remove:
-                    updated_policy.pop(field, None)
-                
-                # Step 3e: Update or Create the policy
-                if our_policy_id:
-                    # Update existing AUTO_INTL_V2 policy
-                    logger.info(f"  3e. Updating existing policy: {our_policy_id}")
+                    # Remove read-only fields that can't be sent in update
+                    fields_to_remove = ["fulfillmentPolicyId", "warnings", "errors"]
+                    for field in fields_to_remove:
+                        updated_policy.pop(field, None)
+                    
+                    # Step 3e: Update the fallback policy with new rates
+                    logger.info(f"  3e. Updating fallback policy with new shipping rates: {template_policy_id}")
+                    
+                    # Keep original name for the update (don't try to rename)
+                    updated_policy["name"] = full_policy.get("name")
+                    updated_policy.pop("description", None)  # Keep original description
+                    
                     update_resp = await http_client.put(
-                        f"{api_url}/sell/account/v1/fulfillment_policy/{our_policy_id}",
+                        f"{api_url}/sell/account/v1/fulfillment_policy/{template_policy_id}",
                         headers={**headers, "X-EBAY-C-MARKETPLACE-ID": marketplace_id, "Content-Type": "application/json"},
                         json=updated_policy
                     )
                     logger.info(f"    updateFulfillmentPolicy: status={update_resp.status_code}")
                     
                     if update_resp.status_code == 200:
-                        result.fulfillment_policy_id = our_policy_id
-                        logger.info(f"    ✅ Policy updated successfully: {our_policy_id}")
+                        result.fulfillment_policy_id = template_policy_id
+                        logger.info(f"    ✅ Policy updated with new rates: {template_policy_id}")
                     else:
-                        error_data = update_resp.json() if update_resp.headers.get("content-type", "").startswith("application/json") else {"message": update_resp.text[:500]}
+                        error_data = {}
+                        try:
+                            error_data = update_resp.json()
+                        except:
+                            error_data = {"message": update_resp.text[:500]}
                         logger.error(f"    ❌ Failed to update policy: {json.dumps(error_data, indent=2)}")
-                        # Show detailed error to user
+                        # Show detailed errors
                         errors_list = error_data.get("errors", [])
                         for err in errors_list:
+                            err_msg = f"{err.get('errorId', '?')}: {err.get('longMessage', err.get('message', 'Unknown error'))}"
+                            logger.error(f"      Error: {err_msg}")
+                            result.errors.append(err_msg)
+                        if not errors_list:
+                            result.errors.append(f"Update failed: {update_resp.status_code} - {error_data}")
+                        # Use the fallback policy anyway (it still exists and is valid)
+                        result.fulfillment_policy_id = template_policy_id
+                        logger.info(f"    Using existing policy without rate update: {template_policy_id}")
                             err_msg = f"{err.get('errorId', '?')}: {err.get('longMessage', err.get('message', 'Unknown error'))}"
                             logger.error(f"      Error: {err_msg}")
                             result.errors.append(err_msg)
