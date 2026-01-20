@@ -1974,11 +1974,11 @@ async def get_category_aspects(
     """
     Get required and recommended item aspects for a category on a specific marketplace.
     """
-    # Get valid access token (this checks token validity)
+    # Get Application Access Token for Taxonomy API (uses client_credentials)
     try:
-        access_token = await get_ebay_access_token()
+        access_token = await get_ebay_app_token()
     except HTTPException as e:
-        raise HTTPException(status_code=400, detail=f"eBay not connected: {e.detail}")
+        raise HTTPException(status_code=400, detail=f"eBay authentication error: {e.detail}")
     
     environment = await get_ebay_environment()
     config = get_ebay_config(environment)
