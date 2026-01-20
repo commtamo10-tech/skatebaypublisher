@@ -640,6 +640,21 @@ export default function DraftEditor() {
   const handleAutoCategories = async () => {
     setLoadingCategories(true);
     try {
+      // First save current data to not lose changes
+      await api.patch(`/drafts/${id}`, {
+        title,
+        title_manually_edited: titleManuallyEdited,
+        description,
+        description_manually_edited: descriptionManuallyEdited,
+        aspects,
+        aspects_metadata: aspectsMetadata,
+        condition,
+        category_id: categoryId,
+        price: parseFloat(price) || 0,
+        selected_marketplaces: selectedMarketplaces,
+        ...coreDetails
+      });
+      
       const response = await api.post(`/drafts/${id}/auto-categories`);
       const categories = response.data.category_by_marketplace || {};
       setCategoryByMarketplace(categories);
