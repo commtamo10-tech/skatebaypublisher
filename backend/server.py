@@ -2864,14 +2864,42 @@ async def bootstrap_marketplaces(
                         # Fall back to using template policy as-is
                         result.fulfillment_policy_id = our_policy_id
                 else:
-                    # Create new policy by updating the template (eBay API creates new with different name)
-                    # Actually, we need to CREATE since name is different. But eBay create is problematic.
-                    # Better approach: just use the template policy as-is for now
-                    logger.info(f"  3e. Using template policy as-is (no AUTO_INTL_V2 yet)")
-                    result.fulfillment_policy_id = template_policy_id
-                    logger.info(f"    ✅ Using template policy: {template_policy_id}")
-                    # Note: To create AUTO_INTL_V2, user should create it manually in Seller Hub,
-                    # then we can update it with our rates on next bootstrap
+                    # No AUTO_INTL_V2 exists, so update the template policy with new rates
+                    # Keep the original policy name, just update the shipping costs
+                    logger.info(f"  3e. Updating template policy with new shipping rates: {template_policy_id}")
+                    
+                    # Keep original name for the update (don't try to rename)
+                    updated_policy["name"] = full_policy.get("name")
+                    updated_policy.pop("description", None)  # Keep original description
+                    
+                    update_resp = await http_client.put(
+                        f"{api_url}/sell/account/v1/fulfillment_policy/{template_policy_id}",
+                        headers={**headers, "X-EBAY-C-MARKETPLACE-ID": marketplace_id, "Content-Type": "application/json"},
+                        json=updated_policy
+                    )
+                    logger.info(f"    updateFulfillmentPolicy: status={update_resp.status_code}")
+                    
+                    if update_resp.status_code == 200:
+                        result.fulfillment_policy_id = template_policy_id
+                        logger.info(f"    ✅ Policy updated with new rates: {template_policy_id}")
+                    else:
+                        error_data = {}
+                        try:
+                            error_data = update_resp.json()
+                        except:
+                            error_data = {"message": update_resp.text[:500]}
+                        logger.error(f"    ❌ Failed to update policy: {json.dumps(error_data, indent=2)}")
+                        # Show detailed errors
+                        errors_list = error_data.get("errors", [])
+                        for err in errors_list:
+                            err_msg = f"{err.get('errorId', '?')}: {err.get('longMessage', err.get('message', 'Unknown error'))}"
+                            logger.error(f"      Error: {err_msg}")
+                            result.errors.append(err_msg)
+                        if not errors_list:
+                            result.errors.append(f"Update failed: {update_resp.status_code} - {error_data}")
+                        # Use the template policy anyway (it still exists and is valid)
+                        result.fulfillment_policy_id = template_policy_id
+                        logger.info(f"    Using existing policy without rate update: {template_policy_id}")
                 
                 # ========== STEP 4: Create Payment Policy ==========
                 logger.info(f"Step 4: Creating payment policy for {marketplace_id}...")
