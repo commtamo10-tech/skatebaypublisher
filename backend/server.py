@@ -3858,11 +3858,17 @@ async def publish_draft_multi_marketplace(
             }, indent=2))
             logger.info("=" * 60)
             
-            # Headers with marketplace ID for all offer-related calls
+            # Get the correct Content-Language for this marketplace
+            mp_language = mp_config.get("language", "en-US")
+            
+            # Headers with marketplace ID and correct language for all offer-related calls
             mp_offer_headers = {
-                **headers,
-                "X-EBAY-C-MARKETPLACE-ID": marketplace_id
+                **base_headers,
+                "X-EBAY-C-MARKETPLACE-ID": marketplace_id,
+                "Content-Language": mp_language
             }
+            
+            logger.info(f"Using Content-Language: {mp_language} for {marketplace_id}")
             
             # Check if offer already exists for this SKU+marketplace
             existing_offer_id = None
