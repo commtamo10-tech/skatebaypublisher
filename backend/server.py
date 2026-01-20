@@ -3984,11 +3984,12 @@ async def publish_draft_multi_marketplace(
             logger.info("=" * 60)
             
             # Use retry with backoff for publish (429 and 5xx only)
+            # Pass marketplace-specific headers
             publish_response, attempt_num = await retry_with_backoff(
                 http_client=http_client,
                 method="POST",
                 url=f"{api_url}/sell/inventory/v1/offer/{offer_id}/publish",
-                headers=headers,
+                headers=mp_offer_headers,
                 json_body=None,
                 max_retries=3,
                 base_delay=2.0,
