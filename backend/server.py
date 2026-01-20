@@ -1717,7 +1717,7 @@ async def republish_draft(draft_id: str, user = Depends(get_current_user)):
             aspects["Type"] = [type_mapping.get(item_type, "Skateboard Accessory")]
         
         # Convert image URLs (same as publish-multi)
-        backend_url = os.environ.get('REACT_APP_BACKEND_URL', '')
+        backend_url = os.environ.get('REACT_APP_BACKEND_URL', 'https://skatebaypublisher.preview.emergentagent.com')
         image_urls = []
         for url in draft.get("image_urls", []):
             if url.startswith("http"):
