@@ -312,10 +312,54 @@ export default function Dashboard() {
                     </div>
                   )}
                   
-                  {draft.status === "PUBLISHED" && draft.listing_id && (
+                  {/* Show individual marketplace listings with delete buttons */}
+                  {draft.status === "PUBLISHED" && draft.marketplace_listings && Object.keys(draft.marketplace_listings).length > 0 && (
+                    <div className="mt-3 space-y-2">
+                      <p className="text-xs font-bold text-muted-foreground">Pubblicato su:</p>
+                      <div className="flex flex-wrap gap-2">
+                        {Object.entries(draft.marketplace_listings).map(([mpId, mpData]) => {
+                          const mpNames = {
+                            'EBAY_US': { name: '🇺🇸 eBay.com', domain: 'ebay.com' },
+                            'EBAY_DE': { name: '🇩🇪 eBay.de', domain: 'ebay.de' },
+                            'EBAY_ES': { name: '🇪🇸 eBay.es', domain: 'ebay.es' },
+                            'EBAY_AU': { name: '🇦🇺 eBay.com.au', domain: 'ebay.com.au' }
+                          };
+                          const mp = mpNames[mpId] || { name: mpId, domain: 'ebay.com' };
+                          const listingUrl = mpData.listing_url || `https://www.${mp.domain}/itm/${mpData.listing_id}`;
+                          
+                          return (
+                            <div key={mpId} className="inline-flex items-center gap-1 bg-green-50 border-2 border-green-200 rounded">
+                              <a
+                                href={listingUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                                className="inline-flex items-center gap-1 px-2 py-1 text-green-700 text-xs font-medium hover:bg-green-100 transition-colors"
+                                data-testid={`view-listing-${mpId}`}
+                              >
+                                <ExternalLink className="w-3 h-3" />
+                                {mp.name}
+                              </a>
+                              <button
+                                onClick={(e) => handleDeleteMarketplace(draft.id, mpId, e)}
+                                className="p-1 text-red-500 hover:bg-red-100 rounded-r transition-colors border-l border-green-200"
+                                title={`Rimuovi da ${mp.name}`}
+                                data-testid={`delete-marketplace-${mpId}`}
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Fallback for old single-marketplace listings */}
+                  {draft.status === "PUBLISHED" && draft.listing_id && (!draft.marketplace_listings || Object.keys(draft.marketplace_listings).length === 0) && (
                     <div className="mt-3 flex items-center gap-2">
                       <a
-                        href={`https://www.sandbox.ebay.com/itm/${draft.listing_id}`}
+                        href={`https://www.ebay.com/itm/${draft.listing_id}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         onClick={(e) => e.stopPropagation()}
