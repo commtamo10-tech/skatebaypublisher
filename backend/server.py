@@ -1922,17 +1922,14 @@ async def get_category_aspects(
     """
     Get required and recommended item aspects for a category on a specific marketplace.
     """
-    settings = await db.settings.find_one({"_id": "app_settings"}, {"_id": 0})
-    if not settings or not settings.get("ebay_connected"):
-        raise HTTPException(status_code=400, detail="eBay not connected")
-    
-    environment = await get_ebay_environment()
-    config = get_ebay_config(environment)
-    
+    # Get valid access token (this checks token validity)
     try:
         access_token = await get_ebay_access_token()
     except HTTPException as e:
-        raise HTTPException(status_code=400, detail=f"eBay authentication error: {e.detail}")
+        raise HTTPException(status_code=400, detail=f"eBay not connected: {e.detail}")
+    
+    environment = await get_ebay_environment()
+    config = get_ebay_config(environment)
     
     api_url = config["api_url"]
     category_tree_id = MARKETPLACE_CATEGORY_TREE.get(marketplace_id)
