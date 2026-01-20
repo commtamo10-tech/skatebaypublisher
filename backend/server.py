@@ -3935,10 +3935,10 @@ async def publish_draft_multi_marketplace(
                 # Create new offer
                 offer_response = await http_client.post(
                     f"{api_url}/sell/inventory/v1/offer",
-                    headers=headers,
+                    headers=mp_offer_headers,
                     json=offer_payload
                 )
-                logger.info(f"createOffer: status={offer_response.status_code}")
+                logger.info(f"createOffer ({marketplace_id}): status={offer_response.status_code}")
                 
                 if offer_response.status_code == 201:
                     offer_data = offer_response.json()
