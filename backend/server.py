@@ -2804,7 +2804,12 @@ async def bootstrap_marketplaces(
                     opt_type = opt.get("optionType", "?")
                     services = opt.get("shippingServices", [])
                     ship_to = opt.get("shipToLocations", {})
-                    logger.info(f"      [{i}] {opt_type}: {len(services)} services, shipTo: {ship_to}")
+                    region_included = ship_to.get("regionIncluded", [])
+                    region_excluded = ship_to.get("regionExcluded", [])
+                    logger.info(f"      [{i}] {opt_type}: {len(services)} services")
+                    logger.info(f"          shipToLocations.regionIncluded: {[r.get('regionName', r) for r in region_included]}")
+                    if region_excluded:
+                        logger.info(f"          shipToLocations.regionExcluded: {[r.get('regionName', r) for r in region_excluded]}")
                     for svc in services:
                         svc_code = svc.get("shippingServiceCode", "?")
                         cost = svc.get("shippingCost", {})
