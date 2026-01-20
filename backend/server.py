@@ -700,37 +700,6 @@ def get_description_template(item_type: str) -> str:
 
 {style_footer}
 """
-  <li><strong>Artist:</strong> [if known]</li>
-  <li><strong>Type:</strong> [OG/Reissue if known]</li>
-</ul>
-
-(C) CONDITION NOTES:
-<p><strong>Condition:</strong> [Brief description]. Please review all photos carefully as they are part of the description.</p>
-
-(D) CLOSING + SHIPPING (MANDATORY)
-"""
-    
-    else:  # MISC
-        return """
-(A) COLLECTOR INTRO (2-3 sentences):
-Write for vintage skateboard collectors.
-
-(B) QUICK SUMMARY:
-<p><strong>Summary:</strong> [Paraphrase of title]</p>
-
-<p><strong>Key Details:</strong></p>
-<ul>
-  [Only include fields that are known]
-  <li><strong>Brand:</strong> [value if known]</li>
-  <li><strong>Type:</strong> [value]</li>
-  <li><strong>Era:</strong> [decade if known]</li>
-</ul>
-
-(C) CONDITION NOTES:
-<p><strong>Condition:</strong> [Brief description]. Please review all photos carefully as they are part of the description.</p>
-
-(D) CLOSING + SHIPPING (MANDATORY)
-"""
 
 
 # ============ SKU GENERATION ============
