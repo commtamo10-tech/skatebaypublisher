@@ -2781,6 +2781,19 @@ async def bootstrap_marketplaces(
                 full_policy = full_policy_resp.json()
                 logger.info(f"    Full policy loaded: {full_policy.get('name')}")
                 
+                # Log the full policy structure for debugging
+                shipping_opts_debug = full_policy.get("shippingOptions", [])
+                logger.info(f"    Policy has {len(shipping_opts_debug)} shippingOptions:")
+                for i, opt in enumerate(shipping_opts_debug):
+                    opt_type = opt.get("optionType", "?")
+                    services = opt.get("shippingServices", [])
+                    ship_to = opt.get("shipToLocations", {})
+                    logger.info(f"      [{i}] {opt_type}: {len(services)} services, shipTo: {ship_to}")
+                    for svc in services:
+                        svc_code = svc.get("shippingServiceCode", "?")
+                        cost = svc.get("shippingCost", {})
+                        logger.info(f"          - {svc_code}: {cost.get('value', '?')} {cost.get('currency', '?')}")
+                
                 # Step 3d: Clone and modify the policy
                 logger.info(f"  3d. Modifying policy with new shipping rates...")
                 
