@@ -513,109 +513,153 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
 # ============ DESCRIPTION TEMPLATES ============
 
 def get_description_template(item_type: str) -> str:
-    """Get description template structure based on item type - Clean minimal style"""
+    """Get description template structure based on item type - 90s Sticker Label Style (Minimal)"""
     
-    # Clean minimal header - left aligned
-    header = """<div style="font-family: Arial, sans-serif; max-width: 700px; padding: 20px; text-align: left;">
+    # 90s Sticker Label style - minimal but with character
+    header = """<div style="font-family: 'Arial Black', Arial, sans-serif; max-width: 700px; padding: 15px; text-align: left; background: #fafafa;">
+
+<!-- SHOP LABEL -->
+<div style="display: inline-block; background: #000; color: #fff; padding: 8px 15px; font-size: 12px; font-weight: bold; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 15px;">
+VINTAGE SKATE SHOP
+</div>
+
 """
 
     footer = """
-<hr style="border: none; border-top: 1px solid #ddd; margin: 20px 0;">
-
-<p style="font-size: 13px; color: #666; text-align: left;">
-<strong>Shipping:</strong> Ships from Milan, Italy. Combined shipping available—message before purchase.<br>
-International buyers: import duties/taxes not included.
+<!-- SHIPPING STICKER -->
+<div style="margin-top: 25px; padding: 12px; border: 2px dashed #333; background: #fff;">
+<p style="font-size: 12px; margin: 0; font-weight: bold; text-transform: uppercase; letter-spacing: 1px;">📦 Shipping Info</p>
+<p style="font-size: 12px; color: #555; margin: 8px 0 0 0;">
+Ships from Milan, Italy • Combined shipping available<br>
+International: duties/taxes not included
 </p>
+</div>
 
-<p style="font-size: 13px; color: #666; text-align: left;">
-Questions? Message me! Thanks for looking! 🛹
-</p>
+<!-- CONTACT LABEL -->
+<div style="display: inline-block; background: #FFD700; color: #000; padding: 8px 15px; font-size: 11px; font-weight: bold; margin-top: 15px; text-transform: uppercase;">
+Questions? Hit me up! 🛹
+</div>
 
 </div>
 """
     
     if item_type == "APP":
         return f"""{header}
-<p style="text-align: left;">[Write 2-3 sentences for vintage streetwear collectors. Mention the era/brand heritage.]</p>
+<p style="font-size: 14px; line-height: 1.6; margin-bottom: 20px;">[Write 2-3 sentences for vintage streetwear collectors. Mention the era/brand heritage.]</p>
 
-<h3 style="border-bottom: 2px solid #333; padding-bottom: 5px; text-align: left;">Details</h3>
-<ul style="line-height: 1.8; text-align: left; padding-left: 20px;">
-  <li><strong>Brand:</strong> [value]</li>
-  <li><strong>Type:</strong> [T-shirt/Hoodie/etc.]</li>
-  <li><strong>Size:</strong> [tag size]</li>
-  <li><strong>Color:</strong> [value]</li>
-  <li><strong>Era:</strong> [decade if known]</li>
-</ul>
+<!-- SPECS LABEL -->
+<div style="background: #fff; border: 2px solid #000; padding: 15px; margin: 15px 0;">
+<div style="background: #000; color: #fff; padding: 5px 10px; font-size: 11px; font-weight: bold; letter-spacing: 1px; display: inline-block; margin: -25px 0 10px -5px;">SPECS</div>
+<table style="width: 100%; font-size: 13px;">
+  <tr><td style="padding: 4px 0; font-weight: bold; width: 35%;">Brand</td><td>[value]</td></tr>
+  <tr><td style="padding: 4px 0; font-weight: bold;">Type</td><td>[T-shirt/Hoodie/etc.]</td></tr>
+  <tr><td style="padding: 4px 0; font-weight: bold;">Size</td><td>[tag size]</td></tr>
+  <tr><td style="padding: 4px 0; font-weight: bold;">Color</td><td>[value]</td></tr>
+  <tr><td style="padding: 4px 0; font-weight: bold;">Era</td><td>[decade]</td></tr>
+</table>
+</div>
 
-<h3 style="border-bottom: 2px solid #333; padding-bottom: 5px; text-align: left;">Condition</h3>
-<p style="text-align: left;">[Brief honest description]. Please review all photos carefully.</p>
+<!-- CONDITION LABEL -->
+<div style="background: #90EE90; border: 2px solid #000; padding: 10px 15px; display: inline-block;">
+<span style="font-size: 11px; font-weight: bold; text-transform: uppercase;">Condition:</span>
+<span style="font-size: 13px;"> [Brief description]</span>
+</div>
+<p style="font-size: 11px; color: #666; margin-top: 10px;">Check all photos—they're part of the description.</p>
 {footer}"""
     
     elif item_type == "WHL":
         return f"""{header}
-<p style="text-align: left;">[Write 2-3 sentences for vintage wheel collectors. Mention brand heritage.]</p>
+<p style="font-size: 14px; line-height: 1.6; margin-bottom: 20px;">[Write 2-3 sentences for vintage wheel collectors. Mention brand heritage.]</p>
 
-<h3 style="border-bottom: 2px solid #333; padding-bottom: 5px; text-align: left;">Wheel Specs</h3>
-<ul style="line-height: 1.8; text-align: left; padding-left: 20px;">
-  <li><strong>Brand:</strong> [value]</li>
-  <li><strong>Model:</strong> [value]</li>
-  <li><strong>Size:</strong> [diameter mm]</li>
-  <li><strong>Durometer:</strong> [hardness A]</li>
-  <li><strong>Color:</strong> [value]</li>
-  <li><strong>Quantity:</strong> [set of 4/pair/single]</li>
-</ul>
+<!-- SPECS LABEL -->
+<div style="background: #fff; border: 2px solid #000; padding: 15px; margin: 15px 0;">
+<div style="background: #FF6B00; color: #fff; padding: 5px 10px; font-size: 11px; font-weight: bold; letter-spacing: 1px; display: inline-block; margin: -25px 0 10px -5px;">🛞 WHEEL SPECS</div>
+<table style="width: 100%; font-size: 13px;">
+  <tr><td style="padding: 4px 0; font-weight: bold; width: 35%;">Brand</td><td>[value]</td></tr>
+  <tr><td style="padding: 4px 0; font-weight: bold;">Model</td><td>[value]</td></tr>
+  <tr><td style="padding: 4px 0; font-weight: bold;">Size</td><td>[diameter mm]</td></tr>
+  <tr><td style="padding: 4px 0; font-weight: bold;">Durometer</td><td>[hardness A]</td></tr>
+  <tr><td style="padding: 4px 0; font-weight: bold;">Color</td><td>[value]</td></tr>
+  <tr><td style="padding: 4px 0; font-weight: bold;">Quantity</td><td>[set of 4/pair/single]</td></tr>
+</table>
+</div>
 
-<h3 style="border-bottom: 2px solid #333; padding-bottom: 5px; text-align: left;">Condition</h3>
-<p style="text-align: left;">[Brief description]. Please review all photos carefully.</p>
+<!-- CONDITION LABEL -->
+<div style="background: #90EE90; border: 2px solid #000; padding: 10px 15px; display: inline-block;">
+<span style="font-size: 11px; font-weight: bold; text-transform: uppercase;">Condition:</span>
+<span style="font-size: 13px;"> [Brief description]</span>
+</div>
+<p style="font-size: 11px; color: #666; margin-top: 10px;">Check all photos—they're part of the description.</p>
 {footer}"""
     
     elif item_type == "TRK":
         return f"""{header}
-<p style="text-align: left;">[Write 2-3 sentences for vintage truck collectors.]</p>
+<p style="font-size: 14px; line-height: 1.6; margin-bottom: 20px;">[Write 2-3 sentences for vintage truck collectors.]</p>
 
-<h3 style="border-bottom: 2px solid #333; padding-bottom: 5px; text-align: left;">Truck Specs</h3>
-<ul style="line-height: 1.8; text-align: left; padding-left: 20px;">
-  <li><strong>Brand:</strong> [value]</li>
-  <li><strong>Model:</strong> [value]</li>
-  <li><strong>Hanger Width:</strong> [size]</li>
-  <li><strong>Color:</strong> [value]</li>
-  <li><strong>Quantity:</strong> [pair/single]</li>
-</ul>
+<!-- SPECS LABEL -->
+<div style="background: #fff; border: 2px solid #000; padding: 15px; margin: 15px 0;">
+<div style="background: #00CED1; color: #000; padding: 5px 10px; font-size: 11px; font-weight: bold; letter-spacing: 1px; display: inline-block; margin: -25px 0 10px -5px;">🔧 TRUCK SPECS</div>
+<table style="width: 100%; font-size: 13px;">
+  <tr><td style="padding: 4px 0; font-weight: bold; width: 35%;">Brand</td><td>[value]</td></tr>
+  <tr><td style="padding: 4px 0; font-weight: bold;">Model</td><td>[value]</td></tr>
+  <tr><td style="padding: 4px 0; font-weight: bold;">Hanger Width</td><td>[size]</td></tr>
+  <tr><td style="padding: 4px 0; font-weight: bold;">Color</td><td>[value]</td></tr>
+  <tr><td style="padding: 4px 0; font-weight: bold;">Quantity</td><td>[pair/single]</td></tr>
+</table>
+</div>
 
-<h3 style="border-bottom: 2px solid #333; padding-bottom: 5px; text-align: left;">Condition</h3>
-<p style="text-align: left;">[Brief description]. Please review all photos carefully.</p>
+<!-- CONDITION LABEL -->
+<div style="background: #90EE90; border: 2px solid #000; padding: 10px 15px; display: inline-block;">
+<span style="font-size: 11px; font-weight: bold; text-transform: uppercase;">Condition:</span>
+<span style="font-size: 13px;"> [Brief description]</span>
+</div>
+<p style="font-size: 11px; color: #666; margin-top: 10px;">Check all photos—they're part of the description.</p>
 {footer}"""
     
     elif item_type == "DCK":
         return f"""{header}
-<p style="text-align: left;">[Write 2-3 sentences for vintage deck collectors. Mention artist, rarity.]</p>
+<p style="font-size: 14px; line-height: 1.6; margin-bottom: 20px;">[Write 2-3 sentences for vintage deck collectors. Mention artist, rarity.]</p>
 
-<h3 style="border-bottom: 2px solid #333; padding-bottom: 5px; text-align: left;">Deck Specs</h3>
-<ul style="line-height: 1.8; text-align: left; padding-left: 20px;">
-  <li><strong>Brand:</strong> [value]</li>
-  <li><strong>Model/Series:</strong> [value]</li>
-  <li><strong>Size:</strong> [width inches]</li>
-  <li><strong>Era:</strong> [decade]</li>
-  <li><strong>Type:</strong> [OG/Reissue]</li>
-</ul>
+<!-- SPECS LABEL -->
+<div style="background: #fff; border: 2px solid #000; padding: 15px; margin: 15px 0;">
+<div style="background: #FF1493; color: #fff; padding: 5px 10px; font-size: 11px; font-weight: bold; letter-spacing: 1px; display: inline-block; margin: -25px 0 10px -5px;">🛹 DECK SPECS</div>
+<table style="width: 100%; font-size: 13px;">
+  <tr><td style="padding: 4px 0; font-weight: bold; width: 35%;">Brand</td><td>[value]</td></tr>
+  <tr><td style="padding: 4px 0; font-weight: bold;">Model/Series</td><td>[value]</td></tr>
+  <tr><td style="padding: 4px 0; font-weight: bold;">Size</td><td>[width inches]</td></tr>
+  <tr><td style="padding: 4px 0; font-weight: bold;">Era</td><td>[decade]</td></tr>
+  <tr><td style="padding: 4px 0; font-weight: bold;">Type</td><td>[OG/Reissue]</td></tr>
+</table>
+</div>
 
-<h3 style="border-bottom: 2px solid #333; padding-bottom: 5px; text-align: left;">Condition</h3>
-<p style="text-align: left;">[Brief description]. Please review all photos carefully.</p>
+<!-- CONDITION LABEL -->
+<div style="background: #90EE90; border: 2px solid #000; padding: 10px 15px; display: inline-block;">
+<span style="font-size: 11px; font-weight: bold; text-transform: uppercase;">Condition:</span>
+<span style="font-size: 13px;"> [Brief description]</span>
+</div>
+<p style="font-size: 11px; color: #666; margin-top: 10px;">Check all photos—they're part of the description.</p>
 {footer}"""
     
     else:
         return f"""{header}
-<p style="text-align: left;">[Write 2-3 sentences for vintage skateboard collectors.]</p>
+<p style="font-size: 14px; line-height: 1.6; margin-bottom: 20px;">[Write 2-3 sentences for vintage skateboard collectors.]</p>
 
-<h3 style="border-bottom: 2px solid #333; padding-bottom: 5px; text-align: left;">Details</h3>
-<ul style="line-height: 1.8; text-align: left; padding-left: 20px;">
-  <li><strong>Brand:</strong> [value]</li>
-  <li><strong>Type:</strong> [value]</li>
-  <li><strong>Era:</strong> [decade if known]</li>
-</ul>
+<!-- SPECS LABEL -->
+<div style="background: #fff; border: 2px solid #000; padding: 15px; margin: 15px 0;">
+<div style="background: #000; color: #fff; padding: 5px 10px; font-size: 11px; font-weight: bold; letter-spacing: 1px; display: inline-block; margin: -25px 0 10px -5px;">SPECS</div>
+<table style="width: 100%; font-size: 13px;">
+  <tr><td style="padding: 4px 0; font-weight: bold; width: 35%;">Brand</td><td>[value]</td></tr>
+  <tr><td style="padding: 4px 0; font-weight: bold;">Type</td><td>[value]</td></tr>
+  <tr><td style="padding: 4px 0; font-weight: bold;">Era</td><td>[decade]</td></tr>
+</table>
+</div>
 
-<h3 style="border-bottom: 2px solid #333; padding-bottom: 5px; text-align: left;">Condition</h3>
-<p style="text-align: left;">[Brief description]. Please review all photos carefully.</p>
+<!-- CONDITION LABEL -->
+<div style="background: #90EE90; border: 2px solid #000; padding: 10px 15px; display: inline-block;">
+<span style="font-size: 11px; font-weight: bold; text-transform: uppercase;">Condition:</span>
+<span style="font-size: 13px;"> [Brief description]</span>
+</div>
+<p style="font-size: 11px; color: #666; margin-top: 10px;">Check all photos—they're part of the description.</p>
 {footer}"""
 
 
