@@ -208,7 +208,7 @@ export default function Settings() {
     }
   };
 
-  const handleBootstrapMarketplaces = async () => {
+  const handleBootstrapMarketplaces = async (forceRecreate = false) => {
     if (!settings.ebay_connected) {
       toast.error("Please connect your eBay account first");
       return;
@@ -218,9 +218,10 @@ export default function Settings() {
     setBootstrapResults(null);
     
     try {
-      toast.info("Starting multi-marketplace bootstrap... This may take a minute.");
+      const action = forceRecreate ? "Regenerating shipping policies" : "Starting multi-marketplace bootstrap";
+      toast.info(`${action}... This may take a minute.`);
       
-      const response = await api.post("/settings/ebay/bootstrap-marketplaces");
+      const response = await api.post(`/settings/ebay/bootstrap-marketplaces?force_recreate=${forceRecreate}`);
       const data = response.data;
       
       console.log("Bootstrap Results:", data);
@@ -231,16 +232,16 @@ export default function Settings() {
       
       const { success, partial, failed } = data.summary;
       if (success > 0 && failed === 0) {
-        toast.success(`Bootstrap complete! ${success} marketplace(s) configured.`);
+        toast.success(`${forceRecreate ? 'Shipping policies regenerated' : 'Bootstrap complete'}! ${success} marketplace(s) configured.`);
       } else if (success > 0) {
-        toast.warning(`Bootstrap partial: ${success} OK, ${partial} partial, ${failed} failed`);
+        toast.warning(`${forceRecreate ? 'Regeneration' : 'Bootstrap'} partial: ${success} OK, ${partial} partial, ${failed} failed`);
       } else {
-        toast.error(`Bootstrap failed for all marketplaces. Check logs.`);
+        toast.error(`${forceRecreate ? 'Regeneration' : 'Bootstrap'} failed for all marketplaces. Check logs.`);
       }
     } catch (error) {
       console.error("Bootstrap error:", error);
       const detail = error.response?.data?.detail;
-      toast.error(detail || "Bootstrap failed. Check console for details.");
+      toast.error(detail || "Operation failed. Check console for details.");
     } finally {
       setBootstrapping(false);
     }
