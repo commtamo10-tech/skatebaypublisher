@@ -30,10 +30,20 @@ next-env.d.ts
 dist/
 dist
 
-# Environment files (comprehensive coverage)
+# Environment files - NEVER commit these
+.env
+.env.*
+!.env.example
+*.env
+backend/.env
+frontend/.env
 
+# Credentials and secrets
 *token.json*
 *credentials.json*
+*.pem
+*.key
+*secret*
 
 # Logs and debug files
 npm-debug.log*
@@ -44,7 +54,6 @@ dump.rdb
 
 # System files
 .DS_Store
-*.pem
 
 # Python
 __pycache__/
@@ -77,15 +86,4 @@ agenthub/agents/youtube/db
 .cache/
 
 # Mobile development
-android-sdk/ -e 
-# Environment files
-*.env
-*.env.*
--e 
-# Environment files
-*.env
-*.env.*
--e 
-# Environment files
-*.env
-*.env.*
+android-sdk/
