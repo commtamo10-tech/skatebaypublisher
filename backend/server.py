@@ -1709,6 +1709,10 @@ async def republish_draft(draft_id: str, user = Depends(get_current_user)):
             size_value = draft.get("size") or "One Size"
             aspects["Size"] = [size_value]
         
+        # Ensure Department is present (required by US for Apparel)
+        if "Department" not in aspects and draft.get("item_type") == "APP":
+            aspects["Department"] = ["Unisex Adults"]
+        
         # Ensure Type is present
         if "Type" not in aspects:
             item_type = draft.get("item_type", "MISC")
