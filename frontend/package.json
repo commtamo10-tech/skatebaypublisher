@@ -4,6 +4,7 @@
   "private": true,
   "dependencies": {
   "ajv": "^8.17.1",
+    "ajv-keywords": "^5.1.0",
   "@hookform/resolvers": "...",
   "@radix-ui/react-accordion": "...",
   ...
