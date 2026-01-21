@@ -1718,6 +1718,25 @@ async def republish_draft(draft_id: str, user = Depends(get_current_user)):
             color_value = draft.get("color") or "Multicolor"
             aspects["Color"] = [color_value]
         
+        # ALL required fields for US Apparel category
+        if draft.get("item_type") == "APP":
+            if "Size Type" not in aspects:
+                aspects["Size Type"] = ["Regular"]
+            if "Style" not in aspects:
+                aspects["Style"] = ["Graphic Tee"]
+            if "Neckline" not in aspects:
+                aspects["Neckline"] = ["Crew Neck"]
+            if "Sleeve Length" not in aspects:
+                aspects["Sleeve Length"] = ["Short Sleeve"]
+            if "Material" not in aspects:
+                aspects["Material"] = ["Cotton"]
+            if "Pattern" not in aspects:
+                aspects["Pattern"] = ["Graphic Print"]
+            if "Theme" not in aspects:
+                aspects["Theme"] = ["Skateboarding"]
+            if "Vintage" not in aspects:
+                aspects["Vintage"] = ["Yes"]
+        
         # Ensure Type is present
         if "Type" not in aspects:
             item_type = draft.get("item_type", "MISC")
