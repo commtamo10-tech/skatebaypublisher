@@ -4,8 +4,9 @@
   "private": true,
   "dependencies": {
   "ajv": "^8.17.1",
+  "@hookform/resolvers": "...",
+  "@radix-ui/react-accordion": "...",
   ...
-}
     "@hookform/resolvers": "^5.0.1",
     "@radix-ui/react-accordion": "^1.2.8",
     "@radix-ui/react-alert-dialog": "^1.1.11",
