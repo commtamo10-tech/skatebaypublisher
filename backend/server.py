@@ -1704,6 +1704,11 @@ async def republish_draft(draft_id: str, user = Depends(get_current_user)):
             ean_value = draft.get("ean") or "Does not apply"
             aspects["EAN"] = [ean_value]
         
+        # Ensure Size is present (required by US for Apparel)
+        if "Size" not in aspects and draft.get("item_type") == "APP":
+            size_value = draft.get("size") or "One Size"
+            aspects["Size"] = [size_value]
+        
         # Ensure Type is present
         if "Type" not in aspects:
             item_type = draft.get("item_type", "MISC")
