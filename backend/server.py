@@ -4588,6 +4588,11 @@ async def publish_draft_multi_marketplace(
         aspects["Size"] = [size_value]
         logger.info(f"Added missing Size aspect: {size_value}")
     
+    # Ensure Department is present (required by US for Apparel)
+    if "Department" not in aspects and draft.get("item_type") == "APP":
+        aspects["Department"] = ["Unisex Adults"]
+        logger.info(f"Added missing Department aspect: Unisex Adults")
+    
     # Ensure Type is present for skateboard items
     if "Type" not in aspects:
         item_type = draft.get("item_type", "MISC")
