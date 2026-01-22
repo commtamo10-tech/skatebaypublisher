@@ -16,7 +16,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# --- ROOT (SERVE PER TEST) ---
+# --- ROOT (TEST) ---
 @app.get("/")
 def root():
     return {"status": "ok"}
@@ -54,7 +54,7 @@ class Draft(BaseModel):
     condition: str
     status: str = "DRAFT"
 
-# --- STORAGE ---
+# --- STORAGE (in-memory) ---
 DRAFTS: List[Draft] = []
 
 # --- DRAFT ENDPOINTS ---
