@@ -7,7 +7,7 @@ from uuid import uuid4
 
 app = FastAPI()
 
-# --- CORS (OBBLIGATORIO PER VERCEL) ---
+# --- CORS ---
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -16,10 +16,28 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# --- MODELLI ---
+# --- ROOT (SERVE PER TEST) ---
+@app.get("/")
+def root():
+    return {"status": "ok"}
+
+# --- LOGIN ---
 class LoginRequest(BaseModel):
     password: str
 
+@app.post("/api/login")
+def login(data: LoginRequest):
+    admin_password = os.getenv("APP_ADMIN_PASSWORD")
+
+    if not admin_password:
+        raise HTTPException(status_code=500, detail="Admin password not set")
+
+    if data.password != admin_password:
+        raise HTTPException(status_code=401, detail="Wrong password")
+
+    return {"success": True}
+
+# --- DRAFT MODELS ---
 class DraftCreate(BaseModel):
     item_type: str
     category_id: str
@@ -39,34 +57,13 @@ class Draft(BaseModel):
 # --- STORAGE ---
 DRAFTS: List[Draft] = []
 
-# --- ENDPOINT LOGIN ---
-@app.post("/api/login")
-def login(data: LoginRequest):
-    admin_password = os.getenv("APP_ADMIN_PASSWORD")
-
-    if not admin_password:
-        raise HTTPException(status_code=500, detail="Admin password not set")
-
-    if data.password != admin_password:
-        raise HTTPException(status_code=401, detail="Wrong password")
-
-    return {"success": True}
-
-# --- ENDPOINT DRAFTS ---
+# --- DRAFT ENDPOINTS ---
 @app.post("/api/drafts", response_model=Draft)
 def create_draft(data: DraftCreate):
-    draft = Draft(
-        id=str(uuid4()),
-        **data.dict()
-    )
+    draft = Draft(id=str(uuid4()), **data.dict())
     DRAFTS.append(draft)
     return draft
 
 @app.get("/api/drafts", response_model=List[Draft])
 def list_drafts():
     return DRAFTS
-
-# --- ROOT (serve solo per test) ---
-@app.get("/")
-def root():
-    return {"status": "ok"}
