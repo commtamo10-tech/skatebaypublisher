@@ -12,45 +12,41 @@ export const useAuth = () => {
 };
 
 export const AuthProvider = ({ children }) => {
-  const [token, setToken] = useState(() => localStorage.getItem("token"));
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
+    return localStorage.getItem("isAuthenticated") === "true";
+  });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const verifyToken = async () => {
-      if (token) {
-        try {
-          await api.get("/auth/me");
-        } catch (error) {
-          localStorage.removeItem("token");
-          setToken(null);
-        }
-      }
-      setLoading(false);
-    };
-    verifyToken();
-  }, [token]);
+    // auth già nota → niente redirect prematuro
+    setLoading(false);
+  }, []);
 
   const login = async (password) => {
-    const response = await api.post("/auth/login", { password });
-    const newToken = response.data.token;
-    localStorage.setItem("token", newToken);
-    setToken(newToken);
+    const response = await api.post("/api/login", { password });
+
+    if (response.data.success) {
+      localStorage.setItem("isAuthenticated", "true");
+      setIsAuthenticated(true);
+    }
+
     return response.data;
   };
 
   const logout = () => {
-    localStorage.removeItem("token");
-    setToken(null);
+    localStorage.removeItem("isAuthenticated");
+    setIsAuthenticated(false);
   };
 
   return (
-    <AuthContext.Provider value={{
-      token,
-      isAuthenticated: !!token,
-      loading,
-      login,
-      logout
-    }}>
+    <AuthContext.Provider
+      value={{
+        isAuthenticated,
+        loading,
+        login,
+        logout
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
