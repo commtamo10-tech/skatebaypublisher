@@ -5,10 +5,13 @@ import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { toast } from "sonner";
 import { Lock, Truck } from "lucide-react";
+import { useAuth } from "../context/AuthContext";
 
 export default function Login() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+
+  const { login } = useAuth();          // ✅ AUTH CONTEXT
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
@@ -16,25 +19,16 @@ export default function Login() {
     setLoading(true);
 
     try {
-      const res = await fetch(
-        `${process.env.REACT_APP_BACKEND_URL}/api/login`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ password }),
-        }
-      );
+      const res = await login(password); // ✅ LOGIN CENTRALIZZATO
 
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.detail || "Invalid password");
+      if (res.success) {
+        toast.success("Welcome back!");
+        navigate("/");                  // ✅ CAMBIO PAGINA
+      } else {
+        toast.error("Wrong password");
       }
-
-      toast.success("Welcome back!");
-      navigate("/");
     } catch (err) {
-      toast.error(err.message);
+      toast.error("Login failed");
     } finally {
       setLoading(false);
     }
@@ -98,22 +92,4 @@ export default function Login() {
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Enter admin password"
-                  required
-                />
-              </div>
-
-              <Button
-                type="submit"
-                disabled={loading}
-                className="w-full uppercase font-bold"
-              >
-                {loading ? "Signing in..." : "Sign In"}
-              </Button>
-            </form>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
+                  pl
