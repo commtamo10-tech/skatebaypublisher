@@ -1,15 +1,12 @@
 import axios from "axios";
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-
 const api = axios.create({
-  baseURL: `${BACKEND_URL}/api`,
+  baseURL: "https://skatebaypublisher.onrender.com/api",
   headers: {
     "Content-Type": "application/json",
   },
 });
 
-// Add token to requests
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem("token");
   if (token) {
@@ -18,7 +15,6 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// Handle 401 errors
 api.interceptors.response.use(
   (response) => response,
   (error) => {
