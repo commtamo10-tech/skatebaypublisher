@@ -1,0 +1,159 @@
+{
+  "design_system": {
+    "identity": {
+      "name": "Vintage Skate Shop Admin",
+      "tone": "Industrial, Raw, Efficient, Nostalgic but Modern",
+      "aesthetic": "Swiss Brutalist meets 90s Skate Zine",
+      "principles": [
+        "Data is beautiful: Use monospaced fonts for all inventory data.",
+        "Hard Edges: No soft rounded corners. 0px or 2px radius max.",
+        "High Contrast: Black borders on off-white backgrounds.",
+        "Tactile: Buttons should feel like physical switches (hard shadows)."
+      ]
+    },
+    "typography": {
+      "font_family": {
+        "headings": "Chivo, sans-serif",
+        "body": "JetBrains Mono, monospace",
+        "ui": "Archivo, sans-serif"
+      },
+      "scale": {
+        "h1": "text-4xl md:text-5xl font-black tracking-tight uppercase",
+        "h2": "text-3xl font-bold tracking-tight uppercase",
+        "h3": "text-xl font-bold uppercase border-b-2 border-black pb-2",
+        "body": "text-sm leading-relaxed",
+        "label": "text-xs font-bold uppercase tracking-widest text-muted-foreground"
+      },
+      "imports": [
+        "@import url('https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;800&family=Chivo:wght@400;700;900&family=JetBrains+Mono:wght@400;500&display=swap');"
+      ]
+    },
+    "colors": {
+      "palette": {
+        "background": "#F2F0E9",
+        "foreground": "#121212",
+        "card": "#FFFFFF",
+        "card_foreground": "#121212",
+        "popover": "#FFFFFF",
+        "popover_foreground": "#121212",
+        "primary": "#D94E35",
+        "primary_foreground": "#FFFFFF",
+        "secondary": "#E5E5E5",
+        "secondary_foreground": "#121212",
+        "muted": "#E0E0E0",
+        "muted_foreground": "#666666",
+        "accent": "#FFC107",
+        "accent_foreground": "#121212",
+        "destructive": "#FF0000",
+        "destructive_foreground": "#FFFFFF",
+        "border": "#121212",
+        "input": "#FFFFFF",
+        "ring": "#D94E35"
+      },
+      "usage": {
+        "primary": "Main actions (New Draft, Publish), Active States",
+        "accent": "Status indicators (Draft, Review), Highlights",
+        "background": "Global page background (Bone/Paper color)",
+        "border": "All borders should be solid 1px or 2px black"
+      }
+    },
+    "spacing": {
+      "container": "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8",
+      "section": "py-12 md:py-16",
+      "component": "p-6 border-2 border-black bg-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
+    },
+    "components": {
+      "buttons": {
+        "default": "bg-white text-black border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-all active:translate-y-[4px] active:shadow-none uppercase font-bold tracking-wider text-sm px-6 py-3 rounded-none",
+        "primary": "bg-primary text-white border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:bg-primary/90 hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-all active:translate-y-[4px] active:shadow-none uppercase font-bold tracking-wider text-sm px-6 py-3 rounded-none",
+        "ghost": "bg-transparent text-black hover:bg-black/5 uppercase font-bold tracking-wider text-sm px-4 py-2"
+      },
+      "inputs": {
+        "default": "bg-white border-2 border-black rounded-none focus:ring-0 focus:border-primary focus:shadow-[4px_4px_0px_0px_rgba(217,78,53,1)] transition-all font-mono text-sm placeholder:text-gray-400"
+      },
+      "cards": {
+        "default": "bg-white border-2 border-black rounded-none shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] p-6"
+      },
+      "badges": {
+        "default": "border-2 border-black rounded-none px-2 py-0.5 text-xs font-bold uppercase bg-white text-black",
+        "status_draft": "bg-gray-200 text-black border-black",
+        "status_ready": "bg-accent text-black border-black",
+        "status_published": "bg-green-500 text-white border-black",
+        "status_error": "bg-destructive text-white border-black"
+      }
+    },
+    "layout_strategies": {
+      "dashboard": {
+        "type": "bento_grid",
+        "classes": "grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6",
+        "rules": "Use high density. Summary cards span 1 col. Main list spans 3 cols."
+      },
+      "wizard": {
+        "type": "stepper",
+        "classes": "max-w-3xl mx-auto space-y-8",
+        "rules": "Clear progress indicators. Each step is a distinct 'card' or 'sheet'."
+      }
+    },
+    "assets": {
+      "images": {
+        "deck_placeholder": "https://images.unsplash.com/photo-1763369521303-f83631312ee7?crop=entropy&cs=srgb&fm=jpg&q=85",
+        "trucks_placeholder": "https://images.unsplash.com/photo-1591164807917-e48b7fe52c84?crop=entropy&cs=srgb&fm=jpg&q=85",
+        "wheels_placeholder": "https://images.unsplash.com/photo-1764015009140-7e824395de8b?crop=entropy&cs=srgb&fm=jpg&q=85",
+        "login_bg": "https://images.unsplash.com/photo-1748390300324-789bfc57b4d3?crop=entropy&cs=srgb&fm=jpg&q=85"
+      },
+      "icons": "Use 'lucide-react' with stroke-width={2} for a bold look."
+    }
+  },
+  "implementation_guide": {
+    "tailwind_config_updates": {
+      "theme": {
+        "extend": {
+          "fontFamily": {
+            "sans": ["Chivo", "sans-serif"],
+            "mono": ["JetBrains Mono", "monospace"],
+            "ui": ["Archivo", "sans-serif"]
+          },
+          "colors": {
+            "background": "#F2F0E9",
+            "foreground": "#121212",
+            "primary": "#D94E35",
+            "card": "#FFFFFF",
+            "border": "#121212"
+          },
+          "borderRadius": {
+            "lg": "0px",
+            "md": "0px",
+            "sm": "0px"
+          },
+          "boxShadow": {
+            "hard": "4px 4px 0px 0px rgba(0,0,0,1)",
+            "hard-sm": "2px 2px 0px 0px rgba(0,0,0,1)"
+          }
+        }
+      }
+    },
+    "global_css_rules": [
+      "body { background-color: #F2F0E9; color: #121212; }",
+      ".font-mono { font-family: 'JetBrains Mono', monospace; }",
+      "input, textarea, select { border-radius: 0 !important; }",
+      "button { border-radius: 0 !important; }"
+    ]
+  },
+  "universal_guidelines": {
+    "general": [
+      "Do not use rounded corners. This is a strict 'Brutalist/Industrial' aesthetic.",
+      "Use 'JetBrains Mono' for all data fields (SKU, Price, Specs).",
+      "Use 'Chivo' for all Headings.",
+      "All interactive elements must have a hover state that involves movement (translate) or sharp color change.",
+      "Avoid gradients. Use solid colors and hard borders.",
+      "All interactive elements MUST include data-testid attribute."
+    ],
+    "accessibility": [
+      "Ensure text contrast is at least 4.5:1.",
+      "Focus states must be high contrast (e.g., thick black ring)."
+    ],
+    "testing": [
+      "Add data-testid to all buttons, inputs, and cards."
+    ]
+  }
+}

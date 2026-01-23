@@ -1,0 +1,54 @@
+{
+  "summary": "Bug fix verification for republish_draft Content-Language header. Found and fixed an additional bug: the code was using mp_config.get('content_language', ...) but MARKETPLACE_CONFIG uses 'language' key, causing all marketplaces to fall back to 'en-US'.",
+  
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "POST /api/drafts/{id}/republish",
+        "issue": "FIXED: Line 1688 was using mp_config.get('content_language', 'en-US') but MARKETPLACE_CONFIG uses 'language' key. This caused all marketplaces (DE, ES, AU) to use 'en-US' instead of correct language (de-DE, es-ES, en-AU).",
+        "priority": "CRITICAL",
+        "status": "FIXED"
+      }
+    ],
+    "minor": []
+  },
+  
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  
+  "test_report_links": [
+    "/app/tests/test_republish_headers.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  
+  "action_items": [
+    "No action needed - bug was found and fixed during testing"
+  ],
+  
+  "critical_code_review_comments": [
+    "BUG FOUND AND FIXED: republish_draft at line 1688 used wrong key 'content_language' instead of 'language' from MARKETPLACE_CONFIG",
+    "The main agent's fix (adding Content-Language to publishOffer headers at line 1751) was correct, but the language value was always 'en-US' due to the wrong key lookup",
+    "After fix: EBAY_US uses en-US, EBAY_DE uses de-DE, EBAY_ES uses es-ES, EBAY_AU uses en-AU"
+  ],
+  
+  "updated_files": [
+    "/app/backend/server.py (line 1688: changed 'content_language' to 'language')",
+    "/app/tests/test_republish_headers.py (new test file)"
+  ],
+  
+  "success_rate": {
+    "backend": "100% (9 passed, 1 skipped)",
+    "frontend": "N/A (backend-only testing requested)"
+  },
+  
+  "seed_data_creation": "None",
+  
+  "retest_needed": false,
+  
+  "should_main_agent_self_test": true,
+  
+  "context_for_next_testing_agent": "The republish_draft function now correctly uses Content-Language headers for all marketplaces. The fix was: mp_config.get('language', 'en-US') instead of mp_config.get('content_language', 'en-US'). Test file /app/tests/test_republish_headers.py can be used for regression testing."
+}

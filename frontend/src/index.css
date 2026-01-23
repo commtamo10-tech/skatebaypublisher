@@ -1,0 +1,87 @@
+@import url('https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;800&family=Chivo:wght@400;700;900&family=JetBrains+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+    :root {
+        --background: 45 27% 93%;
+        --foreground: 0 0% 7%;
+        --card: 0 0% 100%;
+        --card-foreground: 0 0% 7%;
+        --popover: 0 0% 100%;
+        --popover-foreground: 0 0% 7%;
+        --primary: 9 71% 53%;
+        --primary-foreground: 0 0% 100%;
+        --secondary: 0 0% 90%;
+        --secondary-foreground: 0 0% 7%;
+        --muted: 0 0% 88%;
+        --muted-foreground: 0 0% 40%;
+        --accent: 45 100% 51%;
+        --accent-foreground: 0 0% 7%;
+        --destructive: 0 100% 50%;
+        --destructive-foreground: 0 0% 100%;
+        --border: 0 0% 7%;
+        --input: 0 0% 100%;
+        --ring: 9 71% 53%;
+        --radius: 0px;
+    }
+}
+
+@layer base {
+    * {
+        @apply border-border;
+    }
+    body {
+        @apply bg-background text-foreground;
+        font-family: 'Archivo', sans-serif;
+    }
+    h1, h2, h3, h4, h5, h6 {
+        font-family: 'Chivo', sans-serif;
+    }
+    code, .font-mono, input, textarea, select {
+        font-family: 'JetBrains Mono', monospace;
+    }
+    input, textarea, select, button {
+        border-radius: 0 !important;
+    }
+}
+
+@layer utilities {
+    .shadow-hard {
+        box-shadow: 4px 4px 0px 0px rgba(0,0,0,1);
+    }
+    .shadow-hard-sm {
+        box-shadow: 2px 2px 0px 0px rgba(0,0,0,1);
+    }
+    .shadow-hard-primary {
+        box-shadow: 4px 4px 0px 0px rgba(217,78,53,1);
+    }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+::-webkit-scrollbar-track {
+    background: #E0E0E0;
+}
+::-webkit-scrollbar-thumb {
+    background: #121212;
+}
+
+/* Status badge colors */
+.status-draft {
+    @apply bg-gray-200 text-black;
+}
+.status-ready {
+    @apply bg-amber-400 text-black;
+}
+.status-published {
+    @apply bg-green-500 text-white;
+}
+.status-error {
+    @apply bg-red-500 text-white;
+}
