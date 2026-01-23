@@ -78,10 +78,7 @@ export default function Login() {
 
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="space-y-2">
-                <Label
-                  htmlFor="password"
-                  className="text-xs font-bold uppercase"
-                >
+                <Label htmlFor="password" className="text-xs font-bold uppercase">
                   Password
                 </Label>
 
@@ -95,10 +92,10 @@ export default function Login() {
 
               <Button
                 type="submit"
+                className="w-full"
                 disabled={loading}
-                className="w-full uppercase font-bold"
               >
-                {loading ? "Signing in..." : "Sign In"}
+                {loading ? "Logging in..." : "Login"}
               </Button>
             </form>
           </div>
