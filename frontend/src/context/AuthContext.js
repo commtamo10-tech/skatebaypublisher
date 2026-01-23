@@ -12,13 +12,12 @@ export const useAuth = () => {
 };
 
 export const AuthProvider = ({ children }) => {
-  const [isAuthenticated, setIsAuthenticated] = useState(() => {
-    return localStorage.getItem("isAuthenticated") === "true";
-  });
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // auth già nota → niente redirect prematuro
+    const auth = localStorage.getItem("isAuthenticated") === "true";
+    setIsAuthenticated(auth);
     setLoading(false);
   }, []);
 
@@ -40,12 +39,7 @@ export const AuthProvider = ({ children }) => {
 
   return (
     <AuthContext.Provider
-      value={{
-        isAuthenticated,
-        loading,
-        login,
-        logout
-      }}
+      value={{ isAuthenticated, loading, login, logout }}
     >
       {children}
     </AuthContext.Provider>
