@@ -1,20 +1,12 @@
-import { useState } from "react";
-import { useAuth } from "../context/AuthContext";
+import { useNavigate } from "react-router-dom";
 
 export default function Login() {
-  const { login } = useAuth();
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
+  const navigate = useNavigate();
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = (e) => {
     e.preventDefault();
-    setError("");
-
-    try {
-      await login();
-    } catch (err) {
-      setError("Login failed");
-    }
+    localStorage.setItem("isAuthenticated", "true");
+    navigate("/");
   };
 
   return (
@@ -28,12 +20,8 @@ export default function Login() {
         <input
           type="password"
           placeholder="Password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
           className="w-full mb-4 p-2 border"
         />
-
-        {error && <div className="mb-2 text-red-600">{error}</div>}
 
         <button
           type="submit"
