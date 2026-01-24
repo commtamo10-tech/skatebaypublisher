@@ -1,14 +1,24 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
 export default function Login() {
-  const navigate = useNavigate();
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
   const { login } = useAuth();
+  const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    await login(); // 🔥 LOGIN MOCK
-    navigate("/");
+    setError("");
+
+    const result = await login(password);
+
+    if (result?.success) {
+      navigate("/");
+    } else {
+      setError("Login failed");
+    }
   };
 
   return (
@@ -22,8 +32,14 @@ export default function Login() {
         <input
           type="password"
           placeholder="Password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
           className="w-full mb-4 p-2 border"
         />
+
+        {error && (
+          <div className="mb-3 text-red-600 text-sm">{error}</div>
+        )}
 
         <button
           type="submit"
