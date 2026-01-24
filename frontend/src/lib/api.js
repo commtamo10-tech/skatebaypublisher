@@ -2,7 +2,19 @@ import axios from "axios";
 
 const api = axios.create();
 
-// MOCK ALLINEATO A EMERGENT
+// MOCK API
+api.post = async (url, body) => {
+  if (url === "/api/login") {
+    return {
+      data: {
+        success: true,
+      },
+    };
+  }
+
+  return { data: {} };
+};
+
 api.get = async (url) => {
   if (url === "/drafts") {
     return {
