@@ -1,11 +1,13 @@
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 
 export default function Login() {
   const navigate = useNavigate();
+  const { login } = useAuth();
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    localStorage.setItem("isAuthenticated", "true");
+    await login(); // 🔥 LOGIN MOCK
     navigate("/");
   };
 
