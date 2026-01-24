@@ -1,55 +1,17 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { useAuth } from "./context/AuthContext";
-
-import Login from "./pages/Login";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Dashboard from "./pages/Dashboard";
 import NewDraft from "./pages/NewDraft";
 import DraftEditor from "./pages/DraftEditor";
-
-function ProtectedRoute({ children }) {
-  const { isAuthenticated, loading } = useAuth();
-
-  if (loading) return null;
-
-  if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
-  }
-
-  return children;
-}
+import Login from "./pages/Login";
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<Login />} />
-
-        <Route
-          path="/"
-          element={
-            <ProtectedRoute>
-              <Dashboard />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/new"
-          element={
-            <ProtectedRoute>
-              <NewDraft />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/draft/:id"
-          element={
-            <ProtectedRoute>
-              <DraftEditor />
-            </ProtectedRoute>
-          }
-        />
+        <Route path="/" element={<Dashboard />} />
+        <Route path="/new" element={<NewDraft />} />
+        <Route path="/draft/:id" element={<DraftEditor />} />
       </Routes>
     </BrowserRouter>
   );
