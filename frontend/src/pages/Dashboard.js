@@ -3,7 +3,8 @@ import { useNavigate } from "react-router-dom";
 import api from "../lib/api";
 import { Button } from "../components/ui/button";
 import { toast } from "sonner";
-import { Plus, FileText, Clock, CheckCircle, Circle, Truck } from "lucide-react";
+import { Plus, FileText, Clock, CheckCircle, Circle } from "lucide-react";
+import Header from "../components/ui/Header";
 
 const ITEM_TYPES = {
   WHL: { label: "Wheels", icon: "🛞" },
@@ -43,22 +44,11 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="bg-card border-b-2 border-border">
-        <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Truck className="w-8 h-8" />
-            <span className="font-heading font-black text-xl uppercase">SkateBay</span>
-          </div>
-          <Button onClick={() => navigate("/new")} className="uppercase font-bold">
-            <Plus className="w-4 h-4 mr-2" />
-            New Draft
-          </Button>
-        </div>
-      </header>
+      {/* HEADER CON LOGOUT */}
+      <Header />
 
       <main className="max-w-6xl mx-auto px-6 py-8">
-        {/* Stats */}
+        {/* STATS */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
           <Stat label="Total" value={stats.total} icon={FileText} />
           <Stat label="Drafts" value={stats.DRAFT} icon={Clock} />
@@ -66,7 +56,7 @@ export default function Dashboard() {
           <Stat label="Published" value={stats.PUBLISHED} icon={CheckCircle} />
         </div>
 
-        {/* Draft list */}
+        {/* LISTA DRAFT */}
         {loading ? (
           <p className="font-mono">Loading...</p>
         ) : drafts.length === 0 ? (
@@ -80,7 +70,11 @@ export default function Dashboard() {
         ) : (
           <div className="space-y-3">
             {drafts.map(draft => {
-              const type = ITEM_TYPES[draft.item_type] || { label: draft.item_type, icon: "📦" };
+              const type =
+                ITEM_TYPES[draft.item_type] || {
+                  label: draft.item_type,
+                  icon: "📦",
+                };
 
               return (
                 <div
