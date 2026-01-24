@@ -1,53 +1,43 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { useAuth } from "./context/AuthContext";
-
 import Dashboard from "./pages/Dashboard";
 import NewDraft from "./pages/NewDraft";
 import DraftEditor from "./pages/DraftEditor";
 import Login from "./pages/Login";
+import { useAuth } from "./context/AuthContext";
 
-function ProtectedRoute({ children }) {
+function App() {
   const { isAuthenticated, loading } = useAuth();
 
   if (loading) return null;
 
-  if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
-  }
-
-  return children;
-}
-
-function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/login" element={<Login />} />
+        <Route
+          path="/login"
+          element={
+            isAuthenticated ? <Navigate to="/" replace /> : <Login />
+          }
+        />
 
         <Route
           path="/"
           element={
-            <ProtectedRoute>
-              <Dashboard />
-            </ProtectedRoute>
+            isAuthenticated ? <Dashboard /> : <Navigate to="/login" replace />
           }
         />
 
         <Route
           path="/new"
           element={
-            <ProtectedRoute>
-              <NewDraft />
-            </ProtectedRoute>
+            isAuthenticated ? <NewDraft /> : <Navigate to="/login" replace />
           }
         />
 
         <Route
           path="/draft/:id"
           element={
-            <ProtectedRoute>
-              <DraftEditor />
-            </ProtectedRoute>
+            isAuthenticated ? <DraftEditor /> : <Navigate to="/login" replace />
           }
         />
       </Routes>
