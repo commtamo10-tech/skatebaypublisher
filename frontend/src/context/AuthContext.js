@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect } from "react";
 import api from "../lib/api";
+import { useNavigate } from "react-router-dom";
 
 const AuthContext = createContext(null);
 
@@ -12,6 +13,8 @@ export const useAuth = () => {
 };
 
 export const AuthProvider = ({ children }) => {
+  const navigate = useNavigate();
+
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -27,6 +30,7 @@ export const AuthProvider = ({ children }) => {
     if (response.data.success) {
       localStorage.setItem("isAuthenticated", "true");
       setIsAuthenticated(true);
+      navigate("/");
     }
 
     return response.data;
@@ -35,6 +39,7 @@ export const AuthProvider = ({ children }) => {
   const logout = () => {
     localStorage.removeItem("isAuthenticated");
     setIsAuthenticated(false);
+    navigate("/login");
   };
 
   return (
