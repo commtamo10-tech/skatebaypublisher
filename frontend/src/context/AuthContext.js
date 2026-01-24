@@ -1,19 +1,14 @@
-import { createContext, useContext, useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { createContext, useContext, useEffect, useState } from "react";
 
 const AuthContext = createContext(null);
 
 export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error("useAuth must be used within AuthProvider");
-  }
-  return context;
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error("useAuth must be used within AuthProvider");
+  return ctx;
 };
 
 export const AuthProvider = ({ children }) => {
-  const navigate = useNavigate();
-
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -23,17 +18,17 @@ export const AuthProvider = ({ children }) => {
     setLoading(false);
   }, []);
 
+  // 🔥 LOGIN MOCK — SEMPRE OK
   const login = async () => {
     localStorage.setItem("isAuthenticated", "true");
     setIsAuthenticated(true);
-    navigate("/");
     return { success: true };
   };
 
   const logout = () => {
-    localStorage.clear();
+    localStorage.removeItem("isAuthenticated");
     setIsAuthenticated(false);
-    navigate("/login");
+    window.location.href = "/login";
   };
 
   return (
