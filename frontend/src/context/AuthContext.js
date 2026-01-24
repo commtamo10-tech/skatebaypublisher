@@ -1,5 +1,4 @@
 import { createContext, useContext, useState, useEffect } from "react";
-import api from "../lib/api";
 import { useNavigate } from "react-router-dom";
 
 const AuthContext = createContext(null);
@@ -24,20 +23,15 @@ export const AuthProvider = ({ children }) => {
     setLoading(false);
   }, []);
 
-  const login = async (password) => {
-    const response = await api.post("/api/login", { password });
-
-    if (response.data.success) {
-      localStorage.setItem("isAuthenticated", "true");
-      setIsAuthenticated(true);
-      navigate("/");
-    }
-
-    return response.data;
+  const login = async () => {
+    localStorage.setItem("isAuthenticated", "true");
+    setIsAuthenticated(true);
+    navigate("/");
+    return { success: true };
   };
 
   const logout = () => {
-    localStorage.removeItem("isAuthenticated");
+    localStorage.clear();
     setIsAuthenticated(false);
     navigate("/login");
   };
